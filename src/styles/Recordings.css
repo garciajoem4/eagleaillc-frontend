@@ -1,0 +1,223 @@
+.recordings {
+  padding: 0;
+}
+
+.recordings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.recordings-header h1 {
+  margin: 0;
+  color: #333;
+  font-size: 2rem;
+}
+
+.upload-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.upload-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
+
+.filters {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+  display: flex;
+  gap: 1.5rem;
+  align-items: end;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 200px;
+}
+
+.filter-group label {
+  font-weight: 500;
+  color: #333;
+}
+
+.filter-group input {
+  padding: 0.5rem;
+  border: 2px solid #e9ecef;
+  border-radius: 5px;
+  font-size: 1rem;
+  transition: border-color 0.3s;
+}
+
+.filter-group input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.clear-filters-btn {
+  background: #f8f9fa;
+  color: #333;
+  border: 2px solid #e9ecef;
+  padding: 0.5rem 1rem;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.3s;
+  height: fit-content;
+}
+
+.clear-filters-btn:hover {
+  background: #e9ecef;
+  border-color: #667eea;
+}
+
+.table-container {
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.recordings-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.recordings-table th,
+.recordings-table td {
+  padding: 1rem;
+  text-align: left;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.recordings-table th {
+  background: #f8f9fa;
+  font-weight: 600;
+  color: #333;
+  position: relative;
+}
+
+.recordings-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.3s;
+}
+
+.recordings-table th.sortable:hover {
+  background: #e9ecef;
+}
+
+.sort-indicator {
+  margin-left: 0.5rem;
+  color: #667eea;
+  font-weight: bold;
+}
+
+.recordings-table tbody tr {
+  transition: background 0.3s;
+}
+
+.recordings-table tbody tr:hover {
+  background: #f8f9fa;
+}
+
+.name-cell {
+  max-width: 300px;
+}
+
+.recording-name {
+  font-weight: 500;
+  color: #333;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.action-btn {
+  background: none;
+  border: none;
+  padding: 0.5rem;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background 0.3s;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action-btn:hover {
+  background: #f8f9fa;
+}
+
+.view-btn:hover {
+  background: rgba(0, 123, 255, 0.1);
+}
+
+.edit-btn:hover {
+  background: rgba(255, 193, 7, 0.1);
+}
+
+.remove-btn:hover {
+  background: rgba(220, 53, 69, 0.1);
+}
+
+.no-results {
+  padding: 3rem;
+  text-align: center;
+  color: #666;
+}
+
+.table-info {
+  color: #666;
+  font-size: 0.9rem;
+  padding: 0 1rem;
+}
+
+@media (max-width: 768px) {
+  .recordings-header {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+  }
+
+  .filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-group {
+    min-width: auto;
+  }
+
+  .recordings-table {
+    font-size: 0.9rem;
+  }
+
+  .recordings-table th,
+  .recordings-table td {
+    padding: 0.75rem 0.5rem;
+  }
+
+  .actions {
+    flex-direction: column;
+  }
+}
