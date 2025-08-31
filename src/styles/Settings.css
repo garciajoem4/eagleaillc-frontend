@@ -1,0 +1,143 @@
+/* Settings styles using Tailwind CSS classes */
+.settings {
+  @apply p-0;
+}
+
+.settings-header {
+  @apply flex justify-between items-center mb-8;
+}
+
+.settings-header h1 {
+  @apply text-3xl font-bold text-gray-900;
+}
+
+.save-btn {
+  @apply btn-primary;
+}
+
+.settings-container {
+  @apply grid grid-cols-1 lg:grid-cols-4 gap-8;
+}
+
+.settings-sidebar {
+  @apply lg:col-span-1;
+}
+
+.settings-nav {
+  @apply card p-0 overflow-hidden;
+}
+
+.nav-item {
+  @apply w-full text-left px-6 py-4 border-none bg-transparent text-gray-700 hover:bg-gray-50 hover:text-primary-500 transition-all duration-200 border-b border-gray-100 last:border-b-0 font-medium;
+}
+
+.nav-item.active {
+  @apply bg-primary-50 text-primary-600 border-r-4 border-primary-500;
+}
+
+.settings-content {
+  @apply lg:col-span-3;
+}
+
+.settings-section {
+  @apply card p-8;
+}
+
+.settings-section h3 {
+  @apply text-xl font-semibold text-gray-900 mb-6 pb-3 border-b border-gray-200;
+}
+
+.form-grid {
+  @apply grid grid-cols-1 md:grid-cols-2 gap-6;
+}
+
+.form-group {
+  @apply space-y-2;
+}
+
+.form-group label {
+  @apply block text-sm font-medium text-gray-700;
+}
+
+.form-group input,
+.form-group select {
+  @apply input-field;
+}
+
+.toggle-group {
+  @apply space-y-6;
+}
+
+.toggle-item {
+  @apply flex items-center justify-between py-4 border-b border-gray-100 last:border-b-0;
+}
+
+.toggle-info {
+  @apply flex-1;
+}
+
+.toggle-info label {
+  @apply text-base font-medium text-gray-900 block mb-1;
+}
+
+.toggle-info p {
+  @apply text-sm text-gray-600;
+}
+
+.toggle-switch {
+  @apply relative inline-flex h-6 w-11 items-center rounded-full bg-gray-300 transition-colors duration-200 cursor-pointer;
+}
+
+.toggle-switch input {
+  @apply sr-only;
+}
+
+.toggle-switch input:checked + .slider {
+  @apply bg-primary-500;
+}
+
+.toggle-switch input:checked + .slider:before {
+  @apply translate-x-5;
+}
+
+.slider {
+  @apply absolute inset-0 rounded-full bg-gray-300 transition-colors duration-200;
+}
+
+.slider:before {
+  @apply absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform duration-200 content-[''];
+}
+
+.security-actions {
+  @apply flex flex-wrap gap-4 mt-8 pt-6 border-t border-gray-200;
+}
+
+.action-btn.secondary {
+  @apply btn-secondary;
+}
+
+.action-btn.danger {
+  @apply bg-red-600 text-white px-6 py-2 rounded-lg font-medium transition-all duration-300 hover:bg-red-700 hover:shadow-lg hover:-translate-y-0.5;
+}
+
+@media (max-width: 768px) {
+  .settings-header {
+    @apply flex-col gap-4 items-stretch;
+  }
+  
+  .settings-container {
+    @apply grid-cols-1;
+  }
+  
+  .form-grid {
+    @apply grid-cols-1;
+  }
+  
+  .toggle-item {
+    @apply flex-col items-start gap-4;
+  }
+  
+  .security-actions {
+    @apply flex-col;
+  }
+}
