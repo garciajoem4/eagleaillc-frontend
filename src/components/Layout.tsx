@@ -10,7 +10,7 @@ const Layout: React.FC = () => {
   const isActive = (path: string) => location.pathname === path;
                                                         
   const navItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: '📊' },
+    { path: '/dashboard', label: 'Analytics', icon: '📊' },
     { path: '/recordings', label: 'Recordings', icon: '🎙️' },
     { path: '/billings', label: 'Billings', icon: '💳' },
     { path: '/settings', label: 'Settings', icon: '⚙️' },

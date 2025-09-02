@@ -19,11 +19,6 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-600 mt-2">Welcome back! Here's what's happening with your recordings.</p>
-      </div>
-
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, index) => (
@@ -59,7 +54,7 @@ const Dashboard: React.FC = () => {
             <div className="space-y-4">
               {recentActivity.map((activity, index) => (
                 <div key={index} className="flex items-center space-x-4 border-b border-gray-100 pb-4 last:border-b-0 last:pb-0">
-                  <div className="text-2xl">{activity.icon}</div>
+                  {/* <div className="text-2xl">{activity.icon}</div> */}
                   <div className="flex-1">
                     <p className="font-medium text-gray-900">{activity.action}</p>
                     <p className="text-sm text-gray-500">{activity.time}</p>

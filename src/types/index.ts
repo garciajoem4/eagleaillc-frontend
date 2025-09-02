@@ -24,3 +24,54 @@ export interface RecordingFilters {
   dateFrom?: Date;
   dateTo?: Date;
 }
+
+// Enhanced intelligence types for backend JSON output
+export interface ActionItem {
+  task: string;
+  confidence: 'low' | 'medium' | 'high';
+  assigned_to?: string;
+  deadline?: string;
+  timestamp_start: string;
+  timestamp_end: string;
+}
+
+export interface Decision {
+  description: string;
+  rationale?: string;
+  participants?: string[];
+  timestamp_start: string;
+  timestamp_end: string;
+  confidence: number;
+}
+
+export interface Issue {
+  description: string;
+  severity: 'low' | 'medium' | 'high';
+  impact?: string;
+  category?: string;
+  timestamp_start: string;
+  timestamp_end: string;
+  confidence: number;
+}
+
+export interface Question {
+  description: string;
+  context?: string;
+  requires_followup?: boolean;
+  timestamp_start: string;
+  timestamp_end: string;
+  confidence: number;
+}
+
+export interface DetailedIntelligence {
+  content_type: string;
+  total_segments_processed: number;
+  processed_at: string;
+  executive_summary: string;
+  key_topics: string[];
+  action_items: ActionItem[];
+  decisions: Decision[];
+  issues: Issue[];
+  questions: Question[];
+  confidence_note?: string;
+}
