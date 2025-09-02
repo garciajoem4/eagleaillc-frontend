@@ -14,7 +14,8 @@ const RecordingDetail: React.FC = () => {
   const [detailedIntelligence, setDetailedIntelligence] = useState<DetailedIntelligence | null>(null);
   const [transcriptView, setTranscriptView] = useState<'full' | 'segments'>('full');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [selectedSpeaker, setSelectedSpeaker] = useState<string>('all');
+  const [fullTranscriptSearchQuery, setFullTranscriptSearchQuery] = useState<string>('');
+  const [selectedTimeRange, setSelectedTimeRange] = useState<string>('0-10');
   const [intelligenceSearchQuery, setIntelligenceSearchQuery] = useState<string>('');
   const [selectedIntelligenceType, setSelectedIntelligenceType] = useState<string>('all');
 
@@ -24,19 +25,44 @@ const RecordingDetail: React.FC = () => {
   //   return Array.from(new Set(speakers));
   // }, []);
 
-  // Filter segments based on search and speaker
+  // Generate time range options based on recording duration
+  const timeRangeOptions = useMemo(() => {
+    const totalMinutes = Math.ceil(sampleTranscriptData.duration_seconds / 60);
+    const ranges = [];
+
+    // Add "All Time" at the end
+    ranges.push({ value: 'all', label: 'All Time' });
+    
+    // Add time ranges first (0-10, 10-20, etc.)
+    for (let i = 0; i < totalMinutes; i += 10) {
+      const endMinute = Math.min(i + 10, totalMinutes);
+      ranges.push({
+        value: `${i}-${endMinute}`,
+        label: `${i}:00 - ${endMinute}:00`
+      });
+    }
+    
+    return ranges;
+  }, []);
+
+  // Filter segments based on search and time range
   const filteredSegments = useMemo(() => {
     if (!sampleTranscriptData.segments) return [];
     
     return sampleTranscriptData.segments.filter(segment => {
       const matchesSearch = searchQuery === '' || 
         segment.text.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesSpeaker = selectedSpeaker === 'all' || 
-        segment.speaker === selectedSpeaker;
       
-      return matchesSearch && matchesSpeaker;
+      let matchesTimeRange = true;
+      if (selectedTimeRange !== 'all') {
+        const [startMin, endMin] = selectedTimeRange.split('-').map(Number);
+        const segmentStartMin = Math.floor(segment.start / 60);
+        matchesTimeRange = segmentStartMin >= startMin && segmentStartMin < endMin;
+      }
+      
+      return matchesSearch && matchesTimeRange;
     });
-  }, [searchQuery, selectedSpeaker]);
+  }, [searchQuery, selectedTimeRange]);
 
   // Filter intelligence data based on search and type
   const filteredIntelligenceData = useMemo(() => {
@@ -112,6 +138,23 @@ const RecordingDetail: React.FC = () => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const renderHighlightedText = (text: string, searchTerm: string) => {
+    if (!searchTerm.trim()) {
+      return text;
+    }
+
+    const parts = text.split(new RegExp(`(${searchTerm})`, 'gi'));
+    return parts.map((part, index) =>
+      part.toLowerCase() === searchTerm.toLowerCase() ? (
+        <mark key={index} className="bg-yellow-200 px-1 rounded">
+          {part}
+        </mark>
+      ) : (
+        part
+      )
+    );
   };
 
   const getSeverityVariant = (value: number | string): "default" | "secondary" | "destructive" | "outline" => {
@@ -273,7 +316,7 @@ const RecordingDetail: React.FC = () => {
           <Card>
             <CardHeader>
               <div className="flex justify-between items-center">
-                <CardTitle>Transcript</CardTitle>
+                <CardTitle className="text-lg">Transcript</CardTitle>
               </div>
               <CardDescription>
                 Duration: {Math.floor(sampleTranscriptData.duration_seconds / 60)}m {Math.floor(sampleTranscriptData.duration_seconds % 60)}s
@@ -313,22 +356,21 @@ const RecordingDetail: React.FC = () => {
                         className="w-full"
                       />
                     </div>
-                    {/* <div className="min-w-[150px]">
+                    <div className="min-w-[150px]">
                       <select
-                        value={selectedSpeaker}
-                        onChange={(e) => setSelectedSpeaker(e.target.value)}
+                        value={selectedTimeRange}
+                        onChange={(e) => setSelectedTimeRange(e.target.value)}
                         className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
-                        <option value="all">All Speakers</option>
-                        {uniqueSpeakers.map((speaker) => (
-                          <option key={speaker} value={speaker}>
-                            {speaker}
+                        {timeRangeOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
                           </option>
                         ))}
                       </select>
-                    </div> */}
+                    </div>
                   </div>
-                  {(searchQuery || selectedSpeaker !== 'all') && (
+                  {(searchQuery || selectedTimeRange !== 'all') && (
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <span>Showing {filteredSegments.length} of {sampleTranscriptData.segments?.length || 0} segments</span>
                       <Button
@@ -336,7 +378,7 @@ const RecordingDetail: React.FC = () => {
                         variant="ghost"
                         onClick={() => {
                           setSearchQuery('');
-                          setSelectedSpeaker('all');
+                          setSelectedTimeRange('0-10');
                         }}
                       >
                         Clear filters
@@ -346,10 +388,42 @@ const RecordingDetail: React.FC = () => {
                 </div>
               )}
 
+              {/* Search Control for Full Transcript View */}
+              {transcriptView === 'full' && (
+                <div className="mb-4 space-y-3">
+                  <div className="flex gap-3">
+                    <div className="flex-1">
+                      <Input
+                        placeholder="Search full transcript..."
+                        value={fullTranscriptSearchQuery}
+                        onChange={(e) => setFullTranscriptSearchQuery(e.target.value)}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                  {fullTranscriptSearchQuery && (
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <span>Searching for: "{fullTranscriptSearchQuery}"</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setFullTranscriptSearchQuery('')}
+                      >
+                        Clear search
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {transcriptView === 'full' ? (
                 <div className="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
                   <p className="text-gray-700 whitespace-pre-wrap">
-                    {sampleTranscriptData.full_transcription || 'Transcript not available yet. Processing may still be in progress.'}
+                    {sampleTranscriptData.full_transcription ? (
+                      renderHighlightedText(sampleTranscriptData.full_transcription, fullTranscriptSearchQuery)
+                    ) : (
+                      'Transcript not available yet. Processing may still be in progress.'
+                    )}
                   </p>
                 </div>
               ) : (
@@ -402,7 +476,7 @@ const RecordingDetail: React.FC = () => {
                     </div>
                   )) : (
                     <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
-                      {searchQuery || selectedSpeaker !== 'all' 
+                      {searchQuery || selectedTimeRange !== 'all' 
                         ? 'No segments match your search criteria' 
                         : 'No segments available'
                       }
@@ -417,7 +491,7 @@ const RecordingDetail: React.FC = () => {
         <TabsContent value="intelligence" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>AI Intelligence Analysis</CardTitle>
+              <CardTitle className="text-lg">AI Intelligence Analysis</CardTitle>
               <CardDescription>
                 Search and filter through AI-generated insights from your recording
               </CardDescription>
