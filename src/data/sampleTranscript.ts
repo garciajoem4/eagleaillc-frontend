@@ -3,6 +3,7 @@ export interface TranscriptData {
   file_name: string;
   file_path: string;
   duration_seconds: number;
+  date_uploaded: string;
   sample_rate: number;
   is_longform: boolean;
   was_stereo: boolean;
@@ -23,6 +24,7 @@ export const sampleTranscriptData: TranscriptData = {
   file_name: "july_12_2022_audio_converted.wav",
   file_path: "/Users/johnbolanipekun/Documents/Projects/speechai/input_audio/july_12_2022_audio_converted.wav",
   duration_seconds: 8931.328,
+  date_uploaded: '',
   sample_rate: 16000,
   is_longform: true,
   was_stereo: false,
