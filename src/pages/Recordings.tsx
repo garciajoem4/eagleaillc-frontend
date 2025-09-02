@@ -1,15 +1,18 @@
 import React, { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Recording, TableSort, RecordingFilters } from '../types';
 import { mockRecordings } from '../data/mockData';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
+import UploadModal from '../components/ui/upload-modal';
 
 const Recordings: React.FC = () => {
-  const [recordings] = useState<Recording[]>(mockRecordings);
+  const navigate = useNavigate();
+  const [recordings, setRecordings] = useState<Recording[]>(mockRecordings);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [filters, setFilters] = useState<RecordingFilters>({
     name: '',
     dateFrom: undefined,
@@ -76,21 +79,27 @@ const Recordings: React.FC = () => {
 
   const handleEdit = (id: string) => {
     console.log('Edit recording:', id);
-    // Navigate to edit page or open modal
+    // Navigate to edit page or open modal (for now, go to detail page)
+    navigate(`/recordings/${id}`);
   };
 
   const handleView = (id: string) => {
     console.log('View recording:', id);
-    // Navigate to recording detail page
-    window.location.href = `/recordings/${id}`;
+    // Navigate to recording detail page using React Router
+    navigate(`/recordings/${id}`);
   };
 
   const handleRemove = (id: string) => {
     console.log('Remove recording:', id);
     // Show confirmation dialog and remove
     if (window.confirm('Are you sure you want to remove this recording?')) {
-      // Remove from state
+      setRecordings(prev => prev.filter(recording => recording.id !== id));
     }
+  };
+
+  const handleUploadComplete = (newRecordings: Recording[]) => {
+    setRecordings(prev => [...newRecordings, ...prev]);
+    setIsUploadModalOpen(false);
   };
 
   return (
@@ -100,17 +109,16 @@ const Recordings: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-900">Recordings</h1>
           <p className="text-gray-600 mt-2">Manage and organize your audio recordings</p>
         </div>
-        <Button className="btn-primary">
+        <Button 
+          className="btn-primary"
+          onClick={() => setIsUploadModalOpen(true)}
+        >
           📤 Upload Recording
         </Button>
       </div>
 
       {/* Filters */}
       <Card>
-        {/* <CardHeader>
-          <CardTitle>Filters</CardTitle>
-          <CardDescription>Filter recordings by name and date range</CardDescription>
-        </CardHeader> */}
         <CardContent className='pt-6'>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="space-y-2">
@@ -234,14 +242,14 @@ const Recordings: React.FC = () => {
                         >
                           👁️
                         </Button>
-                        <Button
+                        {/* <Button
                           size="sm"
                           variant="outline"
                           onClick={() => handleEdit(recording.id)}
                           title="Edit"
                         >
                           ✏️
-                        </Button>
+                        </Button> */}
                         <Button
                           size="sm"
                           variant="destructive"
@@ -269,6 +277,13 @@ const Recordings: React.FC = () => {
       <div className="text-sm text-gray-500">
         Showing {filteredAndSortedRecordings.length} of {recordings.length} recordings
       </div>
+
+      {/* Upload Modal */}
+      <UploadModal
+        isOpen={isUploadModalOpen}
+        onClose={() => setIsUploadModalOpen(false)}
+        onUploadComplete={handleUploadComplete}
+      />
     </div>
   );
 };
