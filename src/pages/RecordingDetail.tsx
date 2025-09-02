@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Recording, DetailedIntelligence } from '../types';
-import { mockRecordings } from '../data/mockData';
+import { DetailedIntelligence } from '../types';
 import { sampleIntelligence } from '../data/sampleIntelligence';
 import { sampleTranscriptData } from '../data/sampleTranscript';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
@@ -12,11 +11,12 @@ import { Input } from '../components/ui/input';
 
 const RecordingDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const [recording, setRecording] = useState<Recording | null>(null);
   const [detailedIntelligence, setDetailedIntelligence] = useState<DetailedIntelligence | null>(null);
   const [transcriptView, setTranscriptView] = useState<'full' | 'segments'>('full');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedSpeaker, setSelectedSpeaker] = useState<string>('all');
+  const [intelligenceSearchQuery, setIntelligenceSearchQuery] = useState<string>('');
+  const [selectedIntelligenceType, setSelectedIntelligenceType] = useState<string>('all');
 
   // Get unique speakers for filtering
   // const uniqueSpeakers = useMemo(() => {
@@ -38,18 +38,39 @@ const RecordingDetail: React.FC = () => {
     });
   }, [searchQuery, selectedSpeaker]);
 
-  useEffect(() => {
-    // In a real app, this would fetch from an API
-    const foundRecording = mockRecordings.find(r => r.id === id);
-    setRecording(foundRecording || null);
+  // Filter intelligence data based on search and type
+  const filteredIntelligenceData = useMemo(() => {
+    if (!detailedIntelligence) return { action_items: [], decisions: [], issues: [], questions: [] };
 
+    const filterBySearchAndType = (items: any[], type: string) => {
+      return items.filter(item => {
+        const searchText = intelligenceSearchQuery.toLowerCase();
+        const matchesSearch = searchText === '' || 
+          (item.task || item.decision)?.toLowerCase().includes(searchText) ||
+          (item.assigned_to || '')?.toLowerCase().includes(searchText);
+        
+        const matchesType = selectedIntelligenceType === 'all' || selectedIntelligenceType === type;
+        
+        return matchesSearch && matchesType;
+      });
+    };
+
+    return {
+      action_items: filterBySearchAndType(detailedIntelligence.action_items || [], 'action_items'),
+      decisions: filterBySearchAndType(detailedIntelligence.decisions || [], 'decisions'),
+      issues: filterBySearchAndType(detailedIntelligence.issues || [], 'issues'),
+      questions: filterBySearchAndType(detailedIntelligence.questions || [], 'questions')
+    };
+  }, [intelligenceSearchQuery, selectedIntelligenceType, detailedIntelligence]);
+
+  useEffect(() => {
     // Load sample intelligence data for demonstration
-    if (foundRecording) {
+    if (sampleTranscriptData) {
       setDetailedIntelligence(sampleIntelligence);
     }
   }, [id]);
 
-  if (!recording) {
+  if (!sampleTranscriptData) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Card className="w-full max-w-md">
@@ -67,11 +88,11 @@ const RecordingDetail: React.FC = () => {
     );
   }
 
-  const formatDuration = (minutes: number): string => {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
-  };
+  // const formatDuration = (minutes: number): string => {
+  //   const hours = Math.floor(minutes / 60);
+  //   const mins = minutes % 60;
+  //   return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+  // };
 
   const formatDate = (date: Date): string => {
     return date.toLocaleDateString('en-US', {
@@ -109,12 +130,12 @@ const RecordingDetail: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center space-x-4">
+      <div className="space-y-4">
         <Link to="/recordings">
           <Button variant="outline">← Back to Recordings</Button>
         </Link>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">{recording.name}</h1>
+          <h1 className="text-xl font-bold text-gray-900">{sampleTranscriptData.file_name.split('.')[0] || ''}</h1>
           <p className="text-gray-600 mt-1">Recording Details and Analysis</p>
         </div>
       </div>
@@ -131,37 +152,31 @@ const RecordingDetail: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle>Recording Information</CardTitle>
+                <CardTitle className="text-lg">Recording Information</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Name</label>
-                    <p className="text-gray-900">{recording.name}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Date Uploaded</label>
-                    <p className="text-gray-900">{formatDate(recording.dateUploaded)}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Duration</label>
-                    <Badge variant="secondary">{formatDuration(recording.duration)}</Badge>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Status</label>
-                    <Badge variant="default">Processed</Badge>
-                  </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Name</label>
+                  <p className="text-gray-900">{sampleTranscriptData.file_name.split('.')[0] || ''}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Date Uploaded</label>
+                  <p className="text-gray-900">{sampleTranscriptData.date_uploaded ? formatDate(new Date(sampleTranscriptData.date_uploaded)) : '-'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Duration</label>
+                  <Badge variant="secondary">{Math.floor(sampleTranscriptData.duration_seconds / 60)}m {Math.floor(sampleTranscriptData.duration_seconds % 60)}s</Badge>
                 </div>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>Executive Summary</CardTitle>
+                <CardTitle className="text-lg">Executive Summary</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-gray-700 mb-4">
-                  {detailedIntelligence?.executive_summary || recording.overview || 'No summary available.'}
+                  {detailedIntelligence?.executive_summary || 'No summary available.'}
                 </p>
                 {detailedIntelligence && (
                   <div className="space-y-3">
@@ -189,11 +204,11 @@ const RecordingDetail: React.FC = () => {
             {/* Key Topics */}
             <Card>
               <CardHeader>
-                <CardTitle>Key Topics</CardTitle>
+                <CardTitle className="text-lg">Key Topics</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
-                  {(detailedIntelligence?.key_topics || recording.intelligence?.keyTopics || []).map((topic: string, index: number) => (
+                  {(detailedIntelligence?.key_topics || []).map((topic: string, index: number) => (
                     <Badge key={index} variant="secondary">{topic}</Badge>
                   ))}
                 </div>
@@ -203,7 +218,7 @@ const RecordingDetail: React.FC = () => {
             {/* Quick Stats */}
             <Card>
               <CardHeader>
-                <CardTitle>Analysis Stats</CardTitle>
+                <CardTitle className="text-lg">Analysis Stats</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 <div className="flex justify-between">
@@ -228,14 +243,14 @@ const RecordingDetail: React.FC = () => {
             {/* Available Exports */}
             <Card>
               <CardHeader>
-                <CardTitle>Available Exports</CardTitle>
+                <CardTitle className="text-lg">Available Exports</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex flex-wrap gap-2">
+                {/* <div className="flex flex-wrap gap-2">
                   {recording.exports?.map((format, index) => (
                     <Badge key={index} variant="outline">{format}</Badge>
                   )) || <span className="text-gray-500">No exports available</span>}
-                </div>
+                </div> */}
               </CardContent>
             </Card>
           </div>
@@ -243,7 +258,7 @@ const RecordingDetail: React.FC = () => {
           {detailedIntelligence?.confidence_note && (
             <Card>
               <CardHeader>
-                <CardTitle>Processing Note</CardTitle>
+                <CardTitle className="text-lg">Processing Note</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-amber-700 bg-amber-50 p-3 rounded-lg">
@@ -334,7 +349,7 @@ const RecordingDetail: React.FC = () => {
               {transcriptView === 'full' ? (
                 <div className="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
                   <p className="text-gray-700 whitespace-pre-wrap">
-                    {sampleTranscriptData.full_transcription || recording.transcript || 'Transcript not available yet. Processing may still be in progress.'}
+                    {sampleTranscriptData.full_transcription || 'Transcript not available yet. Processing may still be in progress.'}
                   </p>
                 </div>
               ) : (
@@ -404,178 +419,332 @@ const RecordingDetail: React.FC = () => {
             <CardHeader>
               <CardTitle>AI Intelligence Analysis</CardTitle>
               <CardDescription>
+                Search and filter through AI-generated insights from your recording
               </CardDescription>
             </CardHeader>
             <CardContent>
+              {/* Search and Filter Controls for Intelligence */}
+              <div className="mb-6 space-y-3">
+                <div className="flex gap-3">
+                  <div className="flex-1">
+                    <Input
+                      placeholder="Search action items, decisions, issues, and questions..."
+                      value={intelligenceSearchQuery}
+                      onChange={(e) => setIntelligenceSearchQuery(e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                  <div className="min-w-[180px]">
+                    <select
+                      value={selectedIntelligenceType}
+                      onChange={(e) => setSelectedIntelligenceType(e.target.value)}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="all">All Types</option>
+                      <option value="action_items">Action Items</option>
+                      <option value="decisions">Decisions</option>
+                      <option value="issues">Issues</option>
+                      <option value="questions">Questions</option>
+                    </select>
+                  </div>
+                </div>
+                {(intelligenceSearchQuery || selectedIntelligenceType !== 'all') && (
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <span>
+                      Showing {
+                        (selectedIntelligenceType === 'all' || selectedIntelligenceType === 'action_items' ? filteredIntelligenceData.action_items.length : 0) +
+                        (selectedIntelligenceType === 'all' || selectedIntelligenceType === 'decisions' ? filteredIntelligenceData.decisions.length : 0) +
+                        (selectedIntelligenceType === 'all' || selectedIntelligenceType === 'issues' ? filteredIntelligenceData.issues.length : 0) +
+                        (selectedIntelligenceType === 'all' || selectedIntelligenceType === 'questions' ? filteredIntelligenceData.questions.length : 0)
+                      } of {
+                        (detailedIntelligence?.action_items.length || 0) +
+                        (detailedIntelligence?.decisions.length || 0) +
+                        (detailedIntelligence?.issues.length || 0) +
+                        (detailedIntelligence?.questions.length || 0)
+                      } items
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setIntelligenceSearchQuery('');
+                        setSelectedIntelligenceType('all');
+                      }}
+                    >
+                      Clear filters
+                    </Button>
+                  </div>
+                )}
+              </div>
+
               <div className="space-y-6">
                 <div>
                   {/* Action Items */}
-                  <div className="mb-8">
-                    <div className="flex items-center gap-3 mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900">Action Items</h3>
-                      <Badge variant="outline">{detailedIntelligence?.action_items.length || 0}</Badge>
+                  {(selectedIntelligenceType === 'all' || selectedIntelligenceType === 'action_items') && (
+                    <div className="mb-8">
+                      <div className="flex items-center gap-3 mb-4">
+                        <h3 className="text-lg font-semibold text-gray-900">Action Items</h3>
+                        <Badge variant="outline">{filteredIntelligenceData.action_items.length}</Badge>
+                        {filteredIntelligenceData.action_items.length !== (detailedIntelligence?.action_items.length || 0) && (
+                          <Badge variant="secondary" className="text-xs">
+                            of {detailedIntelligence?.action_items.length || 0} total
+                          </Badge>
+                        )}
+                      </div>
+                      {filteredIntelligenceData.action_items.length ? (
+                        <div className="space-y-3">
+                          {filteredIntelligenceData.action_items.map((item, index) => (
+                            <Card key={index} className="border-l-4 border-l-blue-500">
+                              <CardContent className="p-4">
+                                <div className="flex items-start justify-between mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="outline" className="text-xs">
+                                      Confidence: {item.confidence}
+                                    </Badge>
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    {formatTimestamp(item.timestamp_start)} - {formatTimestamp(item.timestamp_end)}
+                                  </div>
+                                </div>
+                                <p className="text-gray-900 font-medium mb-2">
+                                  {intelligenceSearchQuery && item.task ? (
+                                    item.task.split(new RegExp(`(${intelligenceSearchQuery})`, 'gi')).map((part: string | number | boolean | React.ReactElement<any, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | null | undefined, i: React.Key | null | undefined) =>
+                                      typeof part === 'string' && part.toLowerCase() === intelligenceSearchQuery.toLowerCase() ? (
+                                        <mark key={i} className="bg-yellow-200 px-1 rounded">
+                                          {part}
+                                        </mark>
+                                      ) : (
+                                        part
+                                      )
+                                    )
+                                  ) : (
+                                    item.task
+                                  )}
+                                </p>
+                                {item.assigned_to && (
+                                  <p className="text-sm text-gray-600">
+                                    Assigned To: {intelligenceSearchQuery && item.assigned_to.toLowerCase().includes(intelligenceSearchQuery.toLowerCase()) ? (
+                                      item.assigned_to.split(new RegExp(`(${intelligenceSearchQuery})`, 'gi')).map((part: string | number | boolean | React.ReactElement<any, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | null | undefined, i: React.Key | null | undefined) =>
+                                        typeof part === 'string' && part.toLowerCase() === intelligenceSearchQuery.toLowerCase() ? (
+                                          <mark key={i} className="bg-yellow-200 px-1 rounded">
+                                            {part}
+                                          </mark>
+                                        ) : (
+                                          part
+                                        )
+                                      )
+                                    ) : (
+                                      item.assigned_to
+                                    )}
+                                  </p>
+                                )}
+                                {item.deadline && (
+                                  <p className="text-sm text-gray-600">Due: {new Date(item.deadline).toLocaleDateString()}</p>
+                                )}
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
+                          {intelligenceSearchQuery || selectedIntelligenceType !== 'all' 
+                            ? 'No action items match your search criteria' 
+                            : 'No action items identified'
+                          }
+                        </div>
+                      )}
                     </div>
-                    {detailedIntelligence?.action_items.length ? (
-                      <div className="space-y-3">
-                        {detailedIntelligence.action_items.map((item, index) => (
-                          <Card key={index} className="border-l-4 border-l-blue-500">
-                            <CardContent className="p-4">
-                              <div className="flex items-start justify-between mb-2">
-                                <div className="flex items-center gap-2">
-                                  <Badge variant="outline" className="text-xs">
-                                    Confidence: {item.confidence}
-                                  </Badge>
-                                  {/* <Badge variant={getSeverityVariant(item.confidence)} className="text-xs">
-                                    {Math.round(item.confidence * 100)}%
-                                  </Badge> */}
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                  {formatTimestamp(item.timestamp_start)} - {formatTimestamp(item.timestamp_end)}
-                                </div>
-                              </div>
-                              <p className="text-gray-900 font-medium mb-2">{item.task}</p>
-                              {item.assigned_to && (
-                                <p className="text-sm text-gray-600">Assigned To: {item.assigned_to}</p>
-                              )}
-                              {item.deadline && (
-                                <p className="text-sm text-gray-600">Due: {new Date(item.deadline).toLocaleDateString()}</p>
-                              )}
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
-                        No action items identified
-                      </div>
-                    )}
-                  </div>
+                  )}
 
                   {/* Decisions */}
-                  <div className="mb-8">
-                    <div className="flex items-center gap-3 mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900">Decisions</h3>
-                      <Badge variant="outline">{detailedIntelligence?.decisions.length || 0}</Badge>
-                    </div>
-                    {detailedIntelligence?.decisions.length ? (
-                      <div className="space-y-3">
-                        {detailedIntelligence.decisions.map((decision, index) => (
-                          <Card key={index} className="border-l-4 border-l-green-500">
-                            <CardContent className="p-4">
-                              <div className="flex items-start justify-between mb-2">
-                                <Badge variant={getSeverityVariant(decision.confidence)} className="text-xs">
-                                  {Math.round(decision.confidence * 100)}% confidence
-                                </Badge>
-                                <div className="text-xs text-gray-500">
-                                  {formatTimestamp(decision.timestamp_start)} - {formatTimestamp(decision.timestamp_end)}
+                  {(selectedIntelligenceType === 'all' || selectedIntelligenceType === 'decisions') && (
+                    <div className="mb-8">
+                      <div className="flex items-center gap-3 mb-4">
+                        <h3 className="text-lg font-semibold text-gray-900">Decisions</h3>
+                        <Badge variant="outline">{filteredIntelligenceData.decisions.length}</Badge>
+                        {filteredIntelligenceData.decisions.length !== (detailedIntelligence?.decisions.length || 0) && (
+                          <Badge variant="secondary" className="text-xs">
+                            of {detailedIntelligence?.decisions.length || 0} total
+                          </Badge>
+                        )}
+                      </div>
+                      {filteredIntelligenceData.decisions.length ? (
+                        <div className="space-y-3">
+                          {filteredIntelligenceData.decisions.map((decision, index) => (
+                            <Card key={index} className="border-l-4 border-l-green-500">
+                              <CardContent className="p-4">
+                                <div className="flex items-start justify-between mb-2">
+                                  <Badge variant={getSeverityVariant(decision.confidence)} className="text-xs">
+                                    {decision.confidence}
+                                  </Badge>
+                                  <div className="text-xs text-gray-500">
+                                    {formatTimestamp(decision.timestamp_start)} - {formatTimestamp(decision.timestamp_end)}
+                                  </div>
                                 </div>
-                              </div>
-                              <p className="text-gray-900 font-medium mb-2">{decision.description}</p>
-                              {decision.rationale && (
-                                <div className="text-sm text-gray-600 bg-green-50 p-2 rounded">
-                                  <strong>Rationale:</strong> {decision.rationale}
-                                </div>
-                              )}
-                              {decision.participants && decision.participants.length > 0 && (
-                                <p className="text-sm text-gray-600 mt-2">
-                                  Participants: {decision.participants.join(', ')}
+                                <p className="text-gray-900 font-medium mb-2">
+                                  {intelligenceSearchQuery && decision.decision ? (
+                                    decision.decision.split(new RegExp(`(${intelligenceSearchQuery})`, 'gi')).map((part: string | number | boolean | React.ReactElement<any, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | null | undefined, i: React.Key | null | undefined) =>
+                                      typeof part === 'string' && part.toLowerCase() === intelligenceSearchQuery.toLowerCase() ? (
+                                        <mark key={i} className="bg-yellow-200 px-1 rounded">
+                                          {part}
+                                        </mark>
+                                      ) : (
+                                        part
+                                      )
+                                    )
+                                  ) : (
+                                    decision.decision
+                                  )}
                                 </p>
-                              )}
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
-                        No decisions identified
-                      </div>
-                    )}
-                  </div>
+                                {decision.reason && (
+                                  <div className="text-sm text-gray-600 bg-green-50 p-2 rounded">
+                                    <strong>Reason:</strong> {decision.reason}
+                                  </div>
+                                )}
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
+                          {intelligenceSearchQuery || selectedIntelligenceType !== 'all' 
+                            ? 'No decisions match your search criteria' 
+                            : 'No decisions identified'
+                          }
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Issues */}
-                  <div className="mb-8">
-                    <div className="flex items-center gap-3 mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900">Issues</h3>
-                      <Badge variant="outline">{detailedIntelligence?.issues.length || 0}</Badge>
+                  {(selectedIntelligenceType === 'all' || selectedIntelligenceType === 'issues') && (
+                    <div className="mb-8">
+                      <div className="flex items-center gap-3 mb-4">
+                        <h3 className="text-lg font-semibold text-gray-900">Issues</h3>
+                        <Badge variant="outline">{filteredIntelligenceData.issues.length}</Badge>
+                        {filteredIntelligenceData.issues.length !== (detailedIntelligence?.issues.length || 0) && (
+                          <Badge variant="secondary" className="text-xs">
+                            of {detailedIntelligence?.issues.length || 0} total
+                          </Badge>
+                        )}
+                      </div>
+                      {filteredIntelligenceData.issues.length ? (
+                        <div className="space-y-3">
+                          {filteredIntelligenceData.issues.map((issue, index) => (
+                            <Card key={index} className="border-l-4 border-l-red-500">
+                              <CardContent className="p-4">
+                                <div className="flex items-start justify-between mb-2">
+                                  {/* <div className="flex items-center gap-2">
+                                    <Badge variant={getSeverityVariant(issue.severity)} className="text-xs">
+                                      {issue.severity}
+                                    </Badge>
+                                    <Badge variant={getSeverityVariant(issue.confidence)} className="text-xs">
+                                      Confidence: {issue.confidence}
+                                    </Badge>
+                                  </div> */}
+                                  <div className="text-xs text-gray-500">
+                                    {formatTimestamp(issue.timestamp_start)} - {formatTimestamp(issue.timestamp_end)}
+                                  </div>
+                                </div>
+                                <p className="text-gray-900 font-medium mb-2">
+                                  {intelligenceSearchQuery && issue.issue ? (
+                                    issue.issue.split(new RegExp(`(${intelligenceSearchQuery})`, 'gi')).map((part: string | number | boolean | React.ReactElement<any, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | null | undefined, i: React.Key | null | undefined) =>
+                                      typeof part === 'string' && part.toLowerCase() === intelligenceSearchQuery.toLowerCase() ? (
+                                        <mark key={i} className="bg-yellow-200 px-1 rounded">
+                                          {part}
+                                        </mark>
+                                      ) : (
+                                        part
+                                      )
+                                    )
+                                  ) : (
+                                    issue.issue
+                                  )}
+                                </p>
+                                {/* {issue.impact && (
+                                  <div className="text-sm text-gray-600 bg-red-50 p-2 rounded">
+                                    <strong>Impact:</strong> {issue.impact}
+                                  </div>
+                                )} */}
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
+                          {intelligenceSearchQuery || selectedIntelligenceType !== 'all' 
+                            ? 'No issues match your search criteria' 
+                            : 'No issues identified'
+                          }
+                        </div>
+                      )}
                     </div>
-                    {detailedIntelligence?.issues.length ? (
-                      <div className="space-y-3">
-                        {detailedIntelligence.issues.map((issue, index) => (
-                          <Card key={index} className="border-l-4 border-l-red-500">
-                            <CardContent className="p-4">
-                              <div className="flex items-start justify-between mb-2">
-                                <div className="flex items-center gap-2">
-                                  <Badge variant={getSeverityVariant(issue.severity)} className="text-xs">
-                                    {issue.severity}
-                                  </Badge>
-                                  <Badge variant={getSeverityVariant(issue.confidence)} className="text-xs">
-                                    {Math.round(issue.confidence * 100)}%
-                                  </Badge>
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                  {formatTimestamp(issue.timestamp_start)} - {formatTimestamp(issue.timestamp_end)}
-                                </div>
-                              </div>
-                              <p className="text-gray-900 font-medium mb-2">{issue.description}</p>
-                              {issue.impact && (
-                                <div className="text-sm text-gray-600 bg-red-50 p-2 rounded">
-                                  <strong>Impact:</strong> {issue.impact}
-                                </div>
-                              )}
-                              {issue.category && (
-                                <p className="text-sm text-gray-600 mt-2">Category: {issue.category}</p>
-                              )}
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
-                        No issues identified
-                      </div>
-                    )}
-                  </div>
+                  )}
 
                   {/* Questions */}
-                  <div className="mb-8">
-                    <div className="flex items-center gap-3 mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900">Questions</h3>
-                      <Badge variant="outline">{detailedIntelligence?.questions.length || 0}</Badge>
+                  {(selectedIntelligenceType === 'all' || selectedIntelligenceType === 'questions') && (
+                    <div className="mb-8">
+                      <div className="flex items-center gap-3 mb-4">
+                        <h3 className="text-lg font-semibold text-gray-900">Questions</h3>
+                        <Badge variant="outline">{filteredIntelligenceData.questions.length}</Badge>
+                        {filteredIntelligenceData.questions.length !== (detailedIntelligence?.questions.length || 0) && (
+                          <Badge variant="secondary" className="text-xs">
+                            of {detailedIntelligence?.questions.length || 0} total
+                          </Badge>
+                        )}
+                      </div>
+                      {filteredIntelligenceData.questions.length ? (
+                        <div className="space-y-3">
+                          {filteredIntelligenceData.questions.map((question, index) => (
+                            <Card key={index} className="border-l-4 border-l-yellow-500">
+                              <CardContent className="p-4">
+                                <div className="flex items-start justify-between mb-2">
+                                  {/* <Badge variant={getSeverityVariant(question.confidence)} className="text-xs">
+                                    {Math.round(question.confidence * 100)}% confidence
+                                  </Badge> */}
+                                  <div className="text-xs text-gray-500">
+                                    {formatTimestamp(question.timestamp_start)} - {formatTimestamp(question.timestamp_end)}
+                                  </div>
+                                </div>
+                                <p className="text-gray-900 font-medium mb-2">
+                                  {intelligenceSearchQuery && question.question ? (
+                                    question.question.split(new RegExp(`(${intelligenceSearchQuery})`, 'gi')).map((part: string | number | boolean | React.ReactElement<any, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | null | undefined, i: React.Key | null | undefined) =>
+                                      typeof part === 'string' && part.toLowerCase() === intelligenceSearchQuery.toLowerCase() ? (
+                                        <mark key={i} className="bg-yellow-200 px-1 rounded">
+                                          {part}
+                                        </mark>
+                                      ) : (
+                                        part
+                                      )
+                                    )
+                                  ) : (
+                                    question.question
+                                  )}
+                                </p>
+                                {/* {question.context && (
+                                  <div className="text-sm text-gray-600 bg-yellow-50 p-2 rounded">
+                                    <strong>Context:</strong> {question.context}
+                                  </div>
+                                )} */}
+                                {/* {question.requires_followup && (
+                                  <div className="text-sm text-red-600 font-medium mt-2">
+                                    ⚠️ Requires follow-up
+                                  </div>
+                                )} */}
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
+                          {intelligenceSearchQuery || selectedIntelligenceType !== 'all' 
+                            ? 'No questions match your search criteria' 
+                            : 'No questions identified'
+                          }
+                        </div>
+                      )}
                     </div>
-                    {detailedIntelligence?.questions.length ? (
-                      <div className="space-y-3">
-                        {detailedIntelligence.questions.map((question, index) => (
-                          <Card key={index} className="border-l-4 border-l-yellow-500">
-                            <CardContent className="p-4">
-                              <div className="flex items-start justify-between mb-2">
-                                <Badge variant={getSeverityVariant(question.confidence)} className="text-xs">
-                                  {Math.round(question.confidence * 100)}% confidence
-                                </Badge>
-                                <div className="text-xs text-gray-500">
-                                  {formatTimestamp(question.timestamp_start)} - {formatTimestamp(question.timestamp_end)}
-                                </div>
-                              </div>
-                              <p className="text-gray-900 font-medium mb-2">{question.description}</p>
-                              {question.context && (
-                                <div className="text-sm text-gray-600 bg-yellow-50 p-2 rounded">
-                                  <strong>Context:</strong> {question.context}
-                                </div>
-                              )}
-                              {question.requires_followup && (
-                                <div className="text-sm text-red-600 font-medium mt-2">
-                                  ⚠️ Requires follow-up
-                                </div>
-                              )}
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
-                        No questions identified
-                      </div>
-                    )}
-                  </div>
+                  )}
                 </div>
               </div>
             </CardContent>

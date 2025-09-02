@@ -36,31 +36,24 @@ export interface ActionItem {
 }
 
 export interface Decision {
-  description: string;
-  rationale?: string;
+  decision: string;
+  reason?: string;
   participants?: string[];
   timestamp_start: string;
   timestamp_end: string;
-  confidence: number;
+  confidence: string;
 }
 
 export interface Issue {
-  description: string;
-  severity: 'low' | 'medium' | 'high';
-  impact?: string;
-  category?: string;
+  issue: string;
   timestamp_start: string;
   timestamp_end: string;
-  confidence: number;
 }
 
 export interface Question {
-  description: string;
-  context?: string;
-  requires_followup?: boolean;
+  question: string;
   timestamp_start: string;
   timestamp_end: string;
-  confidence: number;
 }
 
 export interface DetailedIntelligence {
