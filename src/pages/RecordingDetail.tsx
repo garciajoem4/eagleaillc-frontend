@@ -16,8 +16,10 @@ const RecordingDetail: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [fullTranscriptSearchQuery, setFullTranscriptSearchQuery] = useState<string>('');
   const [selectedTimeRange, setSelectedTimeRange] = useState<string>('0-10');
-  const [intelligenceSearchQuery, setIntelligenceSearchQuery] = useState<string>('');
-  const [selectedIntelligenceType, setSelectedIntelligenceType] = useState<string>('all');
+  const [actionItemsSearch, setActionItemsSearch] = useState<string>('');
+  const [decisionsSearch, setDecisionsSearch] = useState<string>('');
+  const [issuesSearch, setIssuesSearch] = useState<string>('');
+  const [questionsSearch, setQuestionsSearch] = useState<string>('');
 
   // Get unique speakers for filtering
   // const uniqueSpeakers = useMemo(() => {
@@ -65,29 +67,42 @@ const RecordingDetail: React.FC = () => {
   }, [searchQuery, selectedTimeRange]);
 
   // Filter intelligence data based on search and type
-  const filteredIntelligenceData = useMemo(() => {
-    if (!detailedIntelligence) return { action_items: [], decisions: [], issues: [], questions: [] };
+  const filteredActionItems = useMemo(() => {
+    if (!detailedIntelligence?.action_items) return [];
+    return detailedIntelligence.action_items.filter(item => {
+      const searchText = actionItemsSearch.toLowerCase();
+      return searchText === '' || 
+        item.task?.toLowerCase().includes(searchText) ||
+        item.assigned_to?.toLowerCase().includes(searchText);
+    });
+  }, [actionItemsSearch, detailedIntelligence]);
 
-    const filterBySearchAndType = (items: any[], type: string) => {
-      return items.filter(item => {
-        const searchText = intelligenceSearchQuery.toLowerCase();
-        const matchesSearch = searchText === '' || 
-          (item.task || item.decision)?.toLowerCase().includes(searchText) ||
-          (item.assigned_to || '')?.toLowerCase().includes(searchText);
-        
-        const matchesType = selectedIntelligenceType === 'all' || selectedIntelligenceType === type;
-        
-        return matchesSearch && matchesType;
-      });
-    };
+  const filteredDecisions = useMemo(() => {
+    if (!detailedIntelligence?.decisions) return [];
+    return detailedIntelligence.decisions.filter(decision => {
+      const searchText = decisionsSearch.toLowerCase();
+      return searchText === '' || 
+        decision.decision?.toLowerCase().includes(searchText);
+    });
+  }, [decisionsSearch, detailedIntelligence]);
 
-    return {
-      action_items: filterBySearchAndType(detailedIntelligence.action_items || [], 'action_items'),
-      decisions: filterBySearchAndType(detailedIntelligence.decisions || [], 'decisions'),
-      issues: filterBySearchAndType(detailedIntelligence.issues || [], 'issues'),
-      questions: filterBySearchAndType(detailedIntelligence.questions || [], 'questions')
-    };
-  }, [intelligenceSearchQuery, selectedIntelligenceType, detailedIntelligence]);
+  const filteredIssues = useMemo(() => {
+    if (!detailedIntelligence?.issues) return [];
+    return detailedIntelligence.issues.filter(issue => {
+      const searchText = issuesSearch.toLowerCase();
+      return searchText === '' || 
+        issue.issue?.toLowerCase().includes(searchText);
+    });
+  }, [issuesSearch, detailedIntelligence]);
+
+  const filteredQuestions = useMemo(() => {
+    if (!detailedIntelligence?.questions) return [];
+    return detailedIntelligence.questions.filter(question => {
+      const searchText = questionsSearch.toLowerCase();
+      return searchText === '' || 
+        question.question?.toLowerCase().includes(searchText);
+    });
+  }, [questionsSearch, detailedIntelligence]);
 
   useEffect(() => {
     // Load sample intelligence data for demonstration
@@ -192,7 +207,9 @@ const RecordingDetail: React.FC = () => {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Audio Player Section */}
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Recording Information</CardTitle>
@@ -241,6 +258,73 @@ const RecordingDetail: React.FC = () => {
                 )}
               </CardContent>
             </Card>
+
+            <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                Audio Playback
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg border border-blue-100">
+                  <div className="mb-4">
+                    {/* <h4 className="text-sm font-medium text-gray-700 mb-2">
+                      {sampleTranscriptData.file_name}
+                    </h4> */}
+                    <audio 
+                      controls 
+                      className="w-full h-12"
+                      preload="metadata"
+                      style={{
+                        filter: 'sepia(20%) saturate(70%) hue-rotate(200deg) brightness(1.1)',
+                      }}
+                    >
+                      <source src="/sample-audio.mp3" type="audio/mpeg" />
+                      Your browser does not support the audio element.
+                    </audio>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-3">
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                        MP3 Audio
+                      </Badge>
+                      {/* <span className="text-gray-600">
+                        Duration: {Math.floor(sampleTranscriptData.duration_seconds / 60)}:{String(Math.floor(sampleTranscriptData.duration_seconds % 60)).padStart(2, '0')}
+                      </span> */}
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-500">
+                      <span className="text-xs">🎧 High Quality</span>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Audio Info */}
+                {/* <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <div className="text-lg font-semibold text-gray-900">
+                      {Math.floor(sampleTranscriptData.duration_seconds / 60)}m
+                    </div>
+                    <div className="text-xs text-gray-500">Duration</div>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <div className="text-lg font-semibold text-gray-900">MP3</div>
+                    <div className="text-xs text-gray-500">Format</div>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <div className="text-lg font-semibold text-gray-900">
+                      {sampleTranscriptData.segments?.length || 0}
+                    </div>
+                    <div className="text-xs text-gray-500">Segments</div>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <div className="text-lg font-semibold text-gray-900">✓</div>
+                    <div className="text-xs text-gray-500">Processed</div>
+                  </div>
+                </div> */}
+              </div>
+            </CardContent>
+          </Card>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -497,233 +581,85 @@ const RecordingDetail: React.FC = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {/* Search and Filter Controls for Intelligence */}
-              <div className="mb-6 space-y-3">
-                <div className="flex gap-3">
-                  <div className="flex-1">
-                    <Input
-                      placeholder="Search action items, decisions, issues, and questions..."
-                      value={intelligenceSearchQuery}
-                      onChange={(e) => setIntelligenceSearchQuery(e.target.value)}
-                      className="w-full"
-                    />
-                  </div>
-                  <div className="min-w-[180px]">
-                    <select
-                      value={selectedIntelligenceType}
-                      onChange={(e) => setSelectedIntelligenceType(e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="all">All Types</option>
-                      <option value="action_items">Action Items</option>
-                      <option value="decisions">Decisions</option>
-                      <option value="issues">Issues</option>
-                      <option value="questions">Questions</option>
-                    </select>
-                  </div>
-                </div>
-                {(intelligenceSearchQuery || selectedIntelligenceType !== 'all') && (
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <span>
-                      Showing {
-                        (selectedIntelligenceType === 'all' || selectedIntelligenceType === 'action_items' ? filteredIntelligenceData.action_items.length : 0) +
-                        (selectedIntelligenceType === 'all' || selectedIntelligenceType === 'decisions' ? filteredIntelligenceData.decisions.length : 0) +
-                        (selectedIntelligenceType === 'all' || selectedIntelligenceType === 'issues' ? filteredIntelligenceData.issues.length : 0) +
-                        (selectedIntelligenceType === 'all' || selectedIntelligenceType === 'questions' ? filteredIntelligenceData.questions.length : 0)
-                      } of {
-                        (detailedIntelligence?.action_items.length || 0) +
-                        (detailedIntelligence?.decisions.length || 0) +
-                        (detailedIntelligence?.issues.length || 0) +
-                        (detailedIntelligence?.questions.length || 0)
-                      } items
-                    </span>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        setIntelligenceSearchQuery('');
-                        setSelectedIntelligenceType('all');
-                      }}
-                    >
-                      Clear filters
-                    </Button>
-                  </div>
-                )}
-              </div>
+              <Tabs defaultValue="action-items" className="w-full">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="action-items">Action Items</TabsTrigger>
+                  <TabsTrigger value="decisions">Decisions</TabsTrigger>
+                  <TabsTrigger value="issues">Issues</TabsTrigger>
+                  <TabsTrigger value="questions">Questions</TabsTrigger>
+                </TabsList>
 
-              <div className="space-y-6">
-                <div>
-                  {/* Action Items */}
-                  {(selectedIntelligenceType === 'all' || selectedIntelligenceType === 'action_items') && (
-                    <div className="mb-8">
-                      <div className="flex items-center gap-3 mb-4">
-                        <h3 className="text-lg font-semibold text-gray-900">Action Items</h3>
-                        <Badge variant="outline">{filteredIntelligenceData.action_items.length}</Badge>
-                        {filteredIntelligenceData.action_items.length !== (detailedIntelligence?.action_items.length || 0) && (
-                          <Badge variant="secondary" className="text-xs">
-                            of {detailedIntelligence?.action_items.length || 0} total
-                          </Badge>
-                        )}
-                      </div>
-                      {filteredIntelligenceData.action_items.length ? (
-                        <div className="space-y-3">
-                          {filteredIntelligenceData.action_items.map((item, index) => (
-                            <Card key={index} className="border-l-4 border-l-blue-500">
-                              <CardContent className="p-4">
-                                <div className="flex items-start justify-between mb-2">
-                                  <div className="flex items-center gap-2">
-                                    <Badge variant="outline" className="text-xs">
-                                      Confidence: {item.confidence}
-                                    </Badge>
-                                  </div>
-                                  <div className="text-xs text-gray-500">
-                                    {formatTimestamp(item.timestamp_start)} - {formatTimestamp(item.timestamp_end)}
-                                  </div>
-                                </div>
-                                <p className="text-gray-900 font-medium mb-2">
-                                  {intelligenceSearchQuery && item.task ? (
-                                    item.task.split(new RegExp(`(${intelligenceSearchQuery})`, 'gi')).map((part: string | number | boolean | React.ReactElement<any, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | null | undefined, i: React.Key | null | undefined) =>
-                                      typeof part === 'string' && part.toLowerCase() === intelligenceSearchQuery.toLowerCase() ? (
-                                        <mark key={i} className="bg-yellow-200 px-1 rounded">
-                                          {part}
-                                        </mark>
-                                      ) : (
-                                        part
-                                      )
-                                    )
-                                  ) : (
-                                    item.task
-                                  )}
-                                </p>
-                                {item.assigned_to && (
-                                  <p className="text-sm text-gray-600">
-                                    Assigned To: {intelligenceSearchQuery && item.assigned_to.toLowerCase().includes(intelligenceSearchQuery.toLowerCase()) ? (
-                                      item.assigned_to.split(new RegExp(`(${intelligenceSearchQuery})`, 'gi')).map((part: string | number | boolean | React.ReactElement<any, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | null | undefined, i: React.Key | null | undefined) =>
-                                        typeof part === 'string' && part.toLowerCase() === intelligenceSearchQuery.toLowerCase() ? (
-                                          <mark key={i} className="bg-yellow-200 px-1 rounded">
-                                            {part}
-                                          </mark>
-                                        ) : (
-                                          part
-                                        )
-                                      )
-                                    ) : (
-                                      item.assigned_to
-                                    )}
-                                  </p>
-                                )}
-                                {item.deadline && (
-                                  <p className="text-sm text-gray-600">Due: {new Date(item.deadline).toLocaleDateString()}</p>
-                                )}
-                              </CardContent>
-                            </Card>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
-                          {intelligenceSearchQuery || selectedIntelligenceType !== 'all' 
-                            ? 'No action items match your search criteria' 
-                            : 'No action items identified'
-                          }
-                        </div>
-                      )}
+                {/* Action Items Tab */}
+                <TabsContent value="action-items" className="space-y-4">
+                  <div className="flex gap-3">
+                    <div className="flex-1">
+                      <Input
+                        placeholder="Search action items..."
+                        value={actionItemsSearch}
+                        onChange={(e) => setActionItemsSearch(e.target.value)}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                  {actionItemsSearch && (
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <span>Showing {filteredActionItems.length} of {detailedIntelligence?.action_items.length || 0} action items</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setActionItemsSearch('')}
+                      >
+                        Clear search
+                      </Button>
                     </div>
                   )}
-
-                  {/* Decisions */}
-                  {(selectedIntelligenceType === 'all' || selectedIntelligenceType === 'decisions') && (
-                    <div className="mb-8">
-                      <div className="flex items-center gap-3 mb-4">
-                        <h3 className="text-lg font-semibold text-gray-900">Decisions</h3>
-                        <Badge variant="outline">{filteredIntelligenceData.decisions.length}</Badge>
-                        {filteredIntelligenceData.decisions.length !== (detailedIntelligence?.decisions.length || 0) && (
-                          <Badge variant="secondary" className="text-xs">
-                            of {detailedIntelligence?.decisions.length || 0} total
-                          </Badge>
-                        )}
-                      </div>
-                      {filteredIntelligenceData.decisions.length ? (
-                        <div className="space-y-3">
-                          {filteredIntelligenceData.decisions.map((decision, index) => (
-                            <Card key={index} className="border-l-4 border-l-green-500">
-                              <CardContent className="p-4">
-                                <div className="flex items-start justify-between mb-2">
-                                  <Badge variant={getSeverityVariant(decision.confidence)} className="text-xs">
-                                    {decision.confidence}
+                  
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 mb-4">
+                      <h3 className="text-lg font-semibold text-gray-900">Action Items</h3>
+                      <Badge variant="outline">{filteredActionItems.length}</Badge>
+                      {filteredActionItems.length !== (detailedIntelligence?.action_items.length || 0) && (
+                        <Badge variant="secondary" className="text-xs">
+                          of {detailedIntelligence?.action_items.length || 0} total
+                        </Badge>
+                      )}
+                    </div>
+                    {filteredActionItems.length ? (
+                      <div className="space-y-3 max-h-96 overflow-y-auto">
+                        {filteredActionItems.map((item, index) => (
+                          <Card key={index} className="border-l-4 border-l-blue-500">
+                            <CardContent className="p-4">
+                              <div className="flex items-start justify-between mb-2">
+                                <div className="flex items-center text-xs gap-2">
+                                  Confidence:
+                                  <Badge variant="outline" className="text-xs bg-gray-200">
+                                    {item.confidence}
                                   </Badge>
-                                  <div className="text-xs text-gray-500">
-                                    {formatTimestamp(decision.timestamp_start)} - {formatTimestamp(decision.timestamp_end)}
-                                  </div>
                                 </div>
-                                <p className="text-gray-900 font-medium mb-2">
-                                  {intelligenceSearchQuery && decision.decision ? (
-                                    decision.decision.split(new RegExp(`(${intelligenceSearchQuery})`, 'gi')).map((part: string | number | boolean | React.ReactElement<any, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | null | undefined, i: React.Key | null | undefined) =>
-                                      typeof part === 'string' && part.toLowerCase() === intelligenceSearchQuery.toLowerCase() ? (
-                                        <mark key={i} className="bg-yellow-200 px-1 rounded">
-                                          {part}
-                                        </mark>
-                                      ) : (
-                                        part
-                                      )
+                                <div className="text-xs text-gray-500">
+                                  {formatTimestamp(item.timestamp_start)} - {formatTimestamp(item.timestamp_end)}
+                                </div>
+                              </div>
+                              <p className="text-gray-900 text-sm mb-2">
+                                {actionItemsSearch && item.task ? (
+                                  item.task.split(new RegExp(`(${actionItemsSearch})`, 'gi')).map((part: string | number | boolean | React.ReactElement<any, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | null | undefined, i: React.Key | null | undefined) =>
+                                    typeof part === 'string' && part.toLowerCase() === actionItemsSearch.toLowerCase() ? (
+                                      <mark key={i} className="bg-yellow-200 px-1 rounded">
+                                        {part}
+                                      </mark>
+                                    ) : (
+                                      part
                                     )
-                                  ) : (
-                                    decision.decision
-                                  )}
-                                </p>
-                                {decision.reason && (
-                                  <div className="text-sm text-gray-600 bg-green-50 p-2 rounded">
-                                    <strong>Reason:</strong> {decision.reason}
-                                  </div>
+                                  )
+                                ) : (
+                                  item.task
                                 )}
-                              </CardContent>
-                            </Card>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
-                          {intelligenceSearchQuery || selectedIntelligenceType !== 'all' 
-                            ? 'No decisions match your search criteria' 
-                            : 'No decisions identified'
-                          }
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Issues */}
-                  {(selectedIntelligenceType === 'all' || selectedIntelligenceType === 'issues') && (
-                    <div className="mb-8">
-                      <div className="flex items-center gap-3 mb-4">
-                        <h3 className="text-lg font-semibold text-gray-900">Issues</h3>
-                        <Badge variant="outline">{filteredIntelligenceData.issues.length}</Badge>
-                        {filteredIntelligenceData.issues.length !== (detailedIntelligence?.issues.length || 0) && (
-                          <Badge variant="secondary" className="text-xs">
-                            of {detailedIntelligence?.issues.length || 0} total
-                          </Badge>
-                        )}
-                      </div>
-                      {filteredIntelligenceData.issues.length ? (
-                        <div className="space-y-3">
-                          {filteredIntelligenceData.issues.map((issue, index) => (
-                            <Card key={index} className="border-l-4 border-l-red-500">
-                              <CardContent className="p-4">
-                                <div className="flex items-start justify-between mb-2">
-                                  {/* <div className="flex items-center gap-2">
-                                    <Badge variant={getSeverityVariant(issue.severity)} className="text-xs">
-                                      {issue.severity}
-                                    </Badge>
-                                    <Badge variant={getSeverityVariant(issue.confidence)} className="text-xs">
-                                      Confidence: {issue.confidence}
-                                    </Badge>
-                                  </div> */}
-                                  <div className="text-xs text-gray-500">
-                                    {formatTimestamp(issue.timestamp_start)} - {formatTimestamp(issue.timestamp_end)}
-                                  </div>
-                                </div>
-                                <p className="text-gray-900 font-medium mb-2">
-                                  {intelligenceSearchQuery && issue.issue ? (
-                                    issue.issue.split(new RegExp(`(${intelligenceSearchQuery})`, 'gi')).map((part: string | number | boolean | React.ReactElement<any, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | null | undefined, i: React.Key | null | undefined) =>
-                                      typeof part === 'string' && part.toLowerCase() === intelligenceSearchQuery.toLowerCase() ? (
+                              </p>
+                              {item.assigned_to && (
+                                <p className="text-sm text-gray-600">
+                                  Assigned To: {actionItemsSearch && item.assigned_to.toLowerCase().includes(actionItemsSearch.toLowerCase()) ? (
+                                    item.assigned_to.split(new RegExp(`(${actionItemsSearch})`, 'gi')).map((part: string | number | boolean | React.ReactElement<any, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | null | undefined, i: React.Key | null | undefined) =>
+                                      typeof part === 'string' && part.toLowerCase() === actionItemsSearch.toLowerCase() ? (
                                         <mark key={i} className="bg-yellow-200 px-1 rounded">
                                           {part}
                                         </mark>
@@ -732,95 +668,261 @@ const RecordingDetail: React.FC = () => {
                                       )
                                     )
                                   ) : (
-                                    issue.issue
+                                    item.assigned_to
                                   )}
                                 </p>
-                                {/* {issue.impact && (
-                                  <div className="text-sm text-gray-600 bg-red-50 p-2 rounded">
-                                    <strong>Impact:</strong> {issue.impact}
-                                  </div>
-                                )} */}
-                              </CardContent>
-                            </Card>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
-                          {intelligenceSearchQuery || selectedIntelligenceType !== 'all' 
-                            ? 'No issues match your search criteria' 
-                            : 'No issues identified'
-                          }
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Questions */}
-                  {(selectedIntelligenceType === 'all' || selectedIntelligenceType === 'questions') && (
-                    <div className="mb-8">
-                      <div className="flex items-center gap-3 mb-4">
-                        <h3 className="text-lg font-semibold text-gray-900">Questions</h3>
-                        <Badge variant="outline">{filteredIntelligenceData.questions.length}</Badge>
-                        {filteredIntelligenceData.questions.length !== (detailedIntelligence?.questions.length || 0) && (
-                          <Badge variant="secondary" className="text-xs">
-                            of {detailedIntelligence?.questions.length || 0} total
-                          </Badge>
-                        )}
+                              )}
+                              {item.deadline && (
+                                <p className="text-sm text-gray-600">Due: {new Date(item.deadline).toLocaleDateString()}</p>
+                              )}
+                            </CardContent>
+                          </Card>
+                        ))}
                       </div>
-                      {filteredIntelligenceData.questions.length ? (
-                        <div className="space-y-3">
-                          {filteredIntelligenceData.questions.map((question, index) => (
-                            <Card key={index} className="border-l-4 border-l-yellow-500">
-                              <CardContent className="p-4">
-                                <div className="flex items-start justify-between mb-2">
-                                  {/* <Badge variant={getSeverityVariant(question.confidence)} className="text-xs">
-                                    {Math.round(question.confidence * 100)}% confidence
-                                  </Badge> */}
-                                  <div className="text-xs text-gray-500">
-                                    {formatTimestamp(question.timestamp_start)} - {formatTimestamp(question.timestamp_end)}
-                                  </div>
-                                </div>
-                                <p className="text-gray-900 font-medium mb-2">
-                                  {intelligenceSearchQuery && question.question ? (
-                                    question.question.split(new RegExp(`(${intelligenceSearchQuery})`, 'gi')).map((part: string | number | boolean | React.ReactElement<any, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | null | undefined, i: React.Key | null | undefined) =>
-                                      typeof part === 'string' && part.toLowerCase() === intelligenceSearchQuery.toLowerCase() ? (
-                                        <mark key={i} className="bg-yellow-200 px-1 rounded">
-                                          {part}
-                                        </mark>
-                                      ) : (
-                                        part
-                                      )
-                                    )
-                                  ) : (
-                                    question.question
-                                  )}
-                                </p>
-                                {/* {question.context && (
-                                  <div className="text-sm text-gray-600 bg-yellow-50 p-2 rounded">
-                                    <strong>Context:</strong> {question.context}
-                                  </div>
-                                )} */}
-                                {/* {question.requires_followup && (
-                                  <div className="text-sm text-red-600 font-medium mt-2">
-                                    ⚠️ Requires follow-up
-                                  </div>
-                                )} */}
-                              </CardContent>
-                            </Card>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
-                          {intelligenceSearchQuery || selectedIntelligenceType !== 'all' 
-                            ? 'No questions match your search criteria' 
-                            : 'No questions identified'
-                          }
-                        </div>
-                      )}
+                    ) : (
+                      <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
+                        {actionItemsSearch 
+                          ? 'No action items match your search criteria' 
+                          : 'No action items identified'
+                        }
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+
+                {/* Decisions Tab */}
+                <TabsContent value="decisions" className="space-y-4">
+                  <div className="flex gap-3">
+                    <div className="flex-1">
+                      <Input
+                        placeholder="Search decisions..."
+                        value={decisionsSearch}
+                        onChange={(e) => setDecisionsSearch(e.target.value)}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                  {decisionsSearch && (
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <span>Showing {filteredDecisions.length} of {detailedIntelligence?.decisions.length || 0} decisions</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setDecisionsSearch('')}
+                      >
+                        Clear search
+                      </Button>
                     </div>
                   )}
-                </div>
-              </div>
+                  
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 mb-4">
+                      <h3 className="text-lg font-semibold text-gray-900">Decisions</h3>
+                      <Badge variant="outline">{filteredDecisions.length}</Badge>
+                      {filteredDecisions.length !== (detailedIntelligence?.decisions.length || 0) && (
+                        <Badge variant="secondary" className="text-xs">
+                          of {detailedIntelligence?.decisions.length || 0} total
+                        </Badge>
+                      )}
+                    </div>
+                    {filteredDecisions.length ? (
+                      <div className="space-y-3 max-h-96 overflow-y-auto">
+                        {filteredDecisions.map((decision, index) => (
+                          <Card key={index} className="border-l-4 border-l-green-500">
+                            <CardContent className="p-4">
+                              <div className="flex items-start justify-between mb-2">
+                                <Badge variant={getSeverityVariant(decision.confidence)} className="text-xs">
+                                  {decision.confidence}
+                                </Badge>
+                                <div className="text-xs text-gray-500">
+                                  {formatTimestamp(decision.timestamp_start)} - {formatTimestamp(decision.timestamp_end)}
+                                </div>
+                              </div>
+                              <p className="text-gray-900 text-sm mb-2">
+                                {decisionsSearch && decision.decision ? (
+                                  decision.decision.split(new RegExp(`(${decisionsSearch})`, 'gi')).map((part: string | number | boolean | React.ReactElement<any, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | null | undefined, i: React.Key | null | undefined) =>
+                                    typeof part === 'string' && part.toLowerCase() === decisionsSearch.toLowerCase() ? (
+                                      <mark key={i} className="bg-yellow-200 px-1 rounded">
+                                        {part}
+                                      </mark>
+                                    ) : (
+                                      part
+                                    )
+                                  )
+                                ) : (
+                                  decision.decision
+                                )}
+                              </p>
+                              {decision.reason && (
+                                <div className="text-sm text-gray-600 bg-green-50 p-2 rounded">
+                                  <strong>Reason:</strong> {decision.reason}
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
+                        {decisionsSearch 
+                          ? 'No decisions match your search criteria' 
+                          : 'No decisions identified'
+                        }
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+
+                {/* Issues Tab */}
+                <TabsContent value="issues" className="space-y-4">
+                  <div className="flex gap-3">
+                    <div className="flex-1">
+                      <Input
+                        placeholder="Search issues..."
+                        value={issuesSearch}
+                        onChange={(e) => setIssuesSearch(e.target.value)}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                  {issuesSearch && (
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <span>Showing {filteredIssues.length} of {detailedIntelligence?.issues.length || 0} issues</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setIssuesSearch('')}
+                      >
+                        Clear search
+                      </Button>
+                    </div>
+                  )}
+                  
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 mb-4">
+                      <h3 className="text-lg font-semibold text-gray-900">Issues</h3>
+                      <Badge variant="outline">{filteredIssues.length}</Badge>
+                      {filteredIssues.length !== (detailedIntelligence?.issues.length || 0) && (
+                        <Badge variant="secondary" className="text-xs">
+                          of {detailedIntelligence?.issues.length || 0} total
+                        </Badge>
+                      )}
+                    </div>
+                    {filteredIssues.length ? (
+                      <div className="space-y-3 max-h-96 overflow-y-auto">
+                        {filteredIssues.map((issue, index) => (
+                          <Card key={index} className="border-l-4 border-l-red-500">
+                            <CardContent className="p-4">
+                              <div className="flex items-start justify-between mb-2">
+                                <div className="text-xs text-gray-500">
+                                  {formatTimestamp(issue.timestamp_start)} - {formatTimestamp(issue.timestamp_end)}
+                                </div>
+                              </div>
+                              <p className="text-gray-900 text-sm mb-2">
+                                {issuesSearch && issue.issue ? (
+                                  issue.issue.split(new RegExp(`(${issuesSearch})`, 'gi')).map((part: string | number | boolean | React.ReactElement<any, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | null | undefined, i: React.Key | null | undefined) =>
+                                    typeof part === 'string' && part.toLowerCase() === issuesSearch.toLowerCase() ? (
+                                      <mark key={i} className="bg-yellow-200 px-1 rounded">
+                                        {part}
+                                      </mark>
+                                    ) : (
+                                      part
+                                    )
+                                  )
+                                ) : (
+                                  issue.issue
+                                )}
+                              </p>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
+                        {issuesSearch 
+                          ? 'No issues match your search criteria' 
+                          : 'No issues identified'
+                        }
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+
+                {/* Questions Tab */}
+                <TabsContent value="questions" className="space-y-4">
+                  <div className="flex gap-3">
+                    <div className="flex-1">
+                      <Input
+                        placeholder="Search questions..."
+                        value={questionsSearch}
+                        onChange={(e) => setQuestionsSearch(e.target.value)}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                  {questionsSearch && (
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <span>Showing {filteredQuestions.length} of {detailedIntelligence?.questions.length || 0} questions</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setQuestionsSearch('')}
+                      >
+                        Clear search
+                      </Button>
+                    </div>
+                  )}
+                  
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 mb-4">
+                      <h3 className="text-lg font-semibold text-gray-900">Questions</h3>
+                      <Badge variant="outline">{filteredQuestions.length}</Badge>
+                      {filteredQuestions.length !== (detailedIntelligence?.questions.length || 0) && (
+                        <Badge variant="secondary" className="text-xs">
+                          of {detailedIntelligence?.questions.length || 0} total
+                        </Badge>
+                      )}
+                    </div>
+                    {filteredQuestions.length ? (
+                      <div className="space-y-3 max-h-96 overflow-y-auto">
+                        {filteredQuestions.map((question, index) => (
+                          <Card key={index} className="border-l-4 border-l-yellow-500">
+                            <CardContent className="p-4">
+                              <div className="flex items-start justify-between mb-2">
+                                <div className="text-xs text-gray-500">
+                                  {formatTimestamp(question.timestamp_start)} - {formatTimestamp(question.timestamp_end)}
+                                </div>
+                              </div>
+                              <p className="text-gray-900 text-sm mb-2">
+                                {questionsSearch && question.question ? (
+                                  question.question.split(new RegExp(`(${questionsSearch})`, 'gi')).map((part: string | number | boolean | React.ReactElement<any, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | null | undefined, i: React.Key | null | undefined) =>
+                                    typeof part === 'string' && part.toLowerCase() === questionsSearch.toLowerCase() ? (
+                                      <mark key={i} className="bg-yellow-200 px-1 rounded">
+                                        {part}
+                                      </mark>
+                                    ) : (
+                                      part
+                                    )
+                                  )
+                                ) : (
+                                  question.question
+                                )}
+                              </p>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
+                        {questionsSearch 
+                          ? 'No questions match your search criteria' 
+                          : 'No questions identified'
+                        }
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
         </TabsContent>
