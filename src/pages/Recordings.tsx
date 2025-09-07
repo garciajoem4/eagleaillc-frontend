@@ -80,13 +80,13 @@ const Recordings: React.FC = () => {
   const handleEdit = (id: string) => {
     console.log('Edit recording:', id);
     // Navigate to edit page or open modal (for now, go to detail page)
-    navigate(`/recordings/${id}`);
+    navigate(`/app/recordings/${id}`);
   };
 
   const handleView = (id: string) => {
     console.log('View recording:', id);
     // Navigate to recording detail page using React Router
-    navigate(`/recordings/${id}`);
+    navigate(`/app/recordings/${id}`);
   };
 
   const handleRemove = (id: string) => {

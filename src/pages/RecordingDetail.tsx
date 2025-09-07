@@ -120,7 +120,7 @@ const RecordingDetail: React.FC = () => {
             <CardDescription>The requested recording could not be found.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Link to="/recordings">
+            <Link to="/app/recordings">
               <Button variant="outline">← Back to Recordings</Button>
             </Link>
           </CardContent>
@@ -189,7 +189,7 @@ const RecordingDetail: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="space-y-4">
-        <Link to="/recordings">
+        <Link to="/app/recordings">
           <Button variant="outline">← Back to Recordings</Button>
         </Link>
         <div>
@@ -209,12 +209,46 @@ const RecordingDetail: React.FC = () => {
         <TabsContent value="overview" className="space-y-6">
           {/* Audio Player Section */}
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Recording Information</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div>
+                  <label className="mb-2 text-sm font-medium text-gray-500 block">Audio Playback</label>
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-2 rounded-lg border border-blue-100">
+                    <div className="mb-4">
+                      {/* <h4 className="text-sm font-medium text-gray-700 mb-2">
+                        {sampleTranscriptData.file_name}
+                      </h4> */}
+                      <audio 
+                        controls 
+                        className="w-full h-12"
+                        preload="metadata"
+                        style={{
+                          filter: 'sepia(20%) saturate(70%) hue-rotate(200deg) brightness(1.1)',
+                        }}
+                      >
+                        <source src="/sample-audio.mp3" type="audio/mpeg" />
+                        Your browser does not support the audio element.
+                      </audio>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-3">
+                        <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                          MP3 Audio
+                        </Badge>
+                        {/* <span className="text-gray-600">
+                          Duration: {Math.floor(sampleTranscriptData.duration_seconds / 60)}:{String(Math.floor(sampleTranscriptData.duration_seconds % 60)).padStart(2, '0')}
+                        </span> */}
+                      </div>
+                      <div className="flex items-center gap-2 text-gray-500">
+                        <span className="text-xs">🎧 High Quality</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
                 <div>
                   <label className="text-sm font-medium text-gray-500">Name</label>
                   <p className="text-gray-900">{sampleTranscriptData.file_name.split('.')[0] || ''}</p>
@@ -227,6 +261,7 @@ const RecordingDetail: React.FC = () => {
                   <label className="text-sm font-medium text-gray-500">Duration</label>
                   <Badge variant="secondary">{Math.floor(sampleTranscriptData.duration_seconds / 60)}m {Math.floor(sampleTranscriptData.duration_seconds % 60)}s</Badge>
                 </div>
+                
               </CardContent>
             </Card>
 
@@ -258,73 +293,6 @@ const RecordingDetail: React.FC = () => {
                 )}
               </CardContent>
             </Card>
-
-            <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                Audio Playback
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg border border-blue-100">
-                  <div className="mb-4">
-                    {/* <h4 className="text-sm font-medium text-gray-700 mb-2">
-                      {sampleTranscriptData.file_name}
-                    </h4> */}
-                    <audio 
-                      controls 
-                      className="w-full h-12"
-                      preload="metadata"
-                      style={{
-                        filter: 'sepia(20%) saturate(70%) hue-rotate(200deg) brightness(1.1)',
-                      }}
-                    >
-                      <source src="/sample-audio.mp3" type="audio/mpeg" />
-                      Your browser does not support the audio element.
-                    </audio>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-3">
-                      <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                        MP3 Audio
-                      </Badge>
-                      {/* <span className="text-gray-600">
-                        Duration: {Math.floor(sampleTranscriptData.duration_seconds / 60)}:{String(Math.floor(sampleTranscriptData.duration_seconds % 60)).padStart(2, '0')}
-                      </span> */}
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-500">
-                      <span className="text-xs">🎧 High Quality</span>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Audio Info */}
-                {/* <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <div className="text-lg font-semibold text-gray-900">
-                      {Math.floor(sampleTranscriptData.duration_seconds / 60)}m
-                    </div>
-                    <div className="text-xs text-gray-500">Duration</div>
-                  </div>
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <div className="text-lg font-semibold text-gray-900">MP3</div>
-                    <div className="text-xs text-gray-500">Format</div>
-                  </div>
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <div className="text-lg font-semibold text-gray-900">
-                      {sampleTranscriptData.segments?.length || 0}
-                    </div>
-                    <div className="text-xs text-gray-500">Segments</div>
-                  </div>
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <div className="text-lg font-semibold text-gray-900">✓</div>
-                    <div className="text-xs text-gray-500">Processed</div>
-                  </div>
-                </div> */}
-              </div>
-            </CardContent>
-          </Card>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
