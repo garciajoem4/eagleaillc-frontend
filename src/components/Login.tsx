@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useNavigate, Link } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -10,23 +11,32 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const { login } = useAuth();
+  const navigate = useNavigate();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     
     if (login(username, password)) {
-      // Login successful - context will handle state update
+      // Login successful - redirect to app
+      navigate('/app/dashboard');
     } else {
       setError('Invalid username or password');
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="absolute top-4 left-4">
+        <Link to="/" className="flex items-center text-blue-600 hover:text-blue-800 font-medium">
+          ← Back to Home
+        </Link>
+      </div>
+      
       <Card className="w-full max-w-md bg-white shadow-2xl">
         <CardHeader className="text-center space-y-1">
-          <CardTitle className="text-3xl font-bold">Eagle AI LLC</CardTitle>
+          <CardTitle className="text-3xl font-bold text-gray-900">Eagle AI LLC</CardTitle>
+          <CardDescription className="text-gray-600">Sign in to your account</CardDescription>
         </CardHeader>
         
         <CardContent>
