@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { DetailedIntelligence } from '../types';
 import { sampleIntelligence } from '../data/sampleIntelligence';
@@ -12,7 +12,7 @@ import { Input } from '../components/ui/input';
 const RecordingDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [detailedIntelligence, setDetailedIntelligence] = useState<DetailedIntelligence | null>(null);
-  const [transcriptView, setTranscriptView] = useState<'full' | 'segments'>('full');
+  const [transcriptView, setTranscriptView] = useState<'full' | 'segments'>('segments');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [fullTranscriptSearchQuery, setFullTranscriptSearchQuery] = useState<string>('');
   const [selectedTimeRange, setSelectedTimeRange] = useState<string>('0-10');
@@ -20,6 +20,69 @@ const RecordingDetail: React.FC = () => {
   const [decisionsSearch, setDecisionsSearch] = useState<string>('');
   const [issuesSearch, setIssuesSearch] = useState<string>('');
   const [questionsSearch, setQuestionsSearch] = useState<string>('');
+  
+  // Audio synchronization state
+  const [currentAudioTime, setCurrentAudioTime] = useState<number>(0);
+  const [isAudioPlaying, setIsAudioPlaying] = useState<boolean>(false);
+  const [audioDuration, setAudioDuration] = useState<number>(0);
+  const audioRef = React.useRef<HTMLAudioElement>(null);
+
+  // Utility functions for timestamp handling
+  const parseTimestampToSeconds = useCallback((timestamp: string): number => {
+    const parts = timestamp.split(':');
+    if (parts.length === 3) {
+      const hours = parseInt(parts[0]);
+      const minutes = parseInt(parts[1]);
+      const seconds = parseFloat(parts[2]);
+      return hours * 3600 + minutes * 60 + seconds;
+    }
+    return 0;
+  }, []);
+
+  const isItemActiveAtTime = useCallback((startTimestamp: string, endTimestamp: string, currentTime: number): boolean => {
+    const startTime = parseTimestampToSeconds(startTimestamp);
+    const endTime = parseTimestampToSeconds(endTimestamp);
+    return currentTime >= startTime && currentTime <= endTime;
+  }, [parseTimestampToSeconds]);
+
+  // Audio event handlers
+  useEffect(() => {
+    setTimeout(() => {
+      const audio = audioRef.current;
+      console.log('testing', audio);
+
+      if (!audio) return;
+
+      const handleTimeUpdate = () => {
+        setCurrentAudioTime(audio.currentTime);
+      };
+
+      const handlePlay = () => {
+        console.log('audio is playing');
+        setIsAudioPlaying(true);
+      };
+
+      const handlePause = () => {
+        setIsAudioPlaying(false);
+      };
+
+      const handleLoadedMetadata = () => {
+        setAudioDuration(audio.duration);
+      };
+
+      audio.addEventListener('timeupdate', handleTimeUpdate);
+      audio.addEventListener('play', handlePlay);
+      audio.addEventListener('pause', handlePause);
+      audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+
+      return () => {
+        audio.removeEventListener('timeupdate', handleTimeUpdate);
+        audio.removeEventListener('play', handlePlay);
+        audio.removeEventListener('pause', handlePause);
+        audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      };
+    }, 2000);
+  }, []);
 
   // Get unique speakers for filtering
   // const uniqueSpeakers = useMemo(() => {
@@ -36,8 +99,8 @@ const RecordingDetail: React.FC = () => {
     ranges.push({ value: 'all', label: 'All Time' });
     
     // Add time ranges first (0-10, 10-20, etc.)
-    for (let i = 0; i < totalMinutes; i += 10) {
-      const endMinute = Math.min(i + 10, totalMinutes);
+    for (let i = 0; i < totalMinutes; i += 5) {
+      const endMinute = Math.min(i + 5, totalMinutes);
       ranges.push({
         value: `${i}-${endMinute}`,
         label: `${i}:00 - ${endMinute}:00`
@@ -47,7 +110,7 @@ const RecordingDetail: React.FC = () => {
     return ranges;
   }, []);
 
-  // Filter segments based on search and time range
+  // Filter segments based on search, time range, and audio playback
   const filteredSegments = useMemo(() => {
     if (!sampleTranscriptData.segments) return [];
     
@@ -56,7 +119,15 @@ const RecordingDetail: React.FC = () => {
         segment.text.toLowerCase().includes(searchQuery.toLowerCase());
       
       let matchesTimeRange = true;
-      if (selectedTimeRange !== 'all') {
+      
+      // When audio is playing, filter by 5-minute chunks around current time
+      if (isAudioPlaying && currentAudioTime > 0) {
+        const chunkDuration = 300; // 5 minutes in seconds
+        const chunkStart = Math.floor(currentAudioTime / chunkDuration) * chunkDuration;
+        const chunkEnd = chunkStart + chunkDuration;
+        matchesTimeRange = segment.start >= chunkStart && segment.start < chunkEnd;
+      } else if (selectedTimeRange !== 'all') {
+        // Use dropdown time range when audio is not playing
         const [startMin, endMin] = selectedTimeRange.split('-').map(Number);
         const segmentStartMin = Math.floor(segment.start / 60);
         matchesTimeRange = segmentStartMin >= startMin && segmentStartMin < endMin;
@@ -64,9 +135,17 @@ const RecordingDetail: React.FC = () => {
       
       return matchesSearch && matchesTimeRange;
     });
-  }, [searchQuery, selectedTimeRange]);
+  }, [searchQuery, selectedTimeRange, isAudioPlaying, currentAudioTime]);
 
-  // Filter intelligence data based on search and type
+  // Get currently active segment based on audio time
+  const currentActiveSegment = useMemo(() => {
+    if (!sampleTranscriptData.segments || !isAudioPlaying) return null;
+    return sampleTranscriptData.segments.find(segment => 
+      currentAudioTime >= segment.start && currentAudioTime <= segment.end
+    );
+  }, [currentAudioTime, isAudioPlaying]);
+
+  // Filter intelligence data based on search and type with audio synchronization
   const filteredActionItems = useMemo(() => {
     if (!detailedIntelligence?.action_items) return [];
     return detailedIntelligence.action_items.filter(item => {
@@ -103,6 +182,31 @@ const RecordingDetail: React.FC = () => {
         question.question?.toLowerCase().includes(searchText);
     });
   }, [questionsSearch, detailedIntelligence]);
+
+  // Get currently active intelligence items based on audio time
+  const currentActiveItems = useMemo(() => {
+    if (!isAudioPlaying || !detailedIntelligence) return {
+      actionItems: [],
+      decisions: [],
+      issues: [],
+      questions: []
+    };
+
+    return {
+      actionItems: detailedIntelligence.action_items.filter(item => 
+        isItemActiveAtTime(item.timestamp_start, item.timestamp_end, currentAudioTime)
+      ),
+      decisions: detailedIntelligence.decisions.filter(decision => 
+        isItemActiveAtTime(decision.timestamp_start, decision.timestamp_end, currentAudioTime)
+      ),
+      issues: detailedIntelligence.issues.filter(issue => 
+        isItemActiveAtTime(issue.timestamp_start, issue.timestamp_end, currentAudioTime)
+      ),
+      questions: detailedIntelligence.questions.filter(question => 
+        isItemActiveAtTime(question.timestamp_start, question.timestamp_end, currentAudioTime)
+      )
+    };
+  }, [currentAudioTime, isAudioPlaying, detailedIntelligence, isItemActiveAtTime]);
 
   useEffect(() => {
     // Load sample intelligence data for demonstration
@@ -199,10 +303,9 @@ const RecordingDetail: React.FC = () => {
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="transcript">Transcript</TabsTrigger>
-          <TabsTrigger value="intelligence">Intelligence</TabsTrigger>
+          <TabsTrigger value="automations">Automations</TabsTrigger>
           <TabsTrigger value="exports">Exports</TabsTrigger>
         </TabsList>
 
@@ -230,7 +333,7 @@ const RecordingDetail: React.FC = () => {
                           filter: 'sepia(20%) saturate(70%) hue-rotate(200deg) brightness(1.1)',
                         }}
                       >
-                        <source src="/sample-audio.mp3" type="audio/mpeg" />
+                        <source src="/july_12_2022_audio.mp3" type="audio/mpeg" />
                         Your browser does not support the audio element.
                       </audio>
                     </div>
@@ -364,533 +467,712 @@ const RecordingDetail: React.FC = () => {
           )}
         </TabsContent>
 
-        <TabsContent value="transcript" className="space-y-6">
+        <TabsContent value="automations" className="space-y-6">
           <Card>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle className="text-lg">Transcript</CardTitle>
-              </div>
-              <CardDescription>
-                Duration: {Math.floor(sampleTranscriptData.duration_seconds / 60)}m {Math.floor(sampleTranscriptData.duration_seconds % 60)}s
-                {sampleTranscriptData.segments && ` • ${sampleTranscriptData.segments.length} segments`}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {/* Transcript View Toggle */}
-              <div className="mb-4">
-                <div className="flex space-x-2">
-                  <Button 
-                    size="sm" 
-                    variant={transcriptView === 'full' ? 'default' : 'outline'}
-                    onClick={() => setTranscriptView('full')}
-                  >
-                    Full Text
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant={transcriptView === 'segments' ? 'default' : 'outline'}
-                    onClick={() => setTranscriptView('segments')}
-                  >
-                    Segments
-                  </Button>
-                </div>
-              </div>
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Tabs defaultValue="transcript" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="transcript">Transcript</TabsTrigger>
+                    <TabsTrigger value="intelligence">Intelligence</TabsTrigger>
+                  </TabsList>
 
-              {/* Search and Filter Controls (only show for segments view) */}
-              {transcriptView === 'segments' && (
-                <div className="mb-4 space-y-3">
-                  <div className="flex gap-3">
-                    <div className="flex-1">
-                      <Input
-                        placeholder="Search transcript..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full"
-                      />
-                    </div>
-                    <div className="min-w-[150px]">
-                      <select
-                        value={selectedTimeRange}
-                        onChange={(e) => setSelectedTimeRange(e.target.value)}
-                        className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        {timeRangeOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  {(searchQuery || selectedTimeRange !== 'all') && (
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <span>Showing {filteredSegments.length} of {sampleTranscriptData.segments?.length || 0} segments</span>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setSearchQuery('');
-                          setSelectedTimeRange('0-10');
+                  <TabsContent value="transcript" className="space-y-6 mt-6">
+                    <Card>
+                      <CardHeader>
+                        <div className="flex justify-between items-center">
+                          <CardTitle className="text-lg">Transcript</CardTitle>
+                        </div>
+                        <CardDescription>
+                          Duration: {Math.floor(sampleTranscriptData.duration_seconds / 60)}m {Math.floor(sampleTranscriptData.duration_seconds % 60)}s
+                          {sampleTranscriptData.segments && ` • ${sampleTranscriptData.segments.length} segments`}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        {/* Transcript View Toggle */}
+                        <div className="mb-4">
+                          <div className="flex space-x-2">
+                            <Button 
+                              size="sm" 
+                              variant={transcriptView === 'full' ? 'default' : 'outline'}
+                              onClick={() => setTranscriptView('full')}
+                            >
+                              Full Text
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant={transcriptView === 'segments' ? 'default' : 'outline'}
+                              onClick={() => setTranscriptView('segments')}
+                            >
+                              Segments
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Search and Filter Controls (only show for segments view) */}
+                        {transcriptView === 'segments' && (
+                          <div className="mb-4 space-y-3">
+                            <div className="flex gap-3">
+                              <div className="flex-1">
+                                <Input
+                                  placeholder="Search transcript..."
+                                  value={searchQuery}
+                                  onChange={(e) => setSearchQuery(e.target.value)}
+                                  className="w-full"
+                                />
+                              </div>
+                              <div className="min-w-[150px]">
+                                <select
+                                  value={selectedTimeRange}
+                                  onChange={(e) => setSelectedTimeRange(e.target.value)}
+                                  className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  disabled={isAudioPlaying}
+                                >
+                                  {timeRangeOptions.map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+                            
+                            {/* Audio-based filtering indicator */}
+                            {isAudioPlaying && currentAudioTime > 0 && (
+                              <div className="flex items-center gap-2 text-sm bg-blue-50 p-2 rounded-lg border border-blue-200">
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="default" className="bg-blue-100 text-blue-800">
+                                    Showing 5-min chunk: {Math.floor(Math.floor(currentAudioTime / 300) * 300 / 60)}:00 - {Math.floor((Math.floor(currentAudioTime / 300) * 300 + 300) / 60)}:00
+                                  </Badge>
+                                  <span className="text-blue-600">({filteredSegments.length} segments)</span>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {(searchQuery || (selectedTimeRange !== 'all' && !isAudioPlaying)) && (
+                              <div className="flex items-center gap-2 text-sm text-gray-600">
+                                <span>Showing {filteredSegments.length} of {sampleTranscriptData.segments?.length || 0} segments</span>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setSearchQuery('');
+                                    setSelectedTimeRange('0-10');
+                                  }}
+                                >
+                                  Clear filters
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Search Control for Full Transcript View */}
+                        {transcriptView === 'full' && (
+                          <div className="mb-4 space-y-3">
+                            <div className="flex gap-3">
+                              <div className="flex-1">
+                                <Input
+                                  placeholder="Search full transcript..."
+                                  value={fullTranscriptSearchQuery}
+                                  onChange={(e) => setFullTranscriptSearchQuery(e.target.value)}
+                                  className="w-full"
+                                />
+                              </div>
+                            </div>
+                            {fullTranscriptSearchQuery && (
+                              <div className="flex items-center gap-2 text-sm text-gray-600">
+                                <span>Searching for: "{fullTranscriptSearchQuery}"</span>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => setFullTranscriptSearchQuery('')}
+                                >
+                                  Clear search
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {transcriptView === 'full' ? (
+                          <div className="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
+                            <p className="text-gray-700 whitespace-pre-wrap">
+                              {sampleTranscriptData.full_transcription ? (
+                                renderHighlightedText(sampleTranscriptData.full_transcription, fullTranscriptSearchQuery)
+                              ) : (
+                                'Transcript not available yet. Processing may still be in progress.'
+                              )}
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-3 max-h-96 overflow-y-auto">
+                            {filteredSegments.length > 0 ? filteredSegments.map((segment, index) => {
+                              const isCurrentlyActive = currentActiveSegment?.start === segment.start && currentActiveSegment?.end === segment.end;
+                              return (
+                                <div 
+                                  key={index} 
+                                  className={`flex gap-4 p-3 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer ${
+                                    isCurrentlyActive 
+                                      ? 'bg-blue-50 border-l-4 border-l-blue-500 shadow-md' 
+                                      : 'bg-gray-50'
+                                  }`}
+                                >
+                                  <div className="flex-shrink-0 text-right min-w-[95px]">
+                                    <div className={`text-xs font-mono mb-1 ${
+                                      isCurrentlyActive ? 'text-blue-600 font-bold' : 'text-gray-500'
+                                    }`}>
+                                      {formatSegmentTime(segment.start)} - {formatSegmentTime(segment.end)}
+                                    </div>
+                                    {isCurrentlyActive && (
+                                      <Badge variant="default" className="text-xs bg-blue-100 text-blue-800">
+                                        Playing
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <div className="flex-1">
+                                    <p className={`leading-relaxed ${
+                                      isCurrentlyActive ? 'text-blue-900 font-medium' : 'text-gray-900'
+                                    }`}>
+                                      {searchQuery ? (
+                                        segment.text.split(new RegExp(`(${searchQuery})`, 'gi')).map((part, i) =>
+                                          part.toLowerCase() === searchQuery.toLowerCase() ? (
+                                            <mark key={i} className="bg-yellow-200 px-1 rounded">
+                                              {part}
+                                            </mark>
+                                          ) : (
+                                            part
+                                          )
+                                        )
+                                      ) : (
+                                        segment.text
+                                      )}
+                                    </p>
+                                    <div className="flex items-center gap-2 mt-2">
+                                      <span className={`text-xs ${
+                                        isCurrentlyActive ? 'text-blue-600' : 'text-gray-500'
+                                      }`}>
+                                        Duration: {Math.round((segment.end - segment.start) * 10) / 10}s
+                                      </span>
+                                      {isCurrentlyActive && (
+                                        <span className="text-xs text-blue-600">
+                                          🎵 Currently playing
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            }) : (
+                              <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
+                                {searchQuery || selectedTimeRange !== 'all' 
+                                  ? 'No segments match your search criteria' 
+                                  : 'No segments available'
+                                }
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  <TabsContent value="intelligence" className="space-y-6 mt-6">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">AI Intelligence Analysis</CardTitle>
+                        <CardDescription>
+                          Search and filter through AI-generated insights from your recording
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <Tabs defaultValue="action-items" className="w-full">
+                          <TabsList className="grid w-full grid-cols-4">
+                            <TabsTrigger value="action-items">Action Items</TabsTrigger>
+                            <TabsTrigger value="decisions">Decisions</TabsTrigger>
+                            <TabsTrigger value="issues">Issues</TabsTrigger>
+                            <TabsTrigger value="questions">Questions</TabsTrigger>
+                          </TabsList>
+
+                          {/* Action Items Tab */}
+                          <TabsContent value="action-items" className="space-y-4">
+                            <div className="flex gap-3">
+                              <div className="flex-1">
+                                <Input
+                                  placeholder="Search action items..."
+                                  value={actionItemsSearch}
+                                  onChange={(e) => setActionItemsSearch(e.target.value)}
+                                  className="w-full"
+                                />
+                              </div>
+                            </div>
+                            {actionItemsSearch && (
+                              <div className="flex items-center gap-2 text-sm text-gray-600">
+                                <span>Showing {filteredActionItems.length} of {detailedIntelligence?.action_items.length || 0} action items</span>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => setActionItemsSearch('')}
+                                >
+                                  Clear search
+                                </Button>
+                              </div>
+                            )}
+                            
+                            <div className="space-y-3">
+                              <div className="flex items-center gap-3 mb-4">
+                                <h3 className="text-lg font-semibold text-gray-900">Action Items</h3>
+                                <Badge variant="outline">{filteredActionItems.length}</Badge>
+                                {filteredActionItems.length !== (detailedIntelligence?.action_items.length || 0) && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    of {detailedIntelligence?.action_items.length || 0} total
+                                  </Badge>
+                                )}
+                              </div>
+                              {filteredActionItems.length ? (
+                                <div className="space-y-3 max-h-96 overflow-y-auto">
+                                  {filteredActionItems.map((item, index) => {
+                                    const isCurrentlyActive = currentActiveItems.actionItems.some(activeItem => 
+                                      activeItem.timestamp_start === item.timestamp_start && 
+                                      activeItem.timestamp_end === item.timestamp_end
+                                    );
+                                    return (
+                                      <Card key={index} className={`border-l-4 ${
+                                        isCurrentlyActive 
+                                          ? 'border-l-blue-500 bg-blue-50 shadow-md' 
+                                          : 'border-l-blue-500'
+                                      }`}>
+                                        <CardContent className="p-4">
+                                          <div className="flex items-start justify-between mb-2">
+                                            <div className="flex items-center text-xs gap-2">
+                                              Confidence:
+                                              <Badge variant="outline" className="text-xs bg-gray-200">
+                                                {item.confidence}
+                                              </Badge>
+                                              {isCurrentlyActive && (
+                                                <Badge variant="default" className="text-xs bg-blue-100 text-blue-800">
+                                                  Active Now
+                                                </Badge>
+                                              )}
+                                            </div>
+                                            <div className={`text-xs ${
+                                              isCurrentlyActive ? 'text-blue-600 font-bold' : 'text-gray-500'
+                                            }`}>
+                                              {/* {formatTimestamp(item.timestamp_start)} - {formatTimestamp(item.timestamp_end)} */}
+                                              {formatTimestamp(item.timestamp_start)}
+                                            </div>
+                                          </div>
+                                          <p className={`text-sm mb-2 ${
+                                            isCurrentlyActive ? 'text-blue-900 font-medium' : 'text-gray-900'
+                                          }`}>
+                                            {actionItemsSearch && item.task ? (
+                                              item.task.split(new RegExp(`(${actionItemsSearch})`, 'gi')).map((part: string | number | boolean | React.ReactElement<any, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | null | undefined, i: React.Key | null | undefined) =>
+                                                typeof part === 'string' && part.toLowerCase() === actionItemsSearch.toLowerCase() ? (
+                                                  <mark key={i} className="bg-yellow-200 px-1 rounded">
+                                                    {part}
+                                                  </mark>
+                                                ) : (
+                                                  part
+                                                )
+                                              )
+                                            ) : (
+                                              item.task
+                                            )}
+                                          </p>
+                                          {item.assigned_to && (
+                                            <p className={`text-sm ${
+                                              isCurrentlyActive ? 'text-blue-700' : 'text-gray-600'
+                                            }`}>
+                                              Assigned To: {actionItemsSearch && item.assigned_to.toLowerCase().includes(actionItemsSearch.toLowerCase()) ? (
+                                                item.assigned_to.split(new RegExp(`(${actionItemsSearch})`, 'gi')).map((part: string | number | boolean | React.ReactElement<any, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | null | undefined, i: React.Key | null | undefined) =>
+                                                  typeof part === 'string' && part.toLowerCase() === actionItemsSearch.toLowerCase() ? (
+                                                    <mark key={i} className="bg-yellow-200 px-1 rounded">
+                                                      {part}
+                                                    </mark>
+                                                  ) : (
+                                                    part
+                                                  )
+                                                )
+                                              ) : (
+                                                item.assigned_to
+                                              )}
+                                            </p>
+                                          )}
+                                          {item.deadline && (
+                                            <p className={`text-sm ${
+                                              isCurrentlyActive ? 'text-blue-700' : 'text-gray-600'
+                                            }`}>Due: {new Date(item.deadline).toLocaleDateString()}</p>
+                                          )}
+                                        </CardContent>
+                                      </Card>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
+                                  {actionItemsSearch 
+                                    ? 'No action items match your search criteria' 
+                                    : 'No action items identified'
+                                  }
+                                </div>
+                              )}
+                            </div>
+                          </TabsContent>
+
+                          {/* Decisions Tab */}
+                          <TabsContent value="decisions" className="space-y-4">
+                            <div className="flex gap-3">
+                              <div className="flex-1">
+                                <Input
+                                  placeholder="Search decisions..."
+                                  value={decisionsSearch}
+                                  onChange={(e) => setDecisionsSearch(e.target.value)}
+                                  className="w-full"
+                                />
+                              </div>
+                            </div>
+                            {decisionsSearch && (
+                              <div className="flex items-center gap-2 text-sm text-gray-600">
+                                <span>Showing {filteredDecisions.length} of {detailedIntelligence?.decisions.length || 0} decisions</span>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => setDecisionsSearch('')}
+                                >
+                                  Clear search
+                                </Button>
+                              </div>
+                            )}
+                            
+                            <div className="space-y-3">
+                              <div className="flex items-center gap-3 mb-4">
+                                <h3 className="text-lg font-semibold text-gray-900">Decisions</h3>
+                                <Badge variant="outline">{filteredDecisions.length}</Badge>
+                                {filteredDecisions.length !== (detailedIntelligence?.decisions.length || 0) && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    of {detailedIntelligence?.decisions.length || 0} total
+                                  </Badge>
+                                )}
+                              </div>
+                              {filteredDecisions.length ? (
+                                <div className="space-y-3 max-h-96 overflow-y-auto">
+                                  {filteredDecisions.map((decision, index) => {
+                                    const isCurrentlyActive = currentActiveItems.decisions.some(activeDecision => 
+                                      activeDecision.timestamp_start === decision.timestamp_start && 
+                                      activeDecision.timestamp_end === decision.timestamp_end
+                                    );
+                                    return (
+                                      <Card key={index} className={`border-l-4 ${
+                                        isCurrentlyActive 
+                                          ? 'border-l-green-500 bg-green-50 shadow-md' 
+                                          : 'border-l-green-500'
+                                      }`}>
+                                        <CardContent className="p-4">
+                                          <div className="flex items-start justify-between mb-2">
+                                            <div className="flex items-center gap-2">
+                                              <Badge variant={getSeverityVariant(decision.confidence)} className="text-xs">
+                                                {decision.confidence}
+                                              </Badge>
+                                              {isCurrentlyActive && (
+                                                <Badge variant="default" className="text-xs bg-green-100 text-green-800">
+                                                  Active Now
+                                                </Badge>
+                                              )}
+                                            </div>
+                                            <div className={`text-xs ${
+                                              isCurrentlyActive ? 'text-green-600 font-bold' : 'text-gray-500'
+                                            }`}>
+                                              {/* {formatTimestamp(decision.timestamp_start)} - {formatTimestamp(decision.timestamp_end)} */}
+                                              {formatTimestamp(decision.timestamp_start)}
+                                            </div>
+                                          </div>
+                                          <p className={`text-sm mb-2 ${
+                                            isCurrentlyActive ? 'text-green-900 font-medium' : 'text-gray-900'
+                                          }`}>
+                                            {decisionsSearch && decision.decision ? (
+                                              decision.decision.split(new RegExp(`(${decisionsSearch})`, 'gi')).map((part: string | number | boolean | React.ReactElement<any, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | null | undefined, i: React.Key | null | undefined) =>
+                                                typeof part === 'string' && part.toLowerCase() === decisionsSearch.toLowerCase() ? (
+                                                  <mark key={i} className="bg-yellow-200 px-1 rounded">
+                                                    {part}
+                                                  </mark>
+                                                ) : (
+                                                  part
+                                                )
+                                              )
+                                            ) : (
+                                              decision.decision
+                                            )}
+                                          </p>
+                                          {decision.reason && (
+                                            <div className={`text-sm p-2 rounded ${
+                                              isCurrentlyActive 
+                                                ? 'text-green-700 bg-green-100' 
+                                                : 'text-gray-600 bg-green-50'
+                                            }`}>
+                                              <strong>Reason:</strong> {decision.reason}
+                                            </div>
+                                          )}
+                                        </CardContent>
+                                      </Card>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
+                                  {decisionsSearch 
+                                    ? 'No decisions match your search criteria' 
+                                    : 'No decisions identified'
+                                  }
+                                </div>
+                              )}
+                            </div>
+                          </TabsContent>
+
+                          {/* Issues Tab */}
+                          <TabsContent value="issues" className="space-y-4">
+                            <div className="flex gap-3">
+                              <div className="flex-1">
+                                <Input
+                                  placeholder="Search issues..."
+                                  value={issuesSearch}
+                                  onChange={(e) => setIssuesSearch(e.target.value)}
+                                  className="w-full"
+                                />
+                              </div>
+                            </div>
+                            {issuesSearch && (
+                              <div className="flex items-center gap-2 text-sm text-gray-600">
+                                <span>Showing {filteredIssues.length} of {detailedIntelligence?.issues.length || 0} issues</span>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => setIssuesSearch('')}
+                                >
+                                  Clear search
+                                </Button>
+                              </div>
+                            )}
+                            
+                            <div className="space-y-3">
+                              <div className="flex items-center gap-3 mb-4">
+                                <h3 className="text-lg font-semibold text-gray-900">Issues</h3>
+                                <Badge variant="outline">{filteredIssues.length}</Badge>
+                                {filteredIssues.length !== (detailedIntelligence?.issues.length || 0) && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    of {detailedIntelligence?.issues.length || 0} total
+                                  </Badge>
+                                )}
+                              </div>
+                              {filteredIssues.length ? (
+                                <div className="space-y-3 max-h-96 overflow-y-auto">
+                                  {filteredIssues.map((issue, index) => {
+                                    const isCurrentlyActive = currentActiveItems.issues.some(activeIssue => 
+                                      activeIssue.timestamp_start === issue.timestamp_start && 
+                                      activeIssue.timestamp_end === issue.timestamp_end
+                                    );
+                                    return (
+                                      <Card key={index} className={`border-l-4 ${
+                                        isCurrentlyActive 
+                                          ? 'border-l-red-500 bg-red-50 shadow-md' 
+                                          : 'border-l-red-500'
+                                      }`}>
+                                        <CardContent className="p-4">
+                                          <div className="flex items-start justify-between mb-2">
+                                            {isCurrentlyActive && (
+                                              <Badge variant="default" className="text-xs bg-red-100 text-red-800">
+                                                Active Now
+                                              </Badge>
+                                            )}
+                                            <div className={`text-xs ${
+                                              isCurrentlyActive ? 'text-red-600 font-bold' : 'text-gray-500'
+                                            }`}>
+                                              {/* {formatTimestamp(issue.timestamp_start)} - {formatTimestamp(issue.timestamp_end)} */}
+                                              {formatTimestamp(issue.timestamp_start)}
+                                            </div>
+                                          </div>
+                                          <p className={`text-sm mb-2 ${
+                                            isCurrentlyActive ? 'text-red-900 font-medium' : 'text-gray-900'
+                                          }`}>
+                                            {issuesSearch && issue.issue ? (
+                                              issue.issue.split(new RegExp(`(${issuesSearch})`, 'gi')).map((part: string | number | boolean | React.ReactElement<any, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | null | undefined, i: React.Key | null | undefined) =>
+                                                typeof part === 'string' && part.toLowerCase() === issuesSearch.toLowerCase() ? (
+                                                  <mark key={i} className="bg-yellow-200 px-1 rounded">
+                                                    {part}
+                                                  </mark>
+                                                ) : (
+                                                  part
+                                                )
+                                              )
+                                            ) : (
+                                              issue.issue
+                                            )}
+                                          </p>
+                                        </CardContent>
+                                      </Card>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
+                                  {issuesSearch 
+                                    ? 'No issues match your search criteria' 
+                                    : 'No issues identified'
+                                  }
+                                </div>
+                              )}
+                            </div>
+                          </TabsContent>
+
+                          {/* Questions Tab */}
+                          <TabsContent value="questions" className="space-y-4">
+                            <div className="flex gap-3">
+                              <div className="flex-1">
+                                <Input
+                                  placeholder="Search questions..."
+                                  value={questionsSearch}
+                                  onChange={(e) => setQuestionsSearch(e.target.value)}
+                                  className="w-full"
+                                />
+                              </div>
+                            </div>
+                            {questionsSearch && (
+                              <div className="flex items-center gap-2 text-sm text-gray-600">
+                                <span>Showing {filteredQuestions.length} of {detailedIntelligence?.questions.length || 0} questions</span>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => setQuestionsSearch('')}
+                                >
+                                  Clear search
+                                </Button>
+                              </div>
+                            )}
+                            
+                            <div className="space-y-3">
+                              <div className="flex items-center gap-3 mb-4">
+                                <h3 className="text-lg font-semibold text-gray-900">Questions</h3>
+                                <Badge variant="outline">{filteredQuestions.length}</Badge>
+                                {filteredQuestions.length !== (detailedIntelligence?.questions.length || 0) && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    of {detailedIntelligence?.questions.length || 0} total
+                                  </Badge>
+                                )}
+                              </div>
+                              {filteredQuestions.length ? (
+                                <div className="space-y-3 max-h-96 overflow-y-auto">
+                                  {filteredQuestions.map((question, index) => {
+                                    const isCurrentlyActive = currentActiveItems.questions.some(activeQuestion => 
+                                      activeQuestion.timestamp_start === question.timestamp_start && 
+                                      activeQuestion.timestamp_end === question.timestamp_end
+                                    );
+                                    return (
+                                      <Card key={index} className={`border-l-4 ${
+                                        isCurrentlyActive 
+                                          ? 'border-l-yellow-500 bg-yellow-50 shadow-md' 
+                                          : 'border-l-yellow-500'
+                                      }`}>
+                                        <CardContent className="p-4">
+                                          <div className="flex items-start justify-between mb-2">
+                                            {isCurrentlyActive && (
+                                              <Badge variant="default" className="text-xs bg-yellow-100 text-yellow-800">
+                                                Active Now
+                                              </Badge>
+                                            )}
+                                            <div className={`text-xs ${
+                                              isCurrentlyActive ? 'text-yellow-600 font-bold' : 'text-gray-500'
+                                            }`}>
+                                              {/* {formatTimestamp(question.timestamp_start)} - {formatTimestamp(question.timestamp_end)} */}
+                                              {formatTimestamp(question.timestamp_start)}
+                                            </div>
+                                          </div>
+                                          <p className={`text-sm mb-2 ${
+                                            isCurrentlyActive ? 'text-yellow-900 font-medium' : 'text-gray-900'
+                                          }`}>
+                                            {questionsSearch && question.question ? (
+                                              question.question.split(new RegExp(`(${questionsSearch})`, 'gi')).map((part: string | number | boolean | React.ReactElement<any, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | null | undefined, i: React.Key | null | undefined) =>
+                                                typeof part === 'string' && part.toLowerCase() === questionsSearch.toLowerCase() ? (
+                                                  <mark key={i} className="bg-yellow-200 px-1 rounded">
+                                                    {part}
+                                                  </mark>
+                                                ) : (
+                                                  part
+                                                )
+                                              )
+                                            ) : (
+                                              question.question
+                                            )}
+                                          </p>
+                                        </CardContent>
+                                      </Card>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
+                                  {questionsSearch 
+                                    ? 'No questions match your search criteria' 
+                                    : 'No questions identified'
+                                  }
+                                </div>
+                              )}
+                            </div>
+                          </TabsContent>
+                        </Tabs>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                </Tabs>
+                <div>
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 mb-6 p-2 rounded-lg border border-blue-100">
+                    <div className="mb-4">
+                      {/* <h4 className="text-sm font-medium text-gray-700 mb-2">
+                        {sampleTranscriptData.file_name}
+                      </h4> */}
+                      <audio 
+                        ref={audioRef}
+                        controls 
+                        className="w-full h-12"
+                        preload="metadata"
+                        style={{
+                          filter: 'sepia(20%) saturate(70%) hue-rotate(200deg) brightness(1.1)',
                         }}
                       >
-                        Clear filters
-                      </Button>
+                        <source src="/july_12_2022_audio.mp3" type="audio/mpeg" />
+                        Your browser does not support the audio element.
+                      </audio>
                     </div>
-                  )}
-                </div>
-              )}
-
-              {/* Search Control for Full Transcript View */}
-              {transcriptView === 'full' && (
-                <div className="mb-4 space-y-3">
-                  <div className="flex gap-3">
-                    <div className="flex-1">
-                      <Input
-                        placeholder="Search full transcript..."
-                        value={fullTranscriptSearchQuery}
-                        onChange={(e) => setFullTranscriptSearchQuery(e.target.value)}
-                        className="w-full"
-                      />
-                    </div>
-                  </div>
-                  {fullTranscriptSearchQuery && (
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <span>Searching for: "{fullTranscriptSearchQuery}"</span>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setFullTranscriptSearchQuery('')}
-                      >
-                        Clear search
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {transcriptView === 'full' ? (
-                <div className="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
-                  <p className="text-gray-700 whitespace-pre-wrap">
-                    {sampleTranscriptData.full_transcription ? (
-                      renderHighlightedText(sampleTranscriptData.full_transcription, fullTranscriptSearchQuery)
-                    ) : (
-                      'Transcript not available yet. Processing may still be in progress.'
-                    )}
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {filteredSegments.length > 0 ? filteredSegments.map((segment, index) => (
-                    <div 
-                      key={index} 
-                      className="flex gap-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
-                    >
-                      <div className="flex-shrink-0 text-right min-w-[95px]">
-                        <div className="text-xs font-mono text-gray-500 mb-1">
-                          {formatSegmentTime(segment.start)} - {formatSegmentTime(segment.end)}
-                        </div>
-                        {/* {segment.speaker && (
-                          <Badge variant="outline" className="text-xs">
-                            {segment.speaker}
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-3">
+                        <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                          MP3 Audio
+                        </Badge>
+                        {isAudioPlaying && (
+                          <Badge variant="default" className="bg-green-100 text-green-800">
+                            Playing: {Math.floor(currentAudioTime / 60)}:{String(Math.floor(currentAudioTime % 60)).padStart(2, '0')}
                           </Badge>
-                        )} */}
+                        )}
                       </div>
-                      <div className="flex-1">
-                        <p className="text-gray-900 leading-relaxed">
-                          {searchQuery ? (
-                            segment.text.split(new RegExp(`(${searchQuery})`, 'gi')).map((part, i) =>
-                              part.toLowerCase() === searchQuery.toLowerCase() ? (
-                                <mark key={i} className="bg-yellow-200 px-1 rounded">
-                                  {part}
-                                </mark>
-                              ) : (
-                                part
-                              )
-                            )
-                          ) : (
-                            segment.text
-                          )}
-                        </p>
-                        <div className="flex items-center gap-2 mt-2">
-                          {/* {segment.confidence && (
-                            <Badge 
-                              variant={segment.confidence >= 0.9 ? 'default' : segment.confidence >= 0.7 ? 'secondary' : 'destructive'} 
-                              className="text-xs"
-                            >
-                              {Math.round(segment.confidence * 100)}% confidence
-                            </Badge>
-                          )} */}
-                          <span className="text-xs text-gray-500">
-                            Duration: {Math.round((segment.end - segment.start) * 10) / 10}s
-                          </span>
-                        </div>
+                      <div className="flex items-center gap-2 text-gray-500">
+                        <span className="text-xs">🎧 High Quality</span>
                       </div>
                     </div>
-                  )) : (
-                    <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
-                      {searchQuery || selectedTimeRange !== 'all' 
-                        ? 'No segments match your search criteria' 
-                        : 'No segments available'
-                      }
+                  </div>
+                  <div className="mb-6">
+                    <CardTitle className="text-lg mb-4">Executive Summary</CardTitle>
+                    <p className="text-gray-700 mb-4">
+                      {detailedIntelligence?.executive_summary || 'No summary available.'}
+                    </p>
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg mb-4">Key Topics</CardTitle>
+                    <div className="flex flex-wrap gap-2">
+                      {(detailedIntelligence?.key_topics || []).map((topic: string, index: number) => (
+                        <Badge key={index} variant="secondary">{topic}</Badge>
+                      ))}
                     </div>
-                  )}
+                  </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="intelligence" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">AI Intelligence Analysis</CardTitle>
-              <CardDescription>
-                Search and filter through AI-generated insights from your recording
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Tabs defaultValue="action-items" className="w-full">
-                <TabsList className="grid w-full grid-cols-4">
-                  <TabsTrigger value="action-items">Action Items</TabsTrigger>
-                  <TabsTrigger value="decisions">Decisions</TabsTrigger>
-                  <TabsTrigger value="issues">Issues</TabsTrigger>
-                  <TabsTrigger value="questions">Questions</TabsTrigger>
-                </TabsList>
-
-                {/* Action Items Tab */}
-                <TabsContent value="action-items" className="space-y-4">
-                  <div className="flex gap-3">
-                    <div className="flex-1">
-                      <Input
-                        placeholder="Search action items..."
-                        value={actionItemsSearch}
-                        onChange={(e) => setActionItemsSearch(e.target.value)}
-                        className="w-full"
-                      />
-                    </div>
-                  </div>
-                  {actionItemsSearch && (
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <span>Showing {filteredActionItems.length} of {detailedIntelligence?.action_items.length || 0} action items</span>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setActionItemsSearch('')}
-                      >
-                        Clear search
-                      </Button>
-                    </div>
-                  )}
-                  
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3 mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900">Action Items</h3>
-                      <Badge variant="outline">{filteredActionItems.length}</Badge>
-                      {filteredActionItems.length !== (detailedIntelligence?.action_items.length || 0) && (
-                        <Badge variant="secondary" className="text-xs">
-                          of {detailedIntelligence?.action_items.length || 0} total
-                        </Badge>
-                      )}
-                    </div>
-                    {filteredActionItems.length ? (
-                      <div className="space-y-3 max-h-96 overflow-y-auto">
-                        {filteredActionItems.map((item, index) => (
-                          <Card key={index} className="border-l-4 border-l-blue-500">
-                            <CardContent className="p-4">
-                              <div className="flex items-start justify-between mb-2">
-                                <div className="flex items-center text-xs gap-2">
-                                  Confidence:
-                                  <Badge variant="outline" className="text-xs bg-gray-200">
-                                    {item.confidence}
-                                  </Badge>
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                  {formatTimestamp(item.timestamp_start)} - {formatTimestamp(item.timestamp_end)}
-                                </div>
-                              </div>
-                              <p className="text-gray-900 text-sm mb-2">
-                                {actionItemsSearch && item.task ? (
-                                  item.task.split(new RegExp(`(${actionItemsSearch})`, 'gi')).map((part: string | number | boolean | React.ReactElement<any, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | null | undefined, i: React.Key | null | undefined) =>
-                                    typeof part === 'string' && part.toLowerCase() === actionItemsSearch.toLowerCase() ? (
-                                      <mark key={i} className="bg-yellow-200 px-1 rounded">
-                                        {part}
-                                      </mark>
-                                    ) : (
-                                      part
-                                    )
-                                  )
-                                ) : (
-                                  item.task
-                                )}
-                              </p>
-                              {item.assigned_to && (
-                                <p className="text-sm text-gray-600">
-                                  Assigned To: {actionItemsSearch && item.assigned_to.toLowerCase().includes(actionItemsSearch.toLowerCase()) ? (
-                                    item.assigned_to.split(new RegExp(`(${actionItemsSearch})`, 'gi')).map((part: string | number | boolean | React.ReactElement<any, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | null | undefined, i: React.Key | null | undefined) =>
-                                      typeof part === 'string' && part.toLowerCase() === actionItemsSearch.toLowerCase() ? (
-                                        <mark key={i} className="bg-yellow-200 px-1 rounded">
-                                          {part}
-                                        </mark>
-                                      ) : (
-                                        part
-                                      )
-                                    )
-                                  ) : (
-                                    item.assigned_to
-                                  )}
-                                </p>
-                              )}
-                              {item.deadline && (
-                                <p className="text-sm text-gray-600">Due: {new Date(item.deadline).toLocaleDateString()}</p>
-                              )}
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
-                        {actionItemsSearch 
-                          ? 'No action items match your search criteria' 
-                          : 'No action items identified'
-                        }
-                      </div>
-                    )}
-                  </div>
-                </TabsContent>
-
-                {/* Decisions Tab */}
-                <TabsContent value="decisions" className="space-y-4">
-                  <div className="flex gap-3">
-                    <div className="flex-1">
-                      <Input
-                        placeholder="Search decisions..."
-                        value={decisionsSearch}
-                        onChange={(e) => setDecisionsSearch(e.target.value)}
-                        className="w-full"
-                      />
-                    </div>
-                  </div>
-                  {decisionsSearch && (
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <span>Showing {filteredDecisions.length} of {detailedIntelligence?.decisions.length || 0} decisions</span>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setDecisionsSearch('')}
-                      >
-                        Clear search
-                      </Button>
-                    </div>
-                  )}
-                  
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3 mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900">Decisions</h3>
-                      <Badge variant="outline">{filteredDecisions.length}</Badge>
-                      {filteredDecisions.length !== (detailedIntelligence?.decisions.length || 0) && (
-                        <Badge variant="secondary" className="text-xs">
-                          of {detailedIntelligence?.decisions.length || 0} total
-                        </Badge>
-                      )}
-                    </div>
-                    {filteredDecisions.length ? (
-                      <div className="space-y-3 max-h-96 overflow-y-auto">
-                        {filteredDecisions.map((decision, index) => (
-                          <Card key={index} className="border-l-4 border-l-green-500">
-                            <CardContent className="p-4">
-                              <div className="flex items-start justify-between mb-2">
-                                <Badge variant={getSeverityVariant(decision.confidence)} className="text-xs">
-                                  {decision.confidence}
-                                </Badge>
-                                <div className="text-xs text-gray-500">
-                                  {formatTimestamp(decision.timestamp_start)} - {formatTimestamp(decision.timestamp_end)}
-                                </div>
-                              </div>
-                              <p className="text-gray-900 text-sm mb-2">
-                                {decisionsSearch && decision.decision ? (
-                                  decision.decision.split(new RegExp(`(${decisionsSearch})`, 'gi')).map((part: string | number | boolean | React.ReactElement<any, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | null | undefined, i: React.Key | null | undefined) =>
-                                    typeof part === 'string' && part.toLowerCase() === decisionsSearch.toLowerCase() ? (
-                                      <mark key={i} className="bg-yellow-200 px-1 rounded">
-                                        {part}
-                                      </mark>
-                                    ) : (
-                                      part
-                                    )
-                                  )
-                                ) : (
-                                  decision.decision
-                                )}
-                              </p>
-                              {decision.reason && (
-                                <div className="text-sm text-gray-600 bg-green-50 p-2 rounded">
-                                  <strong>Reason:</strong> {decision.reason}
-                                </div>
-                              )}
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
-                        {decisionsSearch 
-                          ? 'No decisions match your search criteria' 
-                          : 'No decisions identified'
-                        }
-                      </div>
-                    )}
-                  </div>
-                </TabsContent>
-
-                {/* Issues Tab */}
-                <TabsContent value="issues" className="space-y-4">
-                  <div className="flex gap-3">
-                    <div className="flex-1">
-                      <Input
-                        placeholder="Search issues..."
-                        value={issuesSearch}
-                        onChange={(e) => setIssuesSearch(e.target.value)}
-                        className="w-full"
-                      />
-                    </div>
-                  </div>
-                  {issuesSearch && (
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <span>Showing {filteredIssues.length} of {detailedIntelligence?.issues.length || 0} issues</span>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setIssuesSearch('')}
-                      >
-                        Clear search
-                      </Button>
-                    </div>
-                  )}
-                  
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3 mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900">Issues</h3>
-                      <Badge variant="outline">{filteredIssues.length}</Badge>
-                      {filteredIssues.length !== (detailedIntelligence?.issues.length || 0) && (
-                        <Badge variant="secondary" className="text-xs">
-                          of {detailedIntelligence?.issues.length || 0} total
-                        </Badge>
-                      )}
-                    </div>
-                    {filteredIssues.length ? (
-                      <div className="space-y-3 max-h-96 overflow-y-auto">
-                        {filteredIssues.map((issue, index) => (
-                          <Card key={index} className="border-l-4 border-l-red-500">
-                            <CardContent className="p-4">
-                              <div className="flex items-start justify-between mb-2">
-                                <div className="text-xs text-gray-500">
-                                  {formatTimestamp(issue.timestamp_start)} - {formatTimestamp(issue.timestamp_end)}
-                                </div>
-                              </div>
-                              <p className="text-gray-900 text-sm mb-2">
-                                {issuesSearch && issue.issue ? (
-                                  issue.issue.split(new RegExp(`(${issuesSearch})`, 'gi')).map((part: string | number | boolean | React.ReactElement<any, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | null | undefined, i: React.Key | null | undefined) =>
-                                    typeof part === 'string' && part.toLowerCase() === issuesSearch.toLowerCase() ? (
-                                      <mark key={i} className="bg-yellow-200 px-1 rounded">
-                                        {part}
-                                      </mark>
-                                    ) : (
-                                      part
-                                    )
-                                  )
-                                ) : (
-                                  issue.issue
-                                )}
-                              </p>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
-                        {issuesSearch 
-                          ? 'No issues match your search criteria' 
-                          : 'No issues identified'
-                        }
-                      </div>
-                    )}
-                  </div>
-                </TabsContent>
-
-                {/* Questions Tab */}
-                <TabsContent value="questions" className="space-y-4">
-                  <div className="flex gap-3">
-                    <div className="flex-1">
-                      <Input
-                        placeholder="Search questions..."
-                        value={questionsSearch}
-                        onChange={(e) => setQuestionsSearch(e.target.value)}
-                        className="w-full"
-                      />
-                    </div>
-                  </div>
-                  {questionsSearch && (
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <span>Showing {filteredQuestions.length} of {detailedIntelligence?.questions.length || 0} questions</span>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setQuestionsSearch('')}
-                      >
-                        Clear search
-                      </Button>
-                    </div>
-                  )}
-                  
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3 mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900">Questions</h3>
-                      <Badge variant="outline">{filteredQuestions.length}</Badge>
-                      {filteredQuestions.length !== (detailedIntelligence?.questions.length || 0) && (
-                        <Badge variant="secondary" className="text-xs">
-                          of {detailedIntelligence?.questions.length || 0} total
-                        </Badge>
-                      )}
-                    </div>
-                    {filteredQuestions.length ? (
-                      <div className="space-y-3 max-h-96 overflow-y-auto">
-                        {filteredQuestions.map((question, index) => (
-                          <Card key={index} className="border-l-4 border-l-yellow-500">
-                            <CardContent className="p-4">
-                              <div className="flex items-start justify-between mb-2">
-                                <div className="text-xs text-gray-500">
-                                  {formatTimestamp(question.timestamp_start)} - {formatTimestamp(question.timestamp_end)}
-                                </div>
-                              </div>
-                              <p className="text-gray-900 text-sm mb-2">
-                                {questionsSearch && question.question ? (
-                                  question.question.split(new RegExp(`(${questionsSearch})`, 'gi')).map((part: string | number | boolean | React.ReactElement<any, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | null | undefined, i: React.Key | null | undefined) =>
-                                    typeof part === 'string' && part.toLowerCase() === questionsSearch.toLowerCase() ? (
-                                      <mark key={i} className="bg-yellow-200 px-1 rounded">
-                                        {part}
-                                      </mark>
-                                    ) : (
-                                      part
-                                    )
-                                  )
-                                ) : (
-                                  question.question
-                                )}
-                              </p>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
-                        {questionsSearch 
-                          ? 'No questions match your search criteria' 
-                          : 'No questions identified'
-                        }
-                      </div>
-                    )}
-                  </div>
-                </TabsContent>
-              </Tabs>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
