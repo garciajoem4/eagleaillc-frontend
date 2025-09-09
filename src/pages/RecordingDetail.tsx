@@ -120,14 +120,14 @@ const RecordingDetail: React.FC = () => {
       
       let matchesTimeRange = true;
       
-      // When audio is playing, filter by 5-minute chunks around current time
-      if (isAudioPlaying && currentAudioTime > 0) {
+      // When audio has been played (even if paused), filter by 5-minute chunks around current time
+      if (currentAudioTime > 0) {
         const chunkDuration = 300; // 5 minutes in seconds
         const chunkStart = Math.floor(currentAudioTime / chunkDuration) * chunkDuration;
         const chunkEnd = chunkStart + chunkDuration;
         matchesTimeRange = segment.start >= chunkStart && segment.start < chunkEnd;
       } else if (selectedTimeRange !== 'all') {
-        // Use dropdown time range when audio is not playing
+        // Use dropdown time range when audio hasn't been played yet
         const [startMin, endMin] = selectedTimeRange.split('-').map(Number);
         const segmentStartMin = Math.floor(segment.start / 60);
         matchesTimeRange = segmentStartMin >= startMin && segmentStartMin < endMin;
@@ -135,7 +135,7 @@ const RecordingDetail: React.FC = () => {
       
       return matchesSearch && matchesTimeRange;
     });
-  }, [searchQuery, selectedTimeRange, isAudioPlaying, currentAudioTime]);
+  }, [searchQuery, selectedTimeRange, currentAudioTime]);
 
   // Get currently active segment based on audio time
   const currentActiveSegment = useMemo(() => {
@@ -154,8 +154,8 @@ const RecordingDetail: React.FC = () => {
         item.task?.toLowerCase().includes(searchText) ||
         item.assigned_to?.toLowerCase().includes(searchText);
 
-      // When audio is playing, filter by 5-minute chunks around current time
-      if (isAudioPlaying && currentAudioTime > 0) {
+      // When audio has been played (even if paused), filter by 5-minute chunks around current time
+      if (currentAudioTime > 0) {
         const chunkDuration = 300; // 5 minutes in seconds
         const chunkStart = Math.floor(currentAudioTime / chunkDuration) * chunkDuration;
         const chunkEnd = chunkStart + chunkDuration;
@@ -170,7 +170,7 @@ const RecordingDetail: React.FC = () => {
 
       return matchesSearch;
     });
-  }, [actionItemsSearch, detailedIntelligence, isAudioPlaying, currentAudioTime, parseTimestampToSeconds]);
+  }, [actionItemsSearch, detailedIntelligence, currentAudioTime, parseTimestampToSeconds]);
 
   const filteredDecisions = useMemo(() => {
     if (!detailedIntelligence?.decisions) return [];
@@ -179,8 +179,8 @@ const RecordingDetail: React.FC = () => {
       const matchesSearch = searchText === '' || 
         decision.decision?.toLowerCase().includes(searchText);
 
-      // When audio is playing, filter by 5-minute chunks around current time
-      if (isAudioPlaying && currentAudioTime > 0) {
+      // When audio has been played (even if paused), filter by 5-minute chunks around current time
+      if (currentAudioTime > 0) {
         const chunkDuration = 300; // 5 minutes in seconds
         const chunkStart = Math.floor(currentAudioTime / chunkDuration) * chunkDuration;
         const chunkEnd = chunkStart + chunkDuration;
@@ -195,7 +195,7 @@ const RecordingDetail: React.FC = () => {
 
       return matchesSearch;
     });
-  }, [decisionsSearch, detailedIntelligence, isAudioPlaying, currentAudioTime, parseTimestampToSeconds]);
+  }, [decisionsSearch, detailedIntelligence, currentAudioTime, parseTimestampToSeconds]);
 
   const filteredIssues = useMemo(() => {
     if (!detailedIntelligence?.issues) return [];
@@ -204,8 +204,8 @@ const RecordingDetail: React.FC = () => {
       const matchesSearch = searchText === '' || 
         issue.issue?.toLowerCase().includes(searchText);
 
-      // When audio is playing, filter by 5-minute chunks around current time
-      if (isAudioPlaying && currentAudioTime > 0) {
+      // When audio has been played (even if paused), filter by 5-minute chunks around current time
+      if (currentAudioTime > 0) {
         const chunkDuration = 300; // 5 minutes in seconds
         const chunkStart = Math.floor(currentAudioTime / chunkDuration) * chunkDuration;
         const chunkEnd = chunkStart + chunkDuration;
@@ -220,7 +220,7 @@ const RecordingDetail: React.FC = () => {
 
       return matchesSearch;
     });
-  }, [issuesSearch, detailedIntelligence, isAudioPlaying, currentAudioTime, parseTimestampToSeconds]);
+  }, [issuesSearch, detailedIntelligence, currentAudioTime, parseTimestampToSeconds]);
 
   const filteredQuestions = useMemo(() => {
     if (!detailedIntelligence?.questions) return [];
@@ -229,8 +229,8 @@ const RecordingDetail: React.FC = () => {
       const matchesSearch = searchText === '' || 
         question.question?.toLowerCase().includes(searchText);
 
-      // When audio is playing, filter by 5-minute chunks around current time
-      if (isAudioPlaying && currentAudioTime > 0) {
+      // When audio has been played (even if paused), filter by 5-minute chunks around current time
+      if (currentAudioTime > 0) {
         const chunkDuration = 300; // 5 minutes in seconds
         const chunkStart = Math.floor(currentAudioTime / chunkDuration) * chunkDuration;
         const chunkEnd = chunkStart + chunkDuration;
@@ -245,7 +245,7 @@ const RecordingDetail: React.FC = () => {
 
       return matchesSearch;
     });
-  }, [questionsSearch, detailedIntelligence, isAudioPlaying, currentAudioTime, parseTimestampToSeconds]);
+  }, [questionsSearch, detailedIntelligence, currentAudioTime, parseTimestampToSeconds]);
 
   // Get currently active intelligence items based on audio time
   const currentActiveItems = useMemo(() => {
@@ -590,7 +590,7 @@ const RecordingDetail: React.FC = () => {
                                   value={selectedTimeRange}
                                   onChange={(e) => setSelectedTimeRange(e.target.value)}
                                   className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  disabled={isAudioPlaying}
+                                  disabled={currentAudioTime > 0}
                                 >
                                   {timeRangeOptions.map((option) => (
                                     <option key={option.value} value={option.value}>
@@ -602,18 +602,18 @@ const RecordingDetail: React.FC = () => {
                             </div>
                             
                             {/* Audio-based filtering indicator */}
-                            {isAudioPlaying && currentAudioTime > 0 && (
+                            {currentAudioTime > 0 && (
                               <div className="flex items-center gap-2 text-sm bg-blue-50 p-2 rounded-lg border border-blue-200">
                                 <div className="flex items-center gap-2">
                                   <Badge variant="default" className="bg-blue-100 text-blue-800">
-                                    Showing 5-min chunk: {Math.floor(Math.floor(currentAudioTime / 300) * 300 / 60)}:00 - {Math.floor((Math.floor(currentAudioTime / 300) * 300 + 300) / 60)}:00
+                                    {isAudioPlaying ? '' : 'PAUSED |'} Audio Filter: {Math.floor(Math.floor(currentAudioTime / 300) * 300 / 60)}:00 - {Math.floor((Math.floor(currentAudioTime / 300) * 300 + 300) / 60)}:00
                                   </Badge>
                                   <span className="text-blue-600">({filteredSegments.length} segments)</span>
                                 </div>
                               </div>
                             )}
                             
-                            {(searchQuery || (selectedTimeRange !== 'all' && !isAudioPlaying)) && (
+                            {(searchQuery || (selectedTimeRange !== 'all' && currentAudioTime === 0)) && (
                               <div className="flex items-center gap-2 text-sm text-gray-600">
                                 <span>Showing {filteredSegments.length} of {sampleTranscriptData.segments?.length || 0} segments</span>
                                 <Button
@@ -772,18 +772,18 @@ const RecordingDetail: React.FC = () => {
                             </div>
                             
                             {/* Audio-based filtering indicator */}
-                            {isAudioPlaying && currentAudioTime > 0 && (
+                            {currentAudioTime > 0 && (
                               <div className="flex items-center gap-2 text-sm bg-blue-50 p-2 rounded-lg border border-blue-200">
                                 <div className="flex items-center gap-2">
                                   <Badge variant="default" className="bg-blue-100 text-blue-800">
-                                    Audio Filtering: {Math.floor(Math.floor(currentAudioTime / 300) * 300 / 60)}:00 - {Math.floor((Math.floor(currentAudioTime / 300) * 300 + 300) / 60)}:00
+                                    {isAudioPlaying ? '' : 'PAUSED |'} Audio Filter: {Math.floor(Math.floor(currentAudioTime / 300) * 300 / 60)}:00 - {Math.floor((Math.floor(currentAudioTime / 300) * 300 + 300) / 60)}:00
                                   </Badge>
                                   <span className="text-blue-600">({filteredActionItems.length} items)</span>
                                 </div>
                               </div>
                             )}
                             
-                            {actionItemsSearch && !isAudioPlaying && (
+                            {actionItemsSearch && currentAudioTime === 0 && (
                               <div className="flex items-center gap-2 text-sm text-gray-600">
                                 <span>Showing {filteredActionItems.length} of {detailedIntelligence?.action_items.length || 0} action items</span>
                                 <Button
@@ -910,18 +910,18 @@ const RecordingDetail: React.FC = () => {
                             </div>
                             
                             {/* Audio-based filtering indicator */}
-                            {isAudioPlaying && currentAudioTime > 0 && (
+                            {currentAudioTime > 0 && (
                               <div className="flex items-center gap-2 text-sm bg-green-50 p-2 rounded-lg border border-green-200">
                                 <div className="flex items-center gap-2">
                                   <Badge variant="default" className="bg-green-100 text-green-800">
-                                    🎵 Audio Filtering: {Math.floor(Math.floor(currentAudioTime / 300) * 300 / 60)}:00 - {Math.floor((Math.floor(currentAudioTime / 300) * 300 + 300) / 60)}:00
+                                    {isAudioPlaying ? '' : 'PAUSED |'} Audio Filter: {Math.floor(Math.floor(currentAudioTime / 300) * 300 / 60)}:00 - {Math.floor((Math.floor(currentAudioTime / 300) * 300 + 300) / 60)}:00
                                   </Badge>
                                   <span className="text-green-600">({filteredDecisions.length} items)</span>
                                 </div>
                               </div>
                             )}
                             
-                            {decisionsSearch && !isAudioPlaying && (
+                            {decisionsSearch && currentAudioTime === 0 && (
                               <div className="flex items-center gap-2 text-sm text-gray-600">
                                 <span>Showing {filteredDecisions.length} of {detailedIntelligence?.decisions.length || 0} decisions</span>
                                 <Button
@@ -1032,18 +1032,18 @@ const RecordingDetail: React.FC = () => {
                             </div>
                             
                             {/* Audio-based filtering indicator */}
-                            {isAudioPlaying && currentAudioTime > 0 && (
+                            {currentAudioTime > 0 && (
                               <div className="flex items-center gap-2 text-sm bg-red-50 p-2 rounded-lg border border-red-200">
                                 <div className="flex items-center gap-2">
                                   <Badge variant="default" className="bg-red-100 text-red-800">
-                                    🎵 Audio Filtering: {Math.floor(Math.floor(currentAudioTime / 300) * 300 / 60)}:00 - {Math.floor((Math.floor(currentAudioTime / 300) * 300 + 300) / 60)}:00
+                                    {isAudioPlaying ? '' : 'PAUSED |'} Audio Filter: {Math.floor(Math.floor(currentAudioTime / 300) * 300 / 60)}:00 - {Math.floor((Math.floor(currentAudioTime / 300) * 300 + 300) / 60)}:00
                                   </Badge>
                                   <span className="text-red-600">({filteredIssues.length} items)</span>
                                 </div>
                               </div>
                             )}
                             
-                            {issuesSearch && !isAudioPlaying && (
+                            {issuesSearch && currentAudioTime === 0 && (
                               <div className="flex items-center gap-2 text-sm text-gray-600">
                                 <span>Showing {filteredIssues.length} of {detailedIntelligence?.issues.length || 0} issues</span>
                                 <Button
@@ -1140,18 +1140,18 @@ const RecordingDetail: React.FC = () => {
                             </div>
                             
                             {/* Audio-based filtering indicator */}
-                            {isAudioPlaying && currentAudioTime > 0 && (
+                            {currentAudioTime > 0 && (
                               <div className="flex items-center gap-2 text-sm bg-yellow-50 p-2 rounded-lg border border-yellow-200">
                                 <div className="flex items-center gap-2">
                                   <Badge variant="default" className="bg-yellow-100 text-yellow-800">
-                                    🎵 Audio Filtering: {Math.floor(Math.floor(currentAudioTime / 300) * 300 / 60)}:00 - {Math.floor((Math.floor(currentAudioTime / 300) * 300 + 300) / 60)}:00
+                                    {isAudioPlaying ? '' : 'PAUSED |'} Audio Filter: {Math.floor(Math.floor(currentAudioTime / 300) * 300 / 60)}:00 - {Math.floor((Math.floor(currentAudioTime / 300) * 300 + 300) / 60)}:00
                                   </Badge>
                                   <span className="text-yellow-600">({filteredQuestions.length} items)</span>
                                 </div>
                               </div>
                             )}
                             
-                            {questionsSearch && !isAudioPlaying && (
+                            {questionsSearch && currentAudioTime === 0 && (
                               <div className="flex items-center gap-2 text-sm text-gray-600">
                                 <span>Showing {filteredQuestions.length} of {detailedIntelligence?.questions.length || 0} questions</span>
                                 <Button
