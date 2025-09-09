@@ -5,6 +5,10 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# Sample Files
+public/july_12_2022_audio.mp3
+src/data/july_12_2022_audio.mp3
+
 # Testing
 coverage/
 
