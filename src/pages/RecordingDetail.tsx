@@ -150,38 +150,102 @@ const RecordingDetail: React.FC = () => {
     if (!detailedIntelligence?.action_items) return [];
     return detailedIntelligence.action_items.filter(item => {
       const searchText = actionItemsSearch.toLowerCase();
-      return searchText === '' || 
+      const matchesSearch = searchText === '' || 
         item.task?.toLowerCase().includes(searchText) ||
         item.assigned_to?.toLowerCase().includes(searchText);
+
+      // When audio is playing, filter by 5-minute chunks around current time
+      if (isAudioPlaying && currentAudioTime > 0) {
+        const chunkDuration = 300; // 5 minutes in seconds
+        const chunkStart = Math.floor(currentAudioTime / chunkDuration) * chunkDuration;
+        const chunkEnd = chunkStart + chunkDuration;
+        
+        const itemStartSeconds = parseTimestampToSeconds(item.timestamp_start);
+        const itemEndSeconds = parseTimestampToSeconds(item.timestamp_end);
+        
+        // Show item if it overlaps with the current 5-minute chunk
+        const matchesTimeChunk = itemStartSeconds < chunkEnd && itemEndSeconds > chunkStart;
+        return matchesSearch && matchesTimeChunk;
+      }
+
+      return matchesSearch;
     });
-  }, [actionItemsSearch, detailedIntelligence]);
+  }, [actionItemsSearch, detailedIntelligence, isAudioPlaying, currentAudioTime, parseTimestampToSeconds]);
 
   const filteredDecisions = useMemo(() => {
     if (!detailedIntelligence?.decisions) return [];
     return detailedIntelligence.decisions.filter(decision => {
       const searchText = decisionsSearch.toLowerCase();
-      return searchText === '' || 
+      const matchesSearch = searchText === '' || 
         decision.decision?.toLowerCase().includes(searchText);
+
+      // When audio is playing, filter by 5-minute chunks around current time
+      if (isAudioPlaying && currentAudioTime > 0) {
+        const chunkDuration = 300; // 5 minutes in seconds
+        const chunkStart = Math.floor(currentAudioTime / chunkDuration) * chunkDuration;
+        const chunkEnd = chunkStart + chunkDuration;
+        
+        const itemStartSeconds = parseTimestampToSeconds(decision.timestamp_start);
+        const itemEndSeconds = parseTimestampToSeconds(decision.timestamp_end);
+        
+        // Show item if it overlaps with the current 5-minute chunk
+        const matchesTimeChunk = itemStartSeconds < chunkEnd && itemEndSeconds > chunkStart;
+        return matchesSearch && matchesTimeChunk;
+      }
+
+      return matchesSearch;
     });
-  }, [decisionsSearch, detailedIntelligence]);
+  }, [decisionsSearch, detailedIntelligence, isAudioPlaying, currentAudioTime, parseTimestampToSeconds]);
 
   const filteredIssues = useMemo(() => {
     if (!detailedIntelligence?.issues) return [];
     return detailedIntelligence.issues.filter(issue => {
       const searchText = issuesSearch.toLowerCase();
-      return searchText === '' || 
+      const matchesSearch = searchText === '' || 
         issue.issue?.toLowerCase().includes(searchText);
+
+      // When audio is playing, filter by 5-minute chunks around current time
+      if (isAudioPlaying && currentAudioTime > 0) {
+        const chunkDuration = 300; // 5 minutes in seconds
+        const chunkStart = Math.floor(currentAudioTime / chunkDuration) * chunkDuration;
+        const chunkEnd = chunkStart + chunkDuration;
+        
+        const itemStartSeconds = parseTimestampToSeconds(issue.timestamp_start);
+        const itemEndSeconds = parseTimestampToSeconds(issue.timestamp_end);
+        
+        // Show item if it overlaps with the current 5-minute chunk
+        const matchesTimeChunk = itemStartSeconds < chunkEnd && itemEndSeconds > chunkStart;
+        return matchesSearch && matchesTimeChunk;
+      }
+
+      return matchesSearch;
     });
-  }, [issuesSearch, detailedIntelligence]);
+  }, [issuesSearch, detailedIntelligence, isAudioPlaying, currentAudioTime, parseTimestampToSeconds]);
 
   const filteredQuestions = useMemo(() => {
     if (!detailedIntelligence?.questions) return [];
     return detailedIntelligence.questions.filter(question => {
       const searchText = questionsSearch.toLowerCase();
-      return searchText === '' || 
+      const matchesSearch = searchText === '' || 
         question.question?.toLowerCase().includes(searchText);
+
+      // When audio is playing, filter by 5-minute chunks around current time
+      if (isAudioPlaying && currentAudioTime > 0) {
+        const chunkDuration = 300; // 5 minutes in seconds
+        const chunkStart = Math.floor(currentAudioTime / chunkDuration) * chunkDuration;
+        const chunkEnd = chunkStart + chunkDuration;
+        
+        const itemStartSeconds = parseTimestampToSeconds(question.timestamp_start);
+        const itemEndSeconds = parseTimestampToSeconds(question.timestamp_end);
+        
+        // Show item if it overlaps with the current 5-minute chunk
+        const matchesTimeChunk = itemStartSeconds < chunkEnd && itemEndSeconds > chunkStart;
+        return matchesSearch && matchesTimeChunk;
+      }
+
+      return matchesSearch;
     });
-  }, [questionsSearch, detailedIntelligence]);
+  }, [questionsSearch, detailedIntelligence, isAudioPlaying, currentAudioTime, parseTimestampToSeconds]);
 
   // Get currently active intelligence items based on audio time
   const currentActiveItems = useMemo(() => {
@@ -626,12 +690,12 @@ const RecordingDetail: React.FC = () => {
                                     </div>
                                     {isCurrentlyActive && (
                                       <Badge variant="default" className="text-xs bg-blue-100 text-blue-800">
-                                        Playing
+                                        Active
                                       </Badge>
                                     )}
                                   </div>
                                   <div className="flex-1">
-                                    <p className={`leading-relaxed ${
+                                    <p className={`text-sm ${
                                       isCurrentlyActive ? 'text-blue-900 font-medium' : 'text-gray-900'
                                     }`}>
                                       {searchQuery ? (
@@ -654,11 +718,11 @@ const RecordingDetail: React.FC = () => {
                                       }`}>
                                         Duration: {Math.round((segment.end - segment.start) * 10) / 10}s
                                       </span>
-                                      {isCurrentlyActive && (
+                                      {/* {isCurrentlyActive && (
                                         <span className="text-xs text-blue-600">
-                                          🎵 Currently playing
+                                          Currently playing
                                         </span>
-                                      )}
+                                      )} */}
                                     </div>
                                   </div>
                                 </div>
@@ -706,7 +770,20 @@ const RecordingDetail: React.FC = () => {
                                 />
                               </div>
                             </div>
-                            {actionItemsSearch && (
+                            
+                            {/* Audio-based filtering indicator */}
+                            {isAudioPlaying && currentAudioTime > 0 && (
+                              <div className="flex items-center gap-2 text-sm bg-blue-50 p-2 rounded-lg border border-blue-200">
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="default" className="bg-blue-100 text-blue-800">
+                                    Audio Filtering: {Math.floor(Math.floor(currentAudioTime / 300) * 300 / 60)}:00 - {Math.floor((Math.floor(currentAudioTime / 300) * 300 + 300) / 60)}:00
+                                  </Badge>
+                                  <span className="text-blue-600">({filteredActionItems.length} items)</span>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {actionItemsSearch && !isAudioPlaying && (
                               <div className="flex items-center gap-2 text-sm text-gray-600">
                                 <span>Showing {filteredActionItems.length} of {detailedIntelligence?.action_items.length || 0} action items</span>
                                 <Button
@@ -751,7 +828,7 @@ const RecordingDetail: React.FC = () => {
                                               </Badge>
                                               {isCurrentlyActive && (
                                                 <Badge variant="default" className="text-xs bg-blue-100 text-blue-800">
-                                                  Active Now
+                                                  Active
                                                 </Badge>
                                               )}
                                             </div>
@@ -831,7 +908,20 @@ const RecordingDetail: React.FC = () => {
                                 />
                               </div>
                             </div>
-                            {decisionsSearch && (
+                            
+                            {/* Audio-based filtering indicator */}
+                            {isAudioPlaying && currentAudioTime > 0 && (
+                              <div className="flex items-center gap-2 text-sm bg-green-50 p-2 rounded-lg border border-green-200">
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="default" className="bg-green-100 text-green-800">
+                                    🎵 Audio Filtering: {Math.floor(Math.floor(currentAudioTime / 300) * 300 / 60)}:00 - {Math.floor((Math.floor(currentAudioTime / 300) * 300 + 300) / 60)}:00
+                                  </Badge>
+                                  <span className="text-green-600">({filteredDecisions.length} items)</span>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {decisionsSearch && !isAudioPlaying && (
                               <div className="flex items-center gap-2 text-sm text-gray-600">
                                 <span>Showing {filteredDecisions.length} of {detailedIntelligence?.decisions.length || 0} decisions</span>
                                 <Button
@@ -875,7 +965,7 @@ const RecordingDetail: React.FC = () => {
                                               </Badge>
                                               {isCurrentlyActive && (
                                                 <Badge variant="default" className="text-xs bg-green-100 text-green-800">
-                                                  Active Now
+                                                  Active
                                                 </Badge>
                                               )}
                                             </div>
@@ -940,7 +1030,20 @@ const RecordingDetail: React.FC = () => {
                                 />
                               </div>
                             </div>
-                            {issuesSearch && (
+                            
+                            {/* Audio-based filtering indicator */}
+                            {isAudioPlaying && currentAudioTime > 0 && (
+                              <div className="flex items-center gap-2 text-sm bg-red-50 p-2 rounded-lg border border-red-200">
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="default" className="bg-red-100 text-red-800">
+                                    🎵 Audio Filtering: {Math.floor(Math.floor(currentAudioTime / 300) * 300 / 60)}:00 - {Math.floor((Math.floor(currentAudioTime / 300) * 300 + 300) / 60)}:00
+                                  </Badge>
+                                  <span className="text-red-600">({filteredIssues.length} items)</span>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {issuesSearch && !isAudioPlaying && (
                               <div className="flex items-center gap-2 text-sm text-gray-600">
                                 <span>Showing {filteredIssues.length} of {detailedIntelligence?.issues.length || 0} issues</span>
                                 <Button
@@ -980,7 +1083,7 @@ const RecordingDetail: React.FC = () => {
                                           <div className="flex items-start justify-between mb-2">
                                             {isCurrentlyActive && (
                                               <Badge variant="default" className="text-xs bg-red-100 text-red-800">
-                                                Active Now
+                                                Active
                                               </Badge>
                                             )}
                                             <div className={`text-xs ${
@@ -1035,7 +1138,20 @@ const RecordingDetail: React.FC = () => {
                                 />
                               </div>
                             </div>
-                            {questionsSearch && (
+                            
+                            {/* Audio-based filtering indicator */}
+                            {isAudioPlaying && currentAudioTime > 0 && (
+                              <div className="flex items-center gap-2 text-sm bg-yellow-50 p-2 rounded-lg border border-yellow-200">
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="default" className="bg-yellow-100 text-yellow-800">
+                                    🎵 Audio Filtering: {Math.floor(Math.floor(currentAudioTime / 300) * 300 / 60)}:00 - {Math.floor((Math.floor(currentAudioTime / 300) * 300 + 300) / 60)}:00
+                                  </Badge>
+                                  <span className="text-yellow-600">({filteredQuestions.length} items)</span>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {questionsSearch && !isAudioPlaying && (
                               <div className="flex items-center gap-2 text-sm text-gray-600">
                                 <span>Showing {filteredQuestions.length} of {detailedIntelligence?.questions.length || 0} questions</span>
                                 <Button
@@ -1075,7 +1191,7 @@ const RecordingDetail: React.FC = () => {
                                           <div className="flex items-start justify-between mb-2">
                                             {isCurrentlyActive && (
                                               <Badge variant="default" className="text-xs bg-yellow-100 text-yellow-800">
-                                                Active Now
+                                                Active
                                               </Badge>
                                             )}
                                             <div className={`text-xs ${
@@ -1122,7 +1238,7 @@ const RecordingDetail: React.FC = () => {
                     </Card>
                   </TabsContent>
                 </Tabs>
-                <div>
+                <div className="pl-3">
                   <div className="bg-gradient-to-r from-blue-50 to-indigo-50 mb-6 p-2 rounded-lg border border-blue-100">
                     <div className="mb-4">
                       {/* <h4 className="text-sm font-medium text-gray-700 mb-2">
@@ -1163,13 +1279,19 @@ const RecordingDetail: React.FC = () => {
                       {detailedIntelligence?.executive_summary || 'No summary available.'}
                     </p>
                   </div>
-                  <div>
+                  <div className="mb-6">
                     <CardTitle className="text-lg mb-4">Key Topics</CardTitle>
                     <div className="flex flex-wrap gap-2">
                       {(detailedIntelligence?.key_topics || []).map((topic: string, index: number) => (
                         <Badge key={index} variant="secondary">{topic}</Badge>
                       ))}
                     </div>
+                  </div>
+                  <div className="mb-6">
+                    <CardTitle className="text-lg mb-2">Notes</CardTitle>
+                    <p className="text-amber-700 bg-amber-50 p-3 text-sm rounded-lg">
+                      {detailedIntelligence?.confidence_note}
+                    </p>
                   </div>
                 </div>
               </div>
