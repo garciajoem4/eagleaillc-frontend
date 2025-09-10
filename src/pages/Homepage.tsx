@@ -19,7 +19,7 @@ const Homepage: React.FC = () => {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <h1 className="text-2xl font-bold text-blue-600">Eagle AI</h1>
+                <h1 className="text-2xl font-bold text-blue-600">SynaptiVoice</h1>
               </div>
               <div className="hidden md:block ml-10">
                 <div className="flex items-baseline space-x-8">
@@ -240,31 +240,31 @@ const Homepage: React.FC = () => {
               Frequently Asked Questions
             </h2>
             <p className="text-xl text-gray-600">
-              Everything you need to know about Eagle AI
+              Everything you need to know about SynaptiVoice
             </p>
           </div>
 
           <div className="space-y-4">
             {[
               {
-                question: "How secure is Eagle AI?",
-                answer: "Absolutely. Eagle AI is designed with security, privacy, and control at its core. We follow industry best practices, including end-to-end encryption and continuous monitoring. Eagle AI is fully compliant with SOC 2, HIPAA, and GDPR standards. You also get granular, customizable controls to ensure meeting data is only accessible to the intended participants."
+                question: "How secure is SynaptiVoice?",
+                answer: "Absolutely. SynaptiVoice is designed with security, privacy, and control at its core. We follow industry best practices, including end-to-end encryption and continuous monitoring. SynaptiVoice is fully compliant with SOC 2, HIPAA, and GDPR standards. You also get granular, customizable controls to ensure meeting data is only accessible to the intended participants."
               },
               {
-                question: "How do I get started with Eagle AI?",
-                answer: "Getting started with Eagle AI is quick and free. You can try it out for yourself, your team, or your entire organization. Enjoy 14 days of complimentary access to the Eagle AI Pro plan, including AI recording credits for testing. After your trial, you’ll be automatically moved to the free plan — which stays free forever."
+                question: "How do I get started with SynaptiVoice?",
+                answer: "Getting started with SynaptiVoice is quick and free. You can try it out for yourself, your team, or your entire organization. Enjoy 14 days of complimentary access to the SynaptiVoice Pro plan, including AI recording credits for testing. After your trial, you’ll be automatically moved to the free plan — which stays free forever."
               },
               {
                 question: "Who has access to my meeting recordings and notes?",
                 answer: "By default, only internal meeting attendees can access your notes and recordings — so private conversations like 1-on-1s or leadership meetings stay confidential. If needed, you can share recordings with others by creating custom recording channels, which can be limited to specific users or opened up to your entire workspace. The choice is yours."
               },
               {
-                question: "How does Eagle AI capture meeting notes?",
-                answer: "Eagle AI joins your virtual meetings as a participant and requests permission to join — making it clear to everyone that the meeting will be recorded. You can set Eagle AI to join meetings automatically or manually invite it via your conferencing platform."
+                question: "How does SynaptiVoice capture meeting notes?",
+                answer: "SynaptiVoice joins your virtual meetings as a participant and requests permission to join — making it clear to everyone that the meeting will be recorded. You can set SynaptiVoice to join meetings automatically or manually invite it via your conferencing platform."
               },
               {
-                question: "Who can use Eagle AI for meeting recording and transcription?",
-                answer: "Anyone running remote meetings can use Eagle AI to capture conversations accurately. Record internal and external calls, 1-on-1s, team check-ins, and all-hands meetings using one secure AI-powered note-taking platform. Flying solo? Eagle AI’s individual plan is perfect for keeping your meeting notes and recordings organized and accessible."
+                question: "Who can use SynaptiVoice for meeting recording and transcription?",
+                answer: "Anyone running remote meetings can use SynaptiVoice to capture conversations accurately. Record internal and external calls, 1-on-1s, team check-ins, and all-hands meetings using one secure AI-powered note-taking platform. Flying solo? SynaptiVoice’s individual plan is perfect for keeping your meeting notes and recordings organized and accessible."
               }
             ].map((faq, index) => (
               <div key={index} className="border border-gray-200 rounded-lg">
@@ -308,7 +308,7 @@ const Homepage: React.FC = () => {
             Ready to Transform Your Meetings?
           </h2>
           <p className="text-xl text-blue-100 mb-8">
-            Join thousands  of teams already using Eagle AI to unlock insights from their conversations.
+            Join thousands  of teams already using SynaptiVoice to unlock insights from their conversations.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/login">
@@ -325,7 +325,7 @@ const Homepage: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
-              <h3 className="text-xl font-bold mb-4">Eagle AI</h3>
+              <h3 className="text-xl font-bold mb-4">SynaptiVoice</h3>
               <p className="text-gray-400 text-sm">
                 Transforming conversations into actionable insights with AI-powered intelligence.
               </p>
@@ -359,7 +359,7 @@ const Homepage: React.FC = () => {
             </div>
           </div>
           <div className="border-t border-gray-800 mt-8 pt-8 text-center text-sm text-gray-400">
-            <p>&copy; 2025 Eagle AI. All rights reserved.</p>
+            <p>&copy; 2025 SynaptiVoice. All rights reserved.</p>
           </div>
         </div>
       </footer>
