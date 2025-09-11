@@ -742,9 +742,9 @@ const RecordingDetail: React.FC = () => {
                   <TabsContent value="intelligence" className="space-y-6 mt-6">
                     <Card>
                       <CardHeader>
-                        <CardTitle className="text-lg">AI Intelligence Analysis</CardTitle>
+                        <CardTitle className="text-lg">Intelligence Analysis</CardTitle>
                         <CardDescription>
-                          Search and filter through AI-generated insights from your recording
+                          Search and filter from your recording
                         </CardDescription>
                       </CardHeader>
                       <CardContent>
@@ -1290,6 +1290,9 @@ const RecordingDetail: React.FC = () => {
                     <p className="text-amber-700 bg-amber-50 p-3 text-sm rounded-lg">
                       {detailedIntelligence?.confidence_note}
                     </p>
+                  </div>
+                  <div className="mb-6">
+                    <CardTitle className="text-lg mb-2">Exports</CardTitle>
                   </div>
                 </div>
               </div>
