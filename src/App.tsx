@@ -1,13 +1,15 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import Login from './components/Login';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import Layout from './components/Layout';
-import Homepage from './pages/Homepage';
-import Dashboard from './pages/Dashboard';
-import Recordings from './pages/Recordings';
-import RecordingDetail from './pages/RecordingDetail';
+import Login from './components/Login';
+import TrialRestriction from './components/TrialRestriction';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Billings from './pages/Billings';
+import Dashboard from './pages/Dashboard';
+import FreeTrial from './pages/FreeTrial';
+import Homepage from './pages/Homepage';
+import RecordingDetail from './pages/RecordingDetail';
+import Recordings from './pages/Recordings';
 import Settings from './pages/Settings';
 
 const AppContent: React.FC = () => {
@@ -19,6 +21,33 @@ const AppContent: React.FC = () => {
         {/* Public routes */}
         <Route path="/" element={<Homepage />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/trial" element={<FreeTrial />} />
+        
+        {/* Trial restriction routes - for users trying to access protected features without login */}
+        <Route path="/trial-recordings" element={
+          <TrialRestriction 
+            feature="Recordings" 
+            description="Access to saved recordings and file management is only available to registered users." 
+          />
+        } />
+        <Route path="/trial-analytics" element={
+          <TrialRestriction 
+            feature="Analytics Dashboard" 
+            description="Advanced analytics and reporting features are only available to registered users." 
+          />
+        } />
+        <Route path="/trial-billings" element={
+          <TrialRestriction 
+            feature="Billing" 
+            description="Billing and subscription management is only available to registered users." 
+          />
+        } />
+        <Route path="/trial-settings" element={
+          <TrialRestriction 
+            feature="Settings" 
+            description="User settings and preferences are only available to registered users." 
+          />
+        } />
         
         {/* Protected routes */}
         {user ? (
