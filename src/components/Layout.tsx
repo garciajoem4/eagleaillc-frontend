@@ -1,5 +1,5 @@
 import React from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from './ui/button';
 
@@ -21,7 +21,7 @@ const Layout: React.FC = () => {
       {/* Sidebar */}
       <nav className="w-64 bg-white shadow-lg h-screen fixed left-0">
         <div className="p-4 border-b border-gray-200">
-          <h1 className="text-xl font-bold">Eagle AI LLC</h1>
+          <h1 className="text-xl font-bold">SynaptiVoice</h1>
         </div>
         <div className="py-4">
           {navItems.map((item) => (
