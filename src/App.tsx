@@ -52,7 +52,7 @@ const AppContent: React.FC = () => {
         {/* Protected routes */}
         {user ? (
           <Route path="/app" element={<Layout />}>
-            <Route index element={<Navigate to="/app/dashboard" />} />
+            <Route index element={<Navigate to="/app/recordings" />} />
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="recordings" element={<Recordings />} />
             <Route path="recordings/:id" element={<RecordingDetail />} />

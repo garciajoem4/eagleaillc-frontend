@@ -1,13 +1,13 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { DetailedIntelligence } from '../types';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { Badge } from '../components/ui/badge';
+import { Button } from '../components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import { Input } from '../components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { sampleIntelligence } from '../data/sampleIntelligence';
 import { sampleTranscriptData } from '../data/sampleTranscript';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { Button } from '../components/ui/button';
-import { Badge } from '../components/ui/badge';
-import { Input } from '../components/ui/input';
+import { DetailedIntelligence } from '../types';
 
 const RecordingDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -49,7 +49,6 @@ const RecordingDetail: React.FC = () => {
   useEffect(() => {
     setTimeout(() => {
       const audio = audioRef.current;
-      console.log('testing', audio);
 
       if (!audio) return;
 
@@ -58,7 +57,6 @@ const RecordingDetail: React.FC = () => {
       };
 
       const handlePlay = () => {
-        console.log('audio is playing');
         setIsAudioPlaying(true);
       };
 
