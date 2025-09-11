@@ -57,7 +57,7 @@ const Homepage: React.FC = () => {
           <div className="text-center">
             <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
               Transform Your Meetings with 
-              <span className="text-blue-600 block"> AI-Powered Intelligence</span>
+              <span className="text-blue-600 block"> Smart Powered Intelligence</span>
             </h1>
             <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
               Automatically transcribe, analyze, and extract actionable insights from your recordings. 
@@ -100,7 +100,7 @@ const Homepage: React.FC = () => {
                   </svg>
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">AI-Powered Transcription</h3>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Powered Transcription</h3>
                   <p className="text-gray-600 mb-4">
                     Accurate, real-time transcription with speaker identification and timestamp precision
                   </p>
