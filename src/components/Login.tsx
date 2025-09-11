@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate, Link } from 'react-router-dom';
 import { Button } from './ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -18,8 +18,8 @@ const Login: React.FC = () => {
     setError('');
     
     if (login(username, password)) {
-      // Login successful - redirect to app
-      navigate('/app/dashboard');
+      // Login successful - redirect to app (will auto-redirect to recordings)
+      navigate('/app');
     } else {
       setError('Invalid username or password');
     }
@@ -35,7 +35,7 @@ const Login: React.FC = () => {
       
       <Card className="w-full max-w-md bg-white shadow-2xl">
         <CardHeader className="text-center space-y-1">
-          <CardTitle className="text-3xl font-bold text-gray-900">Eagle AI LLC</CardTitle>
+          <CardTitle className="text-3xl font-bold text-gray-900">SynaptiVoice</CardTitle>
           <CardDescription className="text-gray-600">Sign in to your account</CardDescription>
         </CardHeader>
         

@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
-import { Badge } from '../components/ui/badge';
 
 const Homepage: React.FC = () => {
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
@@ -64,7 +63,7 @@ const Homepage: React.FC = () => {
               Turn every conversation into valuable business intelligence.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to="/login">
+              <Link to="/trial">
                 <Button size="lg" className="px-8 py-3 text-lg">
                   Start Free Trial
                 </Button>
@@ -311,7 +310,7 @@ const Homepage: React.FC = () => {
             Join thousands  of teams already using SynaptiVoice to unlock insights from their conversations.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to="/login">
+            <Link to="/trial">
               <Button size="lg" variant="secondary" className="px-8 py-3 text-lg">
                 Start Free Trial
               </Button>
