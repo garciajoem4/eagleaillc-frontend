@@ -1,132 +1,31 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import FileUpload from '../components/ui/file-upload';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { sampleIntelligence } from '../data/sampleIntelligence';
 import { sampleTranscriptData } from '../data/sampleTranscript';
-import { UploadFile } from '../hooks/useFileUpload';
-import { context7Service } from '../services/context7Service';
-import { DetailedIntelligence } from '../types';
-
-const TRIAL_STORAGE_KEY = 'synaptivoice_trial_used';
+import { useFreeTrial } from '../hooks/useFreeTrial';
 
 const FreeTrial: React.FC = () => {
-  const [trialUsed, setTrialUsed] = useState<boolean>(false);
-  const [isProcessing, setIsProcessing] = useState<boolean>(false);
-  const [showResults, setShowResults] = useState<boolean>(false);
-  const [uploadedFiles, setUploadedFiles] = useState<UploadFile[]>([]);
-  const [activeTab, setActiveTab] = useState<'upload' | 'context7'>('upload');
-  const [context7Query, setContext7Query] = useState<string>('');
-  const [context7Project, setContext7Project] = useState<string>('');
-  const [currentAudioTime, setCurrentAudioTime] = useState<number>(0);
-  const [detailedIntelligence] = useState<DetailedIntelligence>(sampleIntelligence);
-  const audioRef = React.useRef<HTMLAudioElement>(null);
+  const {
+    // State variables
+    trialUsed,
+    isProcessing,
+    showResults,
+    setShowResults,
+    uploadedFiles,
+    currentAudioTime,
+    detailedIntelligence,
+    audioRef,
 
-  // Check if trial has been used
-  useEffect(() => {
-    const used = localStorage.getItem(TRIAL_STORAGE_KEY);
-    if (used === 'true') {
-      setTrialUsed(true);
-    }
-  }, []);
-
-  // Audio event handlers (copied from RecordingDetail)
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    const handleTimeUpdate = () => {
-      setCurrentAudioTime(audio.currentTime);
-    };
-
-    const handlePlay = () => {
-      // Audio is playing
-    };
-
-    const handlePause = () => {
-      // Audio is paused
-    };
-
-    audio.addEventListener('timeupdate', handleTimeUpdate);
-    audio.addEventListener('play', handlePlay);
-    audio.addEventListener('pause', handlePause);
-
-    return () => {
-      audio.removeEventListener('timeupdate', handleTimeUpdate);
-      audio.removeEventListener('play', handlePlay);
-      audio.removeEventListener('pause', handlePause);
-    };
-  }, [showResults]);
-
-  // Utility functions for timestamp handling
-  const parseTimestampToSeconds = useCallback((timestamp: string): number => {
-    const parts = timestamp.split(':');
-    if (parts.length === 3) {
-      const hours = parseInt(parts[0]);
-      const minutes = parseInt(parts[1]);
-      const seconds = parseFloat(parts[2]);
-      return hours * 3600 + minutes * 60 + seconds;
-    }
-    return 0;
-  }, []);
-
-  const isItemActiveAtTime = useCallback((startTimestamp: string, endTimestamp: string, currentTime: number): boolean => {
-    const startTime = parseTimestampToSeconds(startTimestamp);
-    const endTime = parseTimestampToSeconds(endTimestamp);
-    return currentTime >= startTime && currentTime <= endTime;
-  }, [parseTimestampToSeconds]);
-
-  const handleFileUploadComplete = (files: UploadFile[]) => {
-    setUploadedFiles(files);
-  };
-
-  const handleStartTrial = async () => {
-    if (trialUsed) return;
-
-    setIsProcessing(true);
-    try {
-      // Simulate processing time
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      // Mark trial as used
-      localStorage.setItem(TRIAL_STORAGE_KEY, 'true');
-      setTrialUsed(true);
-      setShowResults(true);
-    } catch (error) {
-      console.error('Trial processing failed:', error);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleContext7Query = async () => {
-    if (trialUsed || !context7Query.trim()) return;
-
-    setIsProcessing(true);
-    try {
-      await context7Service.query(context7Project || 'general', context7Query);
-      
-      // Mark trial as used and show results
-      localStorage.setItem(TRIAL_STORAGE_KEY, 'true');
-      setTrialUsed(true);
-      setShowResults(true);
-    } catch (error) {
-      console.error('Context7 query failed:', error);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const jumpToTimestamp = (timestamp: string) => {
-    const audio = audioRef.current;
-    if (audio) {
-      const seconds = parseTimestampToSeconds(timestamp);
-      audio.currentTime = seconds;
-    }
-  };
+    // Functions
+    isItemActiveAtTime,
+    handleFileUploadComplete,
+    handleStartTrial,
+    jumpToTimestamp
+  } = useFreeTrial();
 
   if (showResults) {
     return (
@@ -183,7 +82,7 @@ const FreeTrial: React.FC = () => {
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="transcript">Transcript</TabsTrigger>
-              <TabsTrigger value="intelligence">AI Intelligence</TabsTrigger>
+              <TabsTrigger value="intelligence">Intelligence</TabsTrigger>
               <TabsTrigger value="exports" disabled>
                 Exports <Badge variant="outline" className="ml-1">Pro</Badge>
               </TabsTrigger>
@@ -464,7 +363,7 @@ const FreeTrial: React.FC = () => {
           <CardContent className="text-center space-y-4">
             <div className="text-6xl mb-4">🚀</div>
             <p className="text-gray-600">
-              Ready to unlock the full power of AI-driven meeting intelligence?
+              Ready to unlock the full power of your meeting intelligence?
             </p>
             <div className="space-y-2">
               <Link to="/login" className="block">
@@ -553,7 +452,7 @@ const FreeTrial: React.FC = () => {
                     className="w-full"
                     size="lg"
                   >
-                    {isProcessing ? 'Processing...' : 'Start AI Analysis'}
+                    {isProcessing ? 'Processing...' : 'Start Analysis'}
                   </Button>
                 </div>
               )}

@@ -97,7 +97,7 @@ const RecordingDetail: React.FC = () => {
         </div>
       </div>
 
-      <Tabs defaultValue="overview" className="w-full">
+      <Tabs defaultValue="automations" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="automations">Automations</TabsTrigger>

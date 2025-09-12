@@ -60,39 +60,37 @@ export const useRecordingDetail = (
 
   // Audio event handlers
   useEffect(() => {
-    setTimeout(() => {
-      const audio = audioRef.current;
+    const audio = audioRef.current;
 
-      if (!audio) return;
+    if (!audio) return;
 
-      const handleTimeUpdate = () => {
-        setCurrentAudioTime(audio.currentTime);
-      };
+    const handleTimeUpdate = () => {
+      setCurrentAudioTime(audio.currentTime);
+    };
 
-      const handlePlay = () => {
-        setIsAudioPlaying(true);
-      };
+    const handlePlay = () => {
+      setIsAudioPlaying(true);
+    };
 
-      const handlePause = () => {
-        setIsAudioPlaying(false);
-      };
+    const handlePause = () => {
+      setIsAudioPlaying(false);
+    };
 
-      const handleLoadedMetadata = () => {
-        setAudioDuration(audio.duration);
-      };
+    const handleLoadedMetadata = () => {
+      setAudioDuration(audio.duration);
+    };
 
-      audio.addEventListener('timeupdate', handleTimeUpdate);
-      audio.addEventListener('play', handlePlay);
-      audio.addEventListener('pause', handlePause);
-      audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+    audio.addEventListener('timeupdate', handleTimeUpdate);
+    audio.addEventListener('play', handlePlay);
+    audio.addEventListener('pause', handlePause);
+    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
 
-      return () => {
-        audio.removeEventListener('timeupdate', handleTimeUpdate);
-        audio.removeEventListener('play', handlePlay);
-        audio.removeEventListener('pause', handlePause);
-        audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      };
-    }, 2000);
+    return () => {
+      audio.removeEventListener('timeupdate', handleTimeUpdate);
+      audio.removeEventListener('play', handlePlay);
+      audio.removeEventListener('pause', handlePause);
+      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+    };
   }, []);
 
   // Generate time range options based on recording duration
