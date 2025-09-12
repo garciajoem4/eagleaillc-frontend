@@ -1,5 +1,7 @@
-import { useCallback } from 'react';
+import { useCallback, useState, useEffect, useMemo, useRef } from 'react';
+import { useParams } from 'react-router-dom';
 import { DetailedIntelligence } from '../types';
+import { sampleIntelligence } from '../data/sampleIntelligence';
 
 interface TranscriptData {
   full_transcription?: string;
@@ -11,12 +13,99 @@ interface TranscriptData {
   }>;
   duration_seconds: number;
   file_name: string;
+  date_uploaded?: string;
 }
 
 export const useRecordingUtils = (
-  sampleTranscriptData: TranscriptData,
-  detailedIntelligence: DetailedIntelligence | null
+  sampleTranscriptData: TranscriptData
 ) => {
+  const { id } = useParams<{ id: string }>();
+
+  // State variables
+  const [detailedIntelligence, setDetailedIntelligence] = useState<DetailedIntelligence | null>(null);
+  const [transcriptView, setTranscriptView] = useState<'full' | 'segments'>('segments');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [fullTranscriptSearchQuery, setFullTranscriptSearchQuery] = useState<string>('');
+  const [selectedTimeRange, setSelectedTimeRange] = useState<string>('0-10');
+  const [actionItemsSearch, setActionItemsSearch] = useState<string>('');
+  const [decisionsSearch, setDecisionsSearch] = useState<string>('');
+  const [issuesSearch, setIssuesSearch] = useState<string>('');
+  const [questionsSearch, setQuestionsSearch] = useState<string>('');
+  
+  // Export functionality state
+  const [activeAutomationTab, setActiveAutomationTab] = useState<string>('transcript');
+  const [isOtherExportsOpen, setIsOtherExportsOpen] = useState<boolean>(false);
+  
+  // Audio synchronization state
+  const [currentAudioTime, setCurrentAudioTime] = useState<number>(0);
+  const [isAudioPlaying, setIsAudioPlaying] = useState<boolean>(false);
+  const [audioDuration, setAudioDuration] = useState<number>(0);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  // Load sample intelligence data for demonstration
+  useEffect(() => {
+    if (sampleTranscriptData) {
+      setDetailedIntelligence(sampleIntelligence);
+    }
+  }, [id, sampleTranscriptData]);
+
+  // Audio event handlers
+  useEffect(() => {
+    setTimeout(() => {
+      const audio = audioRef.current;
+
+      if (!audio) return;
+
+      const handleTimeUpdate = () => {
+        setCurrentAudioTime(audio.currentTime);
+      };
+
+      const handlePlay = () => {
+        setIsAudioPlaying(true);
+      };
+
+      const handlePause = () => {
+        setIsAudioPlaying(false);
+      };
+
+      const handleLoadedMetadata = () => {
+        setAudioDuration(audio.duration);
+      };
+
+      audio.addEventListener('timeupdate', handleTimeUpdate);
+      audio.addEventListener('play', handlePlay);
+      audio.addEventListener('pause', handlePause);
+      audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+
+      return () => {
+        audio.removeEventListener('timeupdate', handleTimeUpdate);
+        audio.removeEventListener('play', handlePlay);
+        audio.removeEventListener('pause', handlePause);
+        audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      };
+    }, 2000);
+  }, []);
+
+  // Generate time range options based on recording duration
+  const timeRangeOptions = useMemo(() => {
+    const totalMinutes = Math.ceil(sampleTranscriptData.duration_seconds / 60);
+    const ranges = [];
+
+    // Add "All Time" at the end
+    ranges.push({ value: 'all', label: 'All Time' });
+    
+    // Add time ranges first (0-10, 10-20, etc.)
+    for (let i = 0; i < totalMinutes; i += 5) {
+      const endMinute = Math.min(i + 5, totalMinutes);
+      ranges.push({
+        value: `${i}-${endMinute}`,
+        label: `${i}:00 - ${endMinute}:00`
+      });
+    }
+    
+    return ranges;
+  }, [sampleTranscriptData.duration_seconds]);
+
   // Utility functions for timestamp handling
   const parseTimestampToSeconds = useCallback((timestamp: string): number => {
     const parts = timestamp.split(':');
@@ -34,6 +123,168 @@ export const useRecordingUtils = (
     const endTime = parseTimestampToSeconds(endTimestamp);
     return currentTime >= startTime && currentTime <= endTime;
   }, [parseTimestampToSeconds]);
+
+  // Filter segments based on search, time range, and audio playback
+  const filteredSegments = useMemo(() => {
+    if (!sampleTranscriptData.segments) return [];
+    
+    return sampleTranscriptData.segments.filter(segment => {
+      const matchesSearch = searchQuery === '' || 
+        segment.text.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      let matchesTimeRange = true;
+      
+      // When audio has been played (even if paused), filter by 5-minute chunks around current time
+      if (currentAudioTime > 0) {
+        const chunkDuration = 300; // 5 minutes in seconds
+        const chunkStart = Math.floor(currentAudioTime / chunkDuration) * chunkDuration;
+        const chunkEnd = chunkStart + chunkDuration;
+        matchesTimeRange = segment.start >= chunkStart && segment.start < chunkEnd;
+      } else if (selectedTimeRange !== 'all') {
+        // Use dropdown time range when audio hasn't been played yet
+        const [startMin, endMin] = selectedTimeRange.split('-').map(Number);
+        const segmentStartMin = Math.floor(segment.start / 60);
+        matchesTimeRange = segmentStartMin >= startMin && segmentStartMin < endMin;
+      }
+      
+      return matchesSearch && matchesTimeRange;
+    });
+  }, [searchQuery, selectedTimeRange, currentAudioTime, sampleTranscriptData.segments]);
+
+  // Get currently active segment based on audio time
+  const currentActiveSegment = useMemo(() => {
+    if (!sampleTranscriptData.segments || !isAudioPlaying) return null;
+    return sampleTranscriptData.segments.find(segment => 
+      currentAudioTime >= segment.start && currentAudioTime <= segment.end
+    );
+  }, [currentAudioTime, isAudioPlaying, sampleTranscriptData.segments]);
+
+  // Filter intelligence data based on search and type with audio synchronization
+  const filteredActionItems = useMemo(() => {
+    if (!detailedIntelligence?.action_items) return [];
+    return detailedIntelligence.action_items.filter(item => {
+      const searchText = actionItemsSearch.toLowerCase();
+      const matchesSearch = searchText === '' || 
+        item.task?.toLowerCase().includes(searchText) ||
+        item.assigned_to?.toLowerCase().includes(searchText);
+
+      // When audio has been played (even if paused), filter by 5-minute chunks around current time
+      if (currentAudioTime > 0) {
+        const chunkDuration = 300; // 5 minutes in seconds
+        const chunkStart = Math.floor(currentAudioTime / chunkDuration) * chunkDuration;
+        const chunkEnd = chunkStart + chunkDuration;
+        
+        const itemStartSeconds = parseTimestampToSeconds(item.timestamp_start);
+        const itemEndSeconds = parseTimestampToSeconds(item.timestamp_end);
+        
+        // Show item if it overlaps with the current 5-minute chunk
+        const matchesTimeChunk = itemStartSeconds < chunkEnd && itemEndSeconds > chunkStart;
+        return matchesSearch && matchesTimeChunk;
+      }
+
+      return matchesSearch;
+    });
+  }, [actionItemsSearch, detailedIntelligence, currentAudioTime, parseTimestampToSeconds]);
+
+  const filteredDecisions = useMemo(() => {
+    if (!detailedIntelligence?.decisions) return [];
+    return detailedIntelligence.decisions.filter(decision => {
+      const searchText = decisionsSearch.toLowerCase();
+      const matchesSearch = searchText === '' || 
+        decision.decision?.toLowerCase().includes(searchText);
+
+      // When audio has been played (even if paused), filter by 5-minute chunks around current time
+      if (currentAudioTime > 0) {
+        const chunkDuration = 300; // 5 minutes in seconds
+        const chunkStart = Math.floor(currentAudioTime / chunkDuration) * chunkDuration;
+        const chunkEnd = chunkStart + chunkDuration;
+        
+        const itemStartSeconds = parseTimestampToSeconds(decision.timestamp_start);
+        const itemEndSeconds = parseTimestampToSeconds(decision.timestamp_end);
+        
+        // Show item if it overlaps with the current 5-minute chunk
+        const matchesTimeChunk = itemStartSeconds < chunkEnd && itemEndSeconds > chunkStart;
+        return matchesSearch && matchesTimeChunk;
+      }
+
+      return matchesSearch;
+    });
+  }, [decisionsSearch, detailedIntelligence, currentAudioTime, parseTimestampToSeconds]);
+
+  const filteredIssues = useMemo(() => {
+    if (!detailedIntelligence?.issues) return [];
+    return detailedIntelligence.issues.filter(issue => {
+      const searchText = issuesSearch.toLowerCase();
+      const matchesSearch = searchText === '' || 
+        issue.issue?.toLowerCase().includes(searchText);
+
+      // When audio has been played (even if paused), filter by 5-minute chunks around current time
+      if (currentAudioTime > 0) {
+        const chunkDuration = 300; // 5 minutes in seconds
+        const chunkStart = Math.floor(currentAudioTime / chunkDuration) * chunkDuration;
+        const chunkEnd = chunkStart + chunkDuration;
+        
+        const itemStartSeconds = parseTimestampToSeconds(issue.timestamp_start);
+        const itemEndSeconds = parseTimestampToSeconds(issue.timestamp_end);
+        
+        // Show item if it overlaps with the current 5-minute chunk
+        const matchesTimeChunk = itemStartSeconds < chunkEnd && itemEndSeconds > chunkStart;
+        return matchesSearch && matchesTimeChunk;
+      }
+
+      return matchesSearch;
+    });
+  }, [issuesSearch, detailedIntelligence, currentAudioTime, parseTimestampToSeconds]);
+
+  const filteredQuestions = useMemo(() => {
+    if (!detailedIntelligence?.questions) return [];
+    return detailedIntelligence.questions.filter(question => {
+      const searchText = questionsSearch.toLowerCase();
+      const matchesSearch = searchText === '' || 
+        question.question?.toLowerCase().includes(searchText);
+
+      // When audio has been played (even if paused), filter by 5-minute chunks around current time
+      if (currentAudioTime > 0) {
+        const chunkDuration = 300; // 5 minutes in seconds
+        const chunkStart = Math.floor(currentAudioTime / chunkDuration) * chunkDuration;
+        const chunkEnd = chunkStart + chunkDuration;
+        
+        const itemStartSeconds = parseTimestampToSeconds(question.timestamp_start);
+        const itemEndSeconds = parseTimestampToSeconds(question.timestamp_end);
+        
+        // Show item if it overlaps with the current 5-minute chunk
+        const matchesTimeChunk = itemStartSeconds < chunkEnd && itemEndSeconds > chunkStart;
+        return matchesSearch && matchesTimeChunk;
+      }
+
+      return matchesSearch;
+    });
+  }, [questionsSearch, detailedIntelligence, currentAudioTime, parseTimestampToSeconds]);
+
+  // Get currently active intelligence items based on audio time
+  const currentActiveItems = useMemo(() => {
+    if (!isAudioPlaying || !detailedIntelligence) return {
+      actionItems: [],
+      decisions: [],
+      issues: [],
+      questions: []
+    };
+
+    return {
+      actionItems: detailedIntelligence.action_items.filter(item => 
+        isItemActiveAtTime(item.timestamp_start, item.timestamp_end, currentAudioTime)
+      ),
+      decisions: detailedIntelligence.decisions.filter(decision => 
+        isItemActiveAtTime(decision.timestamp_start, decision.timestamp_end, currentAudioTime)
+      ),
+      issues: detailedIntelligence.issues.filter(issue => 
+        isItemActiveAtTime(issue.timestamp_start, issue.timestamp_end, currentAudioTime)
+      ),
+      questions: detailedIntelligence.questions.filter(question => 
+        isItemActiveAtTime(question.timestamp_start, question.timestamp_end, currentAudioTime)
+      )
+    };
+  }, [currentAudioTime, isAudioPlaying, detailedIntelligence, isItemActiveAtTime]);
 
   // Export utility functions
   const downloadFile = useCallback((content: string, fileName: string, mimeType: string) => {
@@ -394,11 +645,109 @@ export const useRecordingUtils = (
     downloadFile(content, fileName, mimeType);
   }, [downloadFile, detailedIntelligence]);
 
+  const getSeverityVariant = (value: number | string): "default" | "secondary" | "destructive" | "outline" => {
+    if (typeof value === 'number') {
+      if (value >= 0.8) return 'default';
+      if (value >= 0.6) return 'secondary';
+      return 'destructive';
+    }
+    switch (value?.toLowerCase()) {
+      case 'high': return 'destructive';
+      case 'medium': return 'secondary';
+      case 'low': return 'outline';
+      default: return 'secondary';
+    }
+  };
+
+  const formatDate = (date: Date): string => {
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const formatTimestampFromString = (timestamp: string): string => {
+    return timestamp.replace(/(\d{2}):(\d{2}):(\d{2})\.(\d{2})/, '$1:$2:$3');
+  };
+
+  const formatSegmentTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const renderHighlightedText = (text: string, searchTerm: string) => {
+    if (!searchTerm.trim()) {
+      return text;
+    }
+
+    const parts = text.split(new RegExp(`(${searchTerm})`, 'gi'));
+    return parts.map((part, index) =>
+      part.toLowerCase() === searchTerm.toLowerCase() ? (
+        `<mark key="${index}" className="bg-yellow-200 px-1 rounded">
+          ${part}
+        </mark>`
+      ) : (
+        part
+      )
+    );
+  };
+
   return {
+    // State variables
+    detailedIntelligence,
+    setDetailedIntelligence,
+    transcriptView,
+    setTranscriptView,
+    searchQuery,
+    setSearchQuery,
+    fullTranscriptSearchQuery,
+    setFullTranscriptSearchQuery,
+    selectedTimeRange,
+    setSelectedTimeRange,
+    actionItemsSearch,
+    setActionItemsSearch,
+    decisionsSearch,
+    setDecisionsSearch,
+    issuesSearch,
+    setIssuesSearch,
+    questionsSearch,
+    setQuestionsSearch,
+    activeAutomationTab,
+    setActiveAutomationTab,
+    isOtherExportsOpen,
+    setIsOtherExportsOpen,
+    currentAudioTime,
+    setCurrentAudioTime,
+    isAudioPlaying,
+    setIsAudioPlaying,
+    audioDuration,
+    setAudioDuration,
+    audioRef,
+
+    // Computed values
+    timeRangeOptions,
+    filteredSegments,
+    currentActiveSegment,
+    filteredActionItems,
+    filteredDecisions,
+    filteredIssues,
+    filteredQuestions,
+    currentActiveItems,
+
+    // Utility functions
     parseTimestampToSeconds,
     isItemActiveAtTime,
     downloadFile,
     formatTimestamp,
+    getSeverityVariant,
+    formatDate,
+    formatTimestampFromString,
+    formatSegmentTime,
+    renderHighlightedText,
     exportTranscriptData,
     exportIntelligenceData
   };
