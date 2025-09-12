@@ -16,7 +16,7 @@ interface TranscriptData {
   date_uploaded?: string;
 }
 
-export const useRecordingUtils = (
+export const useRecordingDetail = (
   sampleTranscriptData: TranscriptData
 ) => {
   const { id } = useParams<{ id: string }>();
@@ -41,6 +41,15 @@ export const useRecordingUtils = (
   const [isAudioPlaying, setIsAudioPlaying] = useState<boolean>(false);
   const [audioDuration, setAudioDuration] = useState<number>(0);
   const audioRef = useRef<HTMLAudioElement>(null);
+
+  const fullSegmentButtons: string[] = ['PDF', 'JSON', 'CSV', 'TXT'];
+  const fullOnlyButtons: string[] = ['PDF', 'JSON', 'TXT'];
+  const segmentsOnlyButtons: string[] = ['PDF', 'CSV', 'TXT'];
+  const completeAnalysisButtons: string[] = ['PDF', 'JSON', 'CSV', 'TXT'];
+  const actionItemsButtons: string[] = ['PDF', 'JSON', 'CSV', 'TXT'];
+  const decisionsButtons: string[] = ['PDF', 'JSON', 'CSV', 'TXT'];
+  const issuesButtons: string[] = ['PDF', 'JSON', 'CSV', 'TXT'];
+  const questionsButtons: string[] = ['PDF', 'JSON', 'CSV', 'TXT'];
 
   // Load sample intelligence data for demonstration
   useEffect(() => {
@@ -727,6 +736,16 @@ export const useRecordingUtils = (
     audioDuration,
     setAudioDuration,
     audioRef,
+
+    // Plain constants
+    fullSegmentButtons,
+    fullOnlyButtons,
+    segmentsOnlyButtons,
+    completeAnalysisButtons,
+    actionItemsButtons,
+    decisionsButtons,
+    issuesButtons,
+    questionsButtons,
 
     // Computed values
     timeRangeOptions,
