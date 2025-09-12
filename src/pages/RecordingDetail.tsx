@@ -23,6 +23,7 @@ const RecordingDetail: React.FC = () => {
   
   // Export functionality state
   const [activeAutomationTab, setActiveAutomationTab] = useState<string>('transcript');
+  const [isOtherExportsOpen, setIsOtherExportsOpen] = useState<boolean>(false);
   
   // Audio synchronization state
   const [currentAudioTime, setCurrentAudioTime] = useState<number>(0);
@@ -1704,75 +1705,97 @@ const RecordingDetail: React.FC = () => {
                             </div>
                           </div>
 
-                          {/* Full Text Only Option */}
-                          <div className="border rounded-lg p-3 hover:bg-gray-50 transition-colors">
-                            <div className="flex items-center justify-between mb-2">
-                              <div>
-                                <div className="font-medium text-sm">Full Text Only</div>
-                                <div className="text-xs text-gray-600">Complete transcript as continuous text</div>
+                          {/* Other Exports Accordion for Transcript */}
+                          <div className="md:col-span-2">
+                            <div 
+                              className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors border"
+                              onClick={() => setIsOtherExportsOpen(!isOtherExportsOpen)}
+                            >
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-medium text-sm text-gray-700">Other Exports</h4>
+                                <Badge variant="outline" className="text-xs">2 types</Badge>
+                              </div>
+                              <div className="text-gray-500 transition-transform duration-200" style={{
+                                transform: isOtherExportsOpen ? 'rotate(180deg)' : 'rotate(0deg)'
+                              }}>
                               </div>
                             </div>
-                            <div className="flex gap-2 mt-2">
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="text-xs"
-                                onClick={() => exportTranscriptData('full-only', 'pdf')}
-                              >
-                                PDF
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="text-xs"
-                                onClick={() => exportTranscriptData('full-only', 'json')}
-                              >
-                                JSON
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="text-xs"
-                                onClick={() => exportTranscriptData('full-only', 'txt')}
-                              >
-                                TXT
-                              </Button>
-                            </div>
-                          </div>
+                            
+                            <div className={`grid gap-4 mt-2 transition-all duration-300 ease-in-out overflow-hidden ${
+                              isOtherExportsOpen ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'
+                            }`}>
 
-                          {/* Segments Only Option */}
-                          <div className="border rounded-lg p-3 hover:bg-gray-50 transition-colors">
-                            <div className="flex items-center justify-between mb-2">
-                              <div>
-                                <div className="font-medium text-sm">Segments Only</div>
-                                <div className="text-xs text-gray-600">Timestamped segments with speakers</div>
+                              {/* Full Text Only Option */}
+                              <div className="border rounded-lg p-3 hover:bg-gray-50 transition-colors">
+                                <div className="flex items-center justify-between mb-2">
+                                  <div>
+                                    <div className="font-medium text-sm">Full Text Only</div>
+                                    <div className="text-xs text-gray-600">Complete transcript as continuous text</div>
+                                  </div>
+                                </div>
+                                <div className="flex gap-2 mt-2">
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    className="text-xs"
+                                    onClick={() => exportTranscriptData('full-only', 'pdf')}
+                                  >
+                                    PDF
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    className="text-xs"
+                                    onClick={() => exportTranscriptData('full-only', 'json')}
+                                  >
+                                    JSON
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    className="text-xs"
+                                    onClick={() => exportTranscriptData('full-only', 'txt')}
+                                  >
+                                    TXT
+                                  </Button>
+                                </div>
                               </div>
-                            </div>
-                            <div className="flex gap-2 mt-2">
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="text-xs"
-                                onClick={() => exportTranscriptData('segments-only', 'pdf')}
-                              >
-                                PDF
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="text-xs"
-                                onClick={() => exportTranscriptData('segments-only', 'json')}
-                              >
-                                JSON
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="text-xs"
-                                onClick={() => exportTranscriptData('segments-only', 'csv')}
-                              >
-                                CSV
-                              </Button>
+
+                              {/* Segments Only Option */}
+                              <div className="border rounded-lg p-3 hover:bg-gray-50 transition-colors">
+                                <div className="flex items-center justify-between mb-2">
+                                  <div>
+                                    <div className="font-medium text-sm">Segments Only</div>
+                                    <div className="text-xs text-gray-600">Timestamped segments with speakers</div>
+                                  </div>
+                                </div>
+                                <div className="flex gap-2 mt-2">
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    className="text-xs"
+                                    onClick={() => exportTranscriptData('segments-only', 'pdf')}
+                                  >
+                                    PDF
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    className="text-xs"
+                                    onClick={() => exportTranscriptData('segments-only', 'json')}
+                                  >
+                                    JSON
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    className="text-xs"
+                                    onClick={() => exportTranscriptData('segments-only', 'csv')}
+                                  >
+                                    CSV
+                                  </Button>
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -1825,6 +1848,26 @@ const RecordingDetail: React.FC = () => {
                               </Button>
                             </div>
                           </div>
+
+                          {/* Other Exports Accordion */}
+                          <div className="md:col-span-2">
+                            <div 
+                              className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors border"
+                              onClick={() => setIsOtherExportsOpen(!isOtherExportsOpen)}
+                            >
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-medium text-sm text-gray-700">Other Exports</h4>
+                                <Badge variant="outline" className="text-xs">4 types</Badge>
+                              </div>
+                              <div className="text-gray-500 transition-transform duration-200" style={{
+                                transform: isOtherExportsOpen ? 'rotate(180deg)' : 'rotate(0deg)'
+                              }}>
+                              </div>
+                            </div>
+                            
+                            <div className={`grid gap-4 mt-2 transition-all duration-300 ease-in-out overflow-hidden ${
+                              isOtherExportsOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+                            }`}>
 
                           {/* Action Items Only */}
                           <div className="border rounded-lg p-3 hover:bg-gray-50 transition-colors">
@@ -2011,6 +2054,8 @@ const RecordingDetail: React.FC = () => {
                               >
                                 TXT
                               </Button>
+                            </div>
+                          </div>
                             </div>
                           </div>
                         </div>

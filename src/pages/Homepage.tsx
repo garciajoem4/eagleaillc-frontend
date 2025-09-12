@@ -326,7 +326,7 @@ const Homepage: React.FC = () => {
             <div>
               <h3 className="text-xl font-bold mb-4">SynaptiVoice</h3>
               <p className="text-gray-400 text-sm">
-                Transforming conversations into actionable insights with AI-powered intelligence.
+                Transforming conversations into actionable insights with Smart intelligence.
               </p>
             </div>
             <div>
