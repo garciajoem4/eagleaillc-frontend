@@ -298,7 +298,7 @@ const Recordings: React.FC = () => {
           <CardContent className="text-center py-12">
             <h3 className="text-xl font-semibold text-gray-900 mb-2">No recordings yet</h3>
             <p className="text-gray-600 mb-6">
-              Upload your first audio or video file to get started with AI-powered transcription and analysis.
+              Upload your first audio or video file to get started with smart transcription and analysis.
             </p>
             <Button 
               className="btn-primary"

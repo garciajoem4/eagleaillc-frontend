@@ -11,7 +11,7 @@ const Settings: React.FC = () => {
     firstName: 'John',
     lastName: 'Doe',
     email: 'john.doe@example.com',
-    company: 'Eagle AI LLC',
+    company: 'SynaptiVoice',
     phone: '+1 (555) 123-4567',
     
     // Notification settings
