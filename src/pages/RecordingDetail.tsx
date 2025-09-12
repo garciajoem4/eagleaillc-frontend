@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Input } from '../components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { sampleTranscriptData } from '../data/sampleTranscript';
-import { useRecordingUtils } from '../hooks/useRecordingUtils';
+import { useRecordingDetail } from '../hooks/useRecordingDetail';
 
 const RecordingDetail: React.FC = () => {
   // Use recording utilities hook with all state management
@@ -37,6 +37,16 @@ const RecordingDetail: React.FC = () => {
     isAudioPlaying,
     audioRef,
 
+    // Plain constants
+    fullSegmentButtons,
+    fullOnlyButtons,
+    segmentsOnlyButtons,
+    completeAnalysisButtons,
+    actionItemsButtons,
+    decisionsButtons,
+    issuesButtons,
+    questionsButtons,
+
     // Computed values
     timeRangeOptions,
     filteredSegments,
@@ -55,7 +65,7 @@ const RecordingDetail: React.FC = () => {
     renderHighlightedText,
     exportTranscriptData,
     exportIntelligenceData
-  } = useRecordingUtils(sampleTranscriptData);
+  } = useRecordingDetail(sampleTranscriptData);
 
   if (!sampleTranscriptData) {
     return (
@@ -1030,38 +1040,19 @@ const RecordingDetail: React.FC = () => {
                               </div>
                             </div>
                             <div className="flex gap-2 mt-2">
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="text-xs"
-                                onClick={() => exportTranscriptData('full-segments', 'pdf')}
-                              >
-                                PDF
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="text-xs"
-                                onClick={() => exportTranscriptData('full-segments', 'json')}
-                              >
-                                JSON
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="text-xs"
-                                onClick={() => exportTranscriptData('full-segments', 'csv')}
-                              >
-                                CSV
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="text-xs"
-                                onClick={() => exportTranscriptData('full-segments', 'txt')}
-                              >
-                                TXT
-                              </Button>
+                              {
+                                fullSegmentButtons.map((format) => (
+                                  <Button 
+                                    key={format}
+                                    size="sm" 
+                                    variant="outline" 
+                                    className="text-xs"
+                                    onClick={() => exportTranscriptData('full-segments', format.toLowerCase() as 'pdf' | 'json' | 'csv' | 'txt')}
+                                  >
+                                    {format}
+                                  </Button>
+                                ))
+                              }
                             </div>
                           </div>
 
@@ -1094,30 +1085,19 @@ const RecordingDetail: React.FC = () => {
                                   </div>
                                 </div>
                                 <div className="flex gap-2 mt-2">
-                                  <Button 
-                                    size="sm" 
-                                    variant="outline" 
-                                    className="text-xs"
-                                    onClick={() => exportTranscriptData('full-only', 'pdf')}
-                                  >
-                                    PDF
-                                  </Button>
-                                  <Button 
-                                    size="sm" 
-                                    variant="outline" 
-                                    className="text-xs"
-                                    onClick={() => exportTranscriptData('full-only', 'json')}
-                                  >
-                                    JSON
-                                  </Button>
-                                  <Button 
-                                    size="sm" 
-                                    variant="outline" 
-                                    className="text-xs"
-                                    onClick={() => exportTranscriptData('full-only', 'txt')}
-                                  >
-                                    TXT
-                                  </Button>
+                                  {
+                                    fullOnlyButtons.map((format) => (
+                                      <Button 
+                                        key={format}
+                                        size="sm" 
+                                        variant="outline" 
+                                        className="text-xs"
+                                        onClick={() => exportTranscriptData('full-only', format.toLowerCase() as 'pdf' | 'json' | 'txt')}
+                                      >
+                                        {format}
+                                      </Button>
+                                    ))
+                                  }
                                 </div>
                               </div>
 
@@ -1130,30 +1110,19 @@ const RecordingDetail: React.FC = () => {
                                   </div>
                                 </div>
                                 <div className="flex gap-2 mt-2">
-                                  <Button 
-                                    size="sm" 
-                                    variant="outline" 
-                                    className="text-xs"
-                                    onClick={() => exportTranscriptData('segments-only', 'pdf')}
-                                  >
-                                    PDF
-                                  </Button>
-                                  <Button 
-                                    size="sm" 
-                                    variant="outline" 
-                                    className="text-xs"
-                                    onClick={() => exportTranscriptData('segments-only', 'json')}
-                                  >
-                                    JSON
-                                  </Button>
-                                  <Button 
-                                    size="sm" 
-                                    variant="outline" 
-                                    className="text-xs"
-                                    onClick={() => exportTranscriptData('segments-only', 'csv')}
-                                  >
-                                    CSV
-                                  </Button>
+                                  {
+                                    segmentsOnlyButtons.map((format) => (
+                                      <Button 
+                                        key={format}
+                                        size="sm" 
+                                        variant="outline" 
+                                        className="text-xs"
+                                        onClick={() => exportTranscriptData('segments-only', format.toLowerCase() as 'pdf' | 'json' | 'txt' | 'csv')}
+                                      >
+                                        {format}
+                                      </Button>
+                                    ))
+                                  }
                                 </div>
                               </div>
                             </div>
@@ -1174,38 +1143,19 @@ const RecordingDetail: React.FC = () => {
                               </div>
                             </div>
                             <div className="flex gap-2 mt-2">
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="text-xs"
-                                onClick={() => exportIntelligenceData('all', 'pdf')}
-                              >
-                                PDF
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="text-xs"
-                                onClick={() => exportIntelligenceData('all', 'json')}
-                              >
-                                JSON
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="text-xs"
-                                onClick={() => exportIntelligenceData('all', 'csv')}
-                              >
-                                CSV
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="text-xs"
-                                onClick={() => exportIntelligenceData('all', 'txt')}
-                              >
-                                TXT
-                              </Button>
+                              {
+                                completeAnalysisButtons.map((format) => (
+                                  <Button 
+                                    key={format}
+                                    size="sm" 
+                                    variant="outline" 
+                                    className="text-xs"
+                                    onClick={() => exportIntelligenceData('all', format.toLowerCase() as 'pdf' | 'json' | 'txt' | 'csv')}
+                                  >
+                                    {format}
+                                  </Button>
+                                ))
+                              }
                             </div>
                           </div>
 
@@ -1241,38 +1191,19 @@ const RecordingDetail: React.FC = () => {
                               </Badge>
                             </div>
                             <div className="flex gap-2 mt-2">
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="text-xs"
-                                onClick={() => exportIntelligenceData('action-items', 'pdf')}
-                              >
-                                PDF
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="text-xs"
-                                onClick={() => exportIntelligenceData('action-items', 'json')}
-                              >
-                                JSON
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="text-xs"
-                                onClick={() => exportIntelligenceData('action-items', 'csv')}
-                              >
-                                CSV
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="text-xs"
-                                onClick={() => exportIntelligenceData('action-items', 'txt')}
-                              >
-                                TXT
-                              </Button>
+                              {
+                                actionItemsButtons.map((format) => (
+                                  <Button 
+                                    key={format}
+                                    size="sm" 
+                                    variant="outline" 
+                                    className="text-xs"
+                                    onClick={() => exportIntelligenceData('action-items', format.toLowerCase() as 'pdf' | 'json' | 'txt' | 'csv')}
+                                  >
+                                    {format}
+                                  </Button>
+                                ))
+                              }
                             </div>
                           </div>
 
@@ -1288,38 +1219,19 @@ const RecordingDetail: React.FC = () => {
                               </Badge>
                             </div>
                             <div className="flex gap-2 mt-2">
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="text-xs"
-                                onClick={() => exportIntelligenceData('decisions', 'pdf')}
-                              >
-                                PDF
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="text-xs"
-                                onClick={() => exportIntelligenceData('decisions', 'json')}
-                              >
-                                JSON
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="text-xs"
-                                onClick={() => exportIntelligenceData('decisions', 'csv')}
-                              >
-                                CSV
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="text-xs"
-                                onClick={() => exportIntelligenceData('decisions', 'txt')}
-                              >
-                                TXT
-                              </Button>
+                              {
+                                decisionsButtons.map((format) => (
+                                  <Button 
+                                    key={format}
+                                    size="sm" 
+                                    variant="outline" 
+                                    className="text-xs"
+                                    onClick={() => exportIntelligenceData('decisions', format.toLowerCase() as 'pdf' | 'json' | 'txt' | 'csv')}
+                                  >
+                                    {format}
+                                  </Button>
+                                ))
+                              }
                             </div>
                           </div>
 
@@ -1335,38 +1247,19 @@ const RecordingDetail: React.FC = () => {
                               </Badge>
                             </div>
                             <div className="flex gap-2 mt-2">
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="text-xs"
-                                onClick={() => exportIntelligenceData('issues', 'pdf')}
-                              >
-                                PDF
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="text-xs"
-                                onClick={() => exportIntelligenceData('issues', 'json')}
-                              >
-                                JSON
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="text-xs"
-                                onClick={() => exportIntelligenceData('issues', 'csv')}
-                              >
-                                CSV
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="text-xs"
-                                onClick={() => exportIntelligenceData('issues', 'txt')}
-                              >
-                                TXT
-                              </Button>
+                              {
+                                issuesButtons.map((format) => (
+                                  <Button 
+                                    key={format}
+                                    size="sm" 
+                                    variant="outline" 
+                                    className="text-xs"
+                                    onClick={() => exportIntelligenceData('issues', format.toLowerCase() as 'pdf' | 'json' | 'txt' | 'csv')}
+                                  >
+                                    {format}
+                                  </Button>
+                                ))
+                              }
                             </div>
                           </div>
 
@@ -1382,38 +1275,19 @@ const RecordingDetail: React.FC = () => {
                               </Badge>
                             </div>
                             <div className="flex gap-2 mt-2">
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="text-xs"
-                                onClick={() => exportIntelligenceData('questions', 'pdf')}
-                              >
-                                PDF
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="text-xs"
-                                onClick={() => exportIntelligenceData('questions', 'json')}
-                              >
-                                JSON
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="text-xs"
-                                onClick={() => exportIntelligenceData('questions', 'csv')}
-                              >
-                                CSV
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="text-xs"
-                                onClick={() => exportIntelligenceData('questions', 'txt')}
-                              >
-                                TXT
-                              </Button>
+                              {
+                                questionsButtons.map((format) => (
+                                  <Button 
+                                    key={format}
+                                    size="sm" 
+                                    variant="outline" 
+                                    className="text-xs"
+                                    onClick={() => exportIntelligenceData('questions', format.toLowerCase() as 'pdf' | 'json' | 'txt' | 'csv')}
+                                  >
+                                    {format}
+                                  </Button>
+                                ))
+                              }
                             </div>
                           </div>
                             </div>
