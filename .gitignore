@@ -60,8 +60,8 @@ pids
 # Yarn Integrity file
 .yarn-integrity
 
-# dotenv environment variables file (keep .env for demo)
-# .env
+# dotenv environment variables file
+.env
 
 # Temporary folders
 tmp/
