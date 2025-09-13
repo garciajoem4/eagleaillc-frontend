@@ -1,5 +1,6 @@
 import React from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
+import { ClerkProvider } from '@clerk/clerk-react';
 import Layout from './components/Layout';
 import Login from './components/Login';
 import TrialRestriction from './components/TrialRestriction';
@@ -11,6 +12,13 @@ import Homepage from './pages/Homepage';
 import RecordingDetail from './pages/RecordingDetail';
 import Recordings from './pages/Recordings';
 import Settings from './pages/Settings';
+
+// Import Clerk publishable key
+const clerkPubKey = process.env.REACT_APP_CLERK_PUBLISHABLE_KEY;
+
+if (!clerkPubKey) {
+  throw new Error("Missing Publishable Key")
+}
 
 const AppContent: React.FC = () => {
   const { user } = useAuth();
@@ -72,9 +80,11 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <ClerkProvider publishableKey={clerkPubKey}>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </ClerkProvider>
   );
 };
 
