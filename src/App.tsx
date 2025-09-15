@@ -16,13 +16,6 @@ import Settings from './pages/Settings';
 // Import Clerk publishable key
 const clerkPubKey = process.env.REACT_APP_CLERK_PUBLISHABLE_KEY;
 
-console.log('Clerk Key Debug:', {
-  key: clerkPubKey,
-  keyLength: clerkPubKey?.length,
-  keyType: typeof clerkPubKey,
-  allEnvVars: Object.keys(process.env).filter(key => key.includes('CLERK'))
-});
-
 if (!clerkPubKey) {
   throw new Error("Missing Publishable Key")
 }
@@ -101,7 +94,11 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <ClerkProvider publishableKey={clerkPubKey}>
+    <ClerkProvider 
+      publishableKey={clerkPubKey}
+      afterSignInUrl="/app/recordings"
+      signInUrl="/login"
+    >
       <AuthProvider>
         <AppContent />
       </AuthProvider>
