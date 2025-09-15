@@ -16,19 +16,40 @@ import Settings from './pages/Settings';
 // Import Clerk publishable key
 const clerkPubKey = process.env.REACT_APP_CLERK_PUBLISHABLE_KEY;
 
+console.log('Clerk Key Debug:', {
+  key: clerkPubKey,
+  keyLength: clerkPubKey?.length,
+  keyType: typeof clerkPubKey,
+  allEnvVars: Object.keys(process.env).filter(key => key.includes('CLERK'))
+});
+
 if (!clerkPubKey) {
   throw new Error("Missing Publishable Key")
 }
 
 const AppContent: React.FC = () => {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
+
+  console.log('Auth state:', { user, isLoading });
+
+  // Show loading spinner while Clerk is initializing
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Routes>
         {/* Public routes */}
         <Route path="/" element={<Homepage />} />
-        <Route path="/login" element={<Login />} />
+        <Route path="/login" element={user ? <Navigate to="/app/recordings" /> : <Login />} />
         <Route path="/trial" element={<FreeTrial />} />
         
         {/* Trial restriction routes - for users trying to access protected features without login */}

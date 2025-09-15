@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { useSignIn, useUser, useSession } from '@clerk/clerk-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
@@ -10,18 +10,59 @@ const Login: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const { login } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const { signIn, isLoaded } = useSignIn();
+  const { user } = useUser();
+  const { session } = useSession();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
-    if (login(username, password)) {
-      // Login successful - redirect to app (will auto-redirect to recordings)
-      navigate('/app');
-    } else {
-      setError('Invalid username or password');
+    setIsLoading(true);
+
+    try {
+      // Validate Clerk is ready
+      if (!isLoaded || !signIn) {
+        setError('Authentication system not ready. Please try again.');
+        setIsLoading(false);
+        return;
+      }
+
+      // Sign in with Clerk using the provided credentials
+      // User must exist in Clerk dashboard with matching username/password
+      const result = await signIn.create({
+        identifier: username,
+        password: password,
+      });
+
+      if (result.status === 'complete') {
+        // Sign-in successful
+        console.log('🎉 Login Successful!');
+        console.log('Sign-in result:', result);
+        
+        // Redirect to recordings page
+        setTimeout(() => { 
+          navigate('/app/recordings'); 
+        }, 1000);
+      } else {
+        // Sign-in requires additional steps (2FA, etc.)
+        console.log('Sign-in requires additional steps:', result.status);
+        setError('Sign-in requires additional verification steps');
+      }
+    } catch (err: any) {
+      console.error('Sign-in error:', err);
+      
+      // Handle specific Clerk errors
+      if (err.errors) {
+        const errorMessage = err.errors[0]?.message || 'Authentication failed';
+        setError(errorMessage);
+      } else {
+        setError('Authentication failed. Please check your credentials.');
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -71,8 +112,8 @@ const Login: React.FC = () => {
               </div>
             )}
             
-            <Button type="submit" className="w-full btn-primary">
-              Sign in
+            <Button type="submit" className="w-full btn-primary" disabled={isLoading}>
+              {isLoading ? 'Signing in...' : 'Sign in'}
             </Button>
           </form>
         </CardContent>

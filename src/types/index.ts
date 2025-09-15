@@ -12,6 +12,11 @@ export interface Recording {
 export interface User {
   username: string;
   isAuthenticated: boolean;
+  id?: string;
+  email?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  imageUrl?: string;
 }
 
 export interface TableSort {

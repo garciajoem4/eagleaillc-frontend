@@ -1,9 +1,10 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, ReactNode, useMemo } from 'react';
+import { useUser, useClerk } from '@clerk/clerk-react';
 import { User } from '../types';
 
 interface AuthContextType {
   user: User | null;
-  login: (username: string, password: string) => boolean;
+  isLoading: boolean;
   logout: () => void;
 }
 
@@ -22,25 +23,43 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const { user: clerkUser, isLoaded } = useUser();
+  const { signOut } = useClerk();
 
-  const login = (username: string, password: string): boolean => {
-    const envUsername = process.env.REACT_APP_USERNAME;
-    const envPassword = process.env.REACT_APP_PASSWORD;
-    
-    if (username === envUsername && password === envPassword) {
-      setUser({ username, isAuthenticated: true });
-      return true;
+  // Transform Clerk user to our app's User type
+  const user: User | null = useMemo(() => {
+    if (!isLoaded) {
+      return null; // Still loading
     }
-    return false;
-  };
+    
+    if (!clerkUser) {
+      return null; // No authenticated user
+    }
 
-  const logout = () => {
-    setUser(null);
+    return {
+      username: clerkUser.username || clerkUser.primaryEmailAddress?.emailAddress || 'User',
+      isAuthenticated: true,
+      id: clerkUser.id,
+      email: clerkUser.primaryEmailAddress?.emailAddress,
+      firstName: clerkUser.firstName,
+      lastName: clerkUser.lastName,
+      imageUrl: clerkUser.imageUrl
+    };
+  }, [clerkUser, isLoaded]);
+
+  const isLoading = !isLoaded;
+
+  const logout = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Even if signOut fails, we should handle it gracefully
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, logout }}>
       {children}
     </AuthContext.Provider>
   );
