@@ -146,7 +146,7 @@ const Billings: React.FC = () => {
                     <h4 className="font-medium mb-2">Features included:</h4>
                     <ul className="space-y-1 text-sm text-gray-600">
                       <li>✅ Unlimited recordings</li>
-                      <li>✅ Advanced AI transcription</li>
+                      <li>✅ Smart transcription</li>
                       <li>✅ Intelligence analytics</li>
                       <li>✅ Export options</li>
                       <li>✅ Priority support</li>

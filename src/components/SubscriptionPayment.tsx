@@ -18,7 +18,7 @@ const plans: SubscriptionPlan[] = [
   {
     id: 'basic',
     name: 'Basic Plan',
-    price: 29.99,
+    price: 1,
     interval: 'month',
     features: [
       'Up to 10 recordings per month',
@@ -30,33 +30,33 @@ const plans: SubscriptionPlan[] = [
   {
     id: 'professional',
     name: 'Professional Plan',
-    price: 99.99,
+    price: 2,
     interval: 'month',
     recommended: true,
     features: [
       'Unlimited recordings',
-      'Advanced AI transcription',
+      'Advanced Smart transcription',
       'Intelligence analytics',
       'Export options (PDF, CSV, JSON)',
       'Priority support',
       'Advanced search & filtering',
     ],
-  },
-  {
-    id: 'enterprise',
-    name: 'Enterprise Plan',
-    price: 299.99,
-    interval: 'month',
-    features: [
-      'All Professional features',
-      'Custom integrations',
-      'API access',
-      'Dedicated account manager',
-      'Custom branding',
-      'Advanced security features',
-      'SLA guarantee',
-    ],
-  },
+  }
+  // {
+  //   id: 'enterprise',
+  //   name: 'Enterprise Plan',
+  //   price: 3,
+  //   interval: 'month',
+  //   features: [
+  //     'All Professional features',
+  //     'Custom integrations',
+  //     'API access',
+  //     'Dedicated account manager',
+  //     'Custom branding',
+  //     'Advanced security features',
+  //     'SLA guarantee',
+  //   ],
+  // },
 ];
 
 const SubscriptionPayment: React.FC = () => {
@@ -106,21 +106,18 @@ const SubscriptionPayment: React.FC = () => {
       // to create a subscription with Stripe's subscription API
       console.log('Payment method created:', paymentMethod);
 
-      // Simulate API call to backend
-      const response = await fetch('/api/create-subscription', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          paymentMethodId: paymentMethod.id,
-          planId: selectedPlan,
-          customerId: user?.id,
-        }),
-      }).catch(() => {
-        // Since this is a demo, simulate success
-        return { ok: true };
+      // Simulate API call to backend for demo purposes
+      console.log('Creating subscription with:', {
+        paymentMethodId: paymentMethod.id,
+        planId: selectedPlan,
+        customerId: user?.id,
       });
+
+      // Add a small delay to simulate API processing
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Simulate successful response
+      const response = { ok: true };
 
       if (response.ok) {
         setPaymentSuccess(true);
@@ -146,7 +143,6 @@ const SubscriptionPayment: React.FC = () => {
     return (
       <Card className="max-w-md mx-auto">
         <CardContent className="text-center p-8">
-          <div className="text-6xl mb-4">🎉</div>
           <CardTitle className="mb-2">Subscription Activated!</CardTitle>
           <CardDescription>
             Your subscription has been successfully activated. Welcome to SynaptiVoice Professional!
@@ -165,43 +161,45 @@ const SubscriptionPayment: React.FC = () => {
   return (
     <div className="space-y-8">
       {/* Plan Selection */}
-      <div>
-        <h2 className="text-2xl font-bold text-center mb-6">Choose Your Plan</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {plans.map((plan) => (
-            <Card 
-              key={plan.id} 
-              className={`cursor-pointer transition-all ${
-                selectedPlan === plan.id 
-                  ? 'ring-2 ring-blue-500 shadow-lg' 
-                  : 'hover:shadow-md'
-              } ${plan.recommended ? 'border-blue-500' : ''}`}
-              onClick={() => setSelectedPlan(plan.id)}
-            >
-              <CardHeader className="text-center">
-                {plan.recommended && (
-                  <Badge className="mb-2 self-center">Recommended</Badge>
-                )}
-                <CardTitle>{plan.name}</CardTitle>
-                <div className="text-3xl font-bold text-blue-600">
-                  {formatPrice(plan.price)}
-                  <span className="text-sm text-gray-600">/{plan.interval}</span>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2">
-                  {plan.features.map((feature, index) => (
-                    <li key={index} className="flex items-center text-sm">
-                      <span className="text-green-500 mr-2">✓</span>
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
+      <Card className="mx-auto">
+        <CardContent className="text-center p-6">
+          <CardTitle className="mb-4">Choose Your Plan</CardTitle>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {plans.map((plan) => (
+              <Card 
+                key={plan.id} 
+                className={`cursor-pointer transition-all ${
+                  selectedPlan === plan.id 
+                    ? 'ring-2 ring-blue-500 shadow-lg' 
+                    : 'hover:shadow-md'
+                } ${plan.recommended ? 'border-blue-500' : ''}`}
+                onClick={() => setSelectedPlan(plan.id)}
+              >
+                <CardHeader className="text-center">
+                  {plan.recommended && (
+                    <Badge className="mb-2 self-center">Recommended</Badge>
+                  )}
+                  <CardTitle>{plan.name}</CardTitle>
+                  <div className="text-3xl font-bold text-blue-600">
+                    {formatPrice(plan.price)}
+                    <span className="text-sm text-gray-600">/{plan.interval}</span>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2">
+                    {plan.features.map((feature, index) => (
+                      <li key={index} className="flex items-center text-sm">
+                        <span className="text-green-500 mr-2">✓</span>
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Payment Form */}
       {selectedPlan && (
