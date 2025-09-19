@@ -1,7 +1,7 @@
 export interface Recording {
   id: string;
   name: string;
-  dateUploaded: Date;
+  dateUploaded: string; // ISO date string
   duration: number; // in minutes
   overview?: string;
   transcript?: string;
@@ -26,8 +26,8 @@ export interface TableSort {
 
 export interface RecordingFilters {
   name: string;
-  dateFrom?: Date;
-  dateTo?: Date;
+  dateFrom?: string; // ISO date string
+  dateTo?: string; // ISO date string
 }
 
 // Enhanced intelligence types for backend JSON output

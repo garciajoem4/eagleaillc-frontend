@@ -2,6 +2,7 @@ import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
+import ReduxDemo from '../components/ReduxDemo';
 
 const Dashboard: React.FC = () => {
   const stats = [
@@ -88,6 +89,9 @@ const Dashboard: React.FC = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Redux Store Demo - for testing Redux integration */}
+        <ReduxDemo />
       </div>
     </div>
   );

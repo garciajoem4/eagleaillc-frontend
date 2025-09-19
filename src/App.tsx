@@ -1,6 +1,8 @@
 import React from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { ClerkProvider } from '@clerk/clerk-react';
+import { Provider as ReduxProvider } from 'react-redux';
+import { store } from './redux';
 import Layout from './components/Layout';
 import Login from './components/Login';
 import TrialRestriction from './components/TrialRestriction';
@@ -94,15 +96,17 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <ClerkProvider 
-      publishableKey={clerkPubKey}
-      afterSignInUrl="/app/recordings"
-      signInUrl="/login"
-    >
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
-    </ClerkProvider>
+    <ReduxProvider store={store}>
+      <ClerkProvider 
+        publishableKey={clerkPubKey}
+        afterSignInUrl="/app/recordings"
+        signInUrl="/login"
+      >
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
+      </ClerkProvider>
+    </ReduxProvider>
   );
 };
 

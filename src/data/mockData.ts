@@ -4,7 +4,7 @@ export const mockRecordings: Recording[] = [
   {
     id: '1',
     name: 'Weekly Team Meeting',
-    dateUploaded: new Date('2024-01-15'),
+    dateUploaded: new Date('2024-01-15').toISOString(),
     duration: 45,
     overview: 'Discussion of project progress and upcoming milestones',
     transcript: 'Welcome everyone to our weekly team meeting...',
@@ -18,7 +18,7 @@ export const mockRecordings: Recording[] = [
   {
     id: '2',
     name: 'Client Presentation',
-    dateUploaded: new Date('2024-01-18'),
+    dateUploaded: new Date('2024-01-18').toISOString(),
     duration: 120,
     overview: 'Product demonstration for potential client',
     transcript: 'Good morning, thank you for joining us today...',
@@ -32,7 +32,7 @@ export const mockRecordings: Recording[] = [
   {
     id: '3',
     name: 'Training Session',
-    dateUploaded: new Date('2024-01-22'),
+    dateUploaded: new Date('2024-01-22').toISOString(),
     duration: 90,
     overview: 'New employee onboarding and system training',
     transcript: 'Welcome to the company training session...',
@@ -46,7 +46,7 @@ export const mockRecordings: Recording[] = [
   {
     id: '4',
     name: 'Board Meeting Q4',
-    dateUploaded: new Date('2024-01-25'),
+    dateUploaded: new Date('2024-01-25').toISOString(),
     duration: 180,
     overview: 'Quarterly board meeting discussing financials and strategy',
     transcript: 'Good afternoon board members...',
@@ -60,7 +60,7 @@ export const mockRecordings: Recording[] = [
   {
     id: '5',
     name: 'Developer Standup',
-    dateUploaded: new Date('2024-01-28'),
+    dateUploaded: new Date('2024-01-28').toISOString(),
     duration: 30,
     overview: 'Daily development team standup meeting',
     transcript: 'Good morning team, let\'s start with yesterday\'s progress...',

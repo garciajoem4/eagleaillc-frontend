@@ -1,73 +1,54 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Recording, RecordingFilters, TableSort } from '../types';
-// import { mockRecordings } from '../data/mockData'; // Temporarily removed for testing
+import { Recording } from '../types';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import UploadModal from '../components/ui/upload-modal';
+import { useAppDispatch, useAppSelector } from '../redux/hooks';
+import {
+  fetchRecordings,
+  setFilters,
+  clearFilters,
+  toggleSort,
+  openUploadModal,
+  closeUploadModal,
+  selectSortedRecordings,
+  deleteRecording,
+} from '../redux';
 
 const Recordings: React.FC = () => {
   const navigate = useNavigate();
-  const [recordings, setRecordings] = useState<Recording[]>([]); // Start with empty array for testing
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const [filters, setFilters] = useState<RecordingFilters>({
-    name: '',
-    dateFrom: undefined,
-    dateTo: undefined,
-  });
-  const [sort, setSort] = useState<TableSort>({
-    field: 'dateUploaded',
-    direction: 'desc',
-  });
+  const dispatch = useAppDispatch();
+  
+  // Redux state selectors
+  const { 
+    recordings, 
+    filters, 
+    sort, 
+    loading, 
+    error, 
+    isUploadModalOpen
+  } = useAppSelector((state) => state.recordings);
+  
+  const filteredAndSortedRecordings = useAppSelector(selectSortedRecordings);
+
+  // Fetch recordings on component mount
+  useEffect(() => {
+    dispatch(fetchRecordings({}));
+  }, [dispatch]);
 
   // Auto-show upload modal if user has no recordings (first time user)
-  // useEffect(() => {
-  //   if (recordings.length === 0) {
-  //     setIsUploadModalOpen(true);
-  //   }
-  // }, [recordings.length]);
-
-  const filteredAndSortedRecordings = useMemo(() => {
-    let filtered = recordings.filter((recording) => {
-      const nameMatch = recording.name.toLowerCase().includes(filters.name.toLowerCase());
-      const dateFromMatch = !filters.dateFrom || recording.dateUploaded >= filters.dateFrom;
-      const dateToMatch = !filters.dateTo || recording.dateUploaded <= filters.dateTo;
-      
-      return nameMatch && dateFromMatch && dateToMatch;
-    });
-
-    filtered.sort((a, b) => {
-      let aValue = a[sort.field];
-      let bValue = b[sort.field];
-
-      if (aValue instanceof Date && bValue instanceof Date) {
-        aValue = aValue.getTime();
-        bValue = bValue.getTime();
-      }
-
-      if (typeof aValue === 'string' && typeof bValue === 'string') {
-        aValue = aValue.toLowerCase();
-        bValue = bValue.toLowerCase();
-      }
-
-      if (sort.direction === 'asc') {
-        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-      } else {
-        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
-      }
-    });
-
-    return filtered;
-  }, [recordings, filters, sort]);
+  useEffect(() => {
+    if (recordings.length === 0 && !loading && !error) {
+      dispatch(openUploadModal());
+    }
+  }, [recordings.length, loading, error, dispatch]);
 
   const handleSort = (field: keyof Recording) => {
-    setSort((prevSort) => ({
-      field,
-      direction: prevSort.field === field && prevSort.direction === 'asc' ? 'desc' : 'asc',
-    }));
+    dispatch(toggleSort(field));
   };
 
   const formatDuration = (minutes: number): string => {
@@ -76,8 +57,10 @@ const Recordings: React.FC = () => {
     return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
   };
 
-  const formatDate = (date: Date): string => {
-    return date.toLocaleDateString('en-US', {
+  const formatDate = (date: string | Date): string => {
+    // Handle both ISO string dates and Date objects for backward compatibility
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    return dateObj.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -94,13 +77,14 @@ const Recordings: React.FC = () => {
     console.log('Remove recording:', id);
     // Show confirmation dialog and remove
     if (window.confirm('Are you sure you want to remove this recording?')) {
-      setRecordings(prev => prev.filter(recording => recording.id !== id));
+      dispatch(deleteRecording(id));
     }
   };
 
   const handleUploadComplete = (newRecordings: Recording[]) => {
-    setRecordings(prev => [...newRecordings, ...prev]);
-    setIsUploadModalOpen(false);
+    // Fetch recordings to get updated list
+    dispatch(fetchRecordings({}));
+    dispatch(closeUploadModal());
     
     // Redirect to the first uploaded recording's details page
     if (newRecordings.length > 0) {
@@ -119,7 +103,7 @@ const Recordings: React.FC = () => {
           recordings.length > 0 && (
             <Button 
               className="btn-primary"
-              onClick={() => setIsUploadModalOpen(true)}
+              onClick={() => dispatch(openUploadModal())}
             >
               Upload Recording
             </Button>
@@ -135,12 +119,11 @@ const Recordings: React.FC = () => {
               <div className="space-y-2">
                 <Label htmlFor="nameFilter">Recording Name</Label>
                 <Input
-
                   id="nameFilter"
                   type="text"
                   placeholder="Search by name..."
                   value={filters.name}
-                  onChange={(e) => setFilters({ ...filters, name: e.target.value })}
+                  onChange={(e) => dispatch(setFilters({ ...filters, name: e.target.value }))}
                 />
               </div>
 
@@ -149,12 +132,12 @@ const Recordings: React.FC = () => {
                 <Input
                   id="dateFromFilter"
                   type="date"
-                  value={filters.dateFrom?.toISOString().split('T')[0] || ''}
+                  value={filters.dateFrom ? new Date(filters.dateFrom).toISOString().split('T')[0] : ''}
                   onChange={(e) =>
-                    setFilters({
+                    dispatch(setFilters({
                       ...filters,
-                      dateFrom: e.target.value ? new Date(e.target.value) : undefined,
-                    })
+                      dateFrom: e.target.value ? new Date(e.target.value).toISOString() : undefined,
+                    }))
                   }
                 />
               </div>
@@ -164,12 +147,12 @@ const Recordings: React.FC = () => {
                 <Input
                   id="dateToFilter"
                   type="date"
-                  value={filters.dateTo?.toISOString().split('T')[0] || ''}
+                  value={filters.dateTo ? new Date(filters.dateTo).toISOString().split('T')[0] : ''}
                   onChange={(e) =>
-                    setFilters({
+                    dispatch(setFilters({
                       ...filters,
-                      dateTo: e.target.value ? new Date(e.target.value) : undefined,
-                    })
+                      dateTo: e.target.value ? new Date(e.target.value).toISOString() : undefined,
+                    }))
                   }
                 />
               </div>
@@ -177,7 +160,7 @@ const Recordings: React.FC = () => {
               <div className="flex items-end">
                 <Button
                   variant="outline"
-                  onClick={() => setFilters({ name: '', dateFrom: undefined, dateTo: undefined })}
+                  onClick={() => dispatch(clearFilters())}
                   className="w-full"
                 >
                   Clear Filters
@@ -302,7 +285,7 @@ const Recordings: React.FC = () => {
             </p>
             <Button 
               className="btn-primary"
-              onClick={() => setIsUploadModalOpen(true)}
+              onClick={() => dispatch(openUploadModal())}
             >
               Upload Your First Recording
             </Button>
@@ -313,7 +296,7 @@ const Recordings: React.FC = () => {
       {/* Upload Modal */}
       <UploadModal
         isOpen={isUploadModalOpen}
-        onClose={() => setIsUploadModalOpen(false)}
+        onClose={() => dispatch(closeUploadModal())}
         onUploadComplete={handleUploadComplete}
       />
     </div>
