@@ -99,7 +99,6 @@ const App: React.FC = () => {
     <ReduxProvider store={store}>
       <ClerkProvider 
         publishableKey={clerkPubKey}
-        afterSignInUrl="/app/recordings"
         signInUrl="/login"
       >
         <AuthProvider>
