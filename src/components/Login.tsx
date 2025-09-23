@@ -19,7 +19,7 @@ const Login: React.FC = () => {
         <SignIn 
           routing="path"
           path="/login"
-          fallbackRedirectUrl="/app/recordings"
+          // fallbackRedirectUrl="/app/recordings"
           signUpUrl={undefined}
           appearance={{
             elements: {
