@@ -137,7 +137,7 @@ const Dashboard: React.FC = () => {
         </Card>
 
         {/* Redux Store Demo - for testing Redux integration */}
-        <ReduxDemo />
+        {/* <ReduxDemo /> */}
       </div>
     </div>
   );
