@@ -134,15 +134,27 @@ const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onUploadComp
                 </CardDescription>
               </div>
               <Button variant="outline" onClick={onClose}>
-                ✕
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </Button>
             </div>
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="upload">📁 File Upload</TabsTrigger>
-                <TabsTrigger value="url">🔗 From URL</TabsTrigger>
+                <TabsTrigger value="upload" className="flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                  File Upload
+                </TabsTrigger>
+                <TabsTrigger value="url" className="flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                  </svg>
+                  From URL
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="upload" className="space-y-4">
