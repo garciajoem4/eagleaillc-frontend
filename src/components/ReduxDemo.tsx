@@ -33,7 +33,7 @@ export const ReduxDemo: React.FC = () => {
     <Card className="w-full max-w-md">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          🔧 Redux Store Demo
+          Redux Store Demo
           <Badge variant="outline">Live State</Badge>
         </CardTitle>
       </CardHeader>

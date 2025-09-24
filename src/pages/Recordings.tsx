@@ -96,15 +96,23 @@ const Recordings: React.FC = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Recordings</h1>
+          <div className="flex items-center gap-3 mb-2">
+            <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+            </svg>
+            <h1 className="text-3xl font-semibold text-gray-900">Recordings</h1>
+          </div>
           <p className="text-gray-600 mt-2">Manage and organize your audio recordings</p>
         </div>
         {
           recordings.length > 0 && (
             <Button 
-              className="btn-primary"
+              className="btn-primary flex align-center"
               onClick={() => dispatch(openUploadModal())}
             >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
               Upload Recording
             </Button>
           )
