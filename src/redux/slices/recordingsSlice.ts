@@ -1,5 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { Recording, RecordingFilters, TableSort } from '../../types';
+import { recordingService, ProcessFileOptions, ProcessFileResult } from '../../services/recordingService';
+import { audioStorageService } from '../../services/audioStorageService';
 
 // Extended state interface for recordings management
 interface RecordingState {
@@ -32,6 +34,19 @@ interface RecordingState {
   uploading: boolean;
   processing: Record<string, boolean>; // Track processing state per recording ID
   lastFetched: string | null;
+  
+  // Local storage state
+  localAudioStatus: Record<string, {
+    hasLocal: boolean;
+    audioUrl?: string;
+    lastChecked: string;
+  }>;
+  localStorageStats: {
+    totalFiles: number;
+    totalSize: number;
+    availableSpace: number;
+    utilizationPercentage: number;
+  } | null;
 }
 
 // API mock functions - replace with actual API calls
@@ -133,6 +148,71 @@ export const processRecording = createAsyncThunk(
   }
 );
 
+// New async thunks for local storage integration
+export const processFileWithLocalStorage = createAsyncThunk(
+  'recordings/processFileWithLocalStorage',
+  async ({ file, options }: { file: File; options?: ProcessFileOptions }) => {
+    const result = await recordingService.processFile(file, {
+      storeLocally: true,
+      transcribe: true,
+      generateIntelligence: true,
+      ...options
+    });
+    
+    return result;
+  }
+);
+
+export const checkLocalAudioStatus = createAsyncThunk(
+  'recordings/checkLocalAudioStatus',
+  async (recordingId: string) => {
+    const hasLocal = await recordingService.hasLocalAudio(recordingId);
+    let audioUrl: string | undefined;
+    
+    if (hasLocal) {
+      audioUrl = await audioStorageService.createAudioUrl(recordingId) || undefined;
+    }
+    
+    return {
+      recordingId,
+      hasLocal,
+      audioUrl,
+      lastChecked: new Date().toISOString()
+    };
+  }
+);
+
+export const getRecordingAudio = createAsyncThunk(
+  'recordings/getRecordingAudio',
+  async (recordingId: string) => {
+    const audioUrl = await recordingService.getRecordingAudio(recordingId);
+    const hasLocal = await recordingService.hasLocalAudio(recordingId);
+    
+    return {
+      recordingId,
+      audioUrl,
+      hasLocal,
+      lastChecked: new Date().toISOString()
+    };
+  }
+);
+
+export const updateLocalStorageStats = createAsyncThunk(
+  'recordings/updateLocalStorageStats',
+  async () => {
+    const stats = await recordingService.getLocalStorageStats();
+    return stats;
+  }
+);
+
+export const clearLocalStorage = createAsyncThunk(
+  'recordings/clearLocalStorage',
+  async () => {
+    await recordingService.clearLocalStorage();
+    return {};
+  }
+);
+
 // Initial state
 const initialState: RecordingState = {
   recordings: [],
@@ -166,6 +246,9 @@ const initialState: RecordingState = {
   uploading: false,
   processing: {},
   lastFetched: null,
+  
+  localAudioStatus: {},
+  localStorageStats: null,
 };
 
 // Recordings slice
@@ -343,6 +426,61 @@ const recordingsSlice = createSlice({
       .addCase(processRecording.rejected, (state, action) => {
         delete state.processing[action.meta.arg];
         state.error = 'Failed to process recording';
+      })
+      
+      // Process file with local storage
+      .addCase(processFileWithLocalStorage.pending, (state) => {
+        state.uploading = true;
+        state.error = null;
+      })
+      .addCase(processFileWithLocalStorage.fulfilled, (state, action) => {
+        state.uploading = false;
+        const result = action.payload;
+        
+        // Update local audio status
+        state.localAudioStatus[result.recordingId] = {
+          hasLocal: result.locallyStored,
+          audioUrl: result.audioUrl,
+          lastChecked: new Date().toISOString()
+        };
+        
+        // Add new recording to list (this would be populated from the server response)
+        // In a real implementation, you'd fetch the recording details from the server
+      })
+      .addCase(processFileWithLocalStorage.rejected, (state, action) => {
+        state.uploading = false;
+        state.error = action.error.message || 'Failed to process file';
+      })
+      
+      // Check local audio status
+      .addCase(checkLocalAudioStatus.fulfilled, (state, action) => {
+        const { recordingId, hasLocal, audioUrl, lastChecked } = action.payload;
+        state.localAudioStatus[recordingId] = {
+          hasLocal,
+          audioUrl,
+          lastChecked
+        };
+      })
+      
+      // Get recording audio
+      .addCase(getRecordingAudio.fulfilled, (state, action) => {
+        const { recordingId, audioUrl, hasLocal, lastChecked } = action.payload;
+        state.localAudioStatus[recordingId] = {
+          hasLocal,
+          audioUrl: audioUrl || undefined,
+          lastChecked
+        };
+      })
+      
+      // Update local storage stats
+      .addCase(updateLocalStorageStats.fulfilled, (state, action) => {
+        state.localStorageStats = action.payload;
+      })
+      
+      // Clear local storage
+      .addCase(clearLocalStorage.fulfilled, (state) => {
+        state.localAudioStatus = {};
+        state.localStorageStats = null;
       });
   },
 });
@@ -370,6 +508,12 @@ export const {
 
 // Export selectors for easy state access
 export const selectRecordings = (state: { recordings: RecordingState }) => state.recordings.recordings;
+export const selectLocalAudioStatus = (state: { recordings: RecordingState }) => state.recordings.localAudioStatus;
+export const selectLocalStorageStats = (state: { recordings: RecordingState }) => state.recordings.localStorageStats;
+export const selectRecordingAudioUrl = (state: { recordings: RecordingState }, recordingId: string) => 
+  state.recordings.localAudioStatus[recordingId]?.audioUrl;
+export const selectHasLocalAudio = (state: { recordings: RecordingState }, recordingId: string) => 
+  state.recordings.localAudioStatus[recordingId]?.hasLocal || false;
 export const selectFilteredRecordings = (state: { recordings: RecordingState }) => {
   const { recordings, filters, searchQuery } = state.recordings;
   

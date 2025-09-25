@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { UploadFile } from '../../hooks/useFileUpload';
-import { context7Service } from '../../services/context7Service';
 import { Button } from './button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './card';
 import FileUpload from './file-upload';
 import { Input } from './input';
 import { Label } from './label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './tabs';
+import ProcessFileButton from './process-file-button';
 
 interface UploadModalProps {
   isOpen: boolean;
@@ -19,8 +19,6 @@ const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onUploadComp
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadFile[]>([]);
   const [urlInput, setUrlInput] = useState('');
-  const [context7Query, setContext7Query] = useState('');
-  const [context7Project, setContext7Project] = useState('');
 
   if (!isOpen) return null;
 
@@ -60,65 +58,33 @@ const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onUploadComp
     }
   };
 
-  const handleContext7Query = async () => {
-    if (!context7Query.trim()) return;
 
-    setIsProcessing(true);
-    try {
-      const result = await context7Service.query(context7Project || 'general', context7Query);
-      
-      const newRecording = {
-        id: `context7-${Date.now()}`,
-        name: `Context7 Query: ${context7Query.substring(0, 50)}...`,
-        dateUploaded: new Date(),
-        duration: 0,
-        overview: `Context7 query results`,
-        transcript: result.content,
-        intelligence: {
-          keyTopics: ['Context7', 'Documentation', 'Query'],
-          sentiment: 'Informational',
-          actionItems: ['Review query results']
-        },
-        exports: ['PDF', 'TXT']
-      };
 
-      onUploadComplete([newRecording]);
-      onClose();
-    } catch (error) {
-      console.error('Context7 query failed:', error);
-    } finally {
-      setIsProcessing(false);
-    }
+  const handleProcessComplete = (recordingId: string, audioUrl?: string) => {
+    // Create a recording object from the processed result
+    const newRecording = {
+      id: recordingId,
+      name: `Recording ${recordingId.substring(0, 8)}`,
+      dateUploaded: new Date(),
+      duration: 0, // Will be filled after processing
+      overview: 'Processing complete',
+      transcript: 'Transcript generated',
+      intelligence: {
+        keyTopics: ['Processed Content'],
+        sentiment: 'Neutral',
+        actionItems: ['Review recording']
+      },
+      exports: ['PDF'],
+      audioUrl // Include local audio URL if available
+    };
+
+    onUploadComplete([newRecording]);
+    onClose();
   };
 
-  const handleProcessFiles = async () => {
-    if (uploadedFiles.length === 0) return;
-
-    setIsProcessing(true);
-    try {
-      // Process uploaded files
-      const newRecordings = uploadedFiles.map(file => ({
-        id: `upload-${Date.now()}-${Math.random()}`,
-        name: file.name.replace(/\.[^/.]+$/, ""), // Remove extension
-        dateUploaded: new Date(),
-        duration: Math.floor(Math.random() * 120) + 30, // Random duration 30-150 min
-        overview: `Uploaded recording: ${file.name}`,
-        transcript: 'Transcript will be generated after processing...',
-        intelligence: {
-          keyTopics: ['Uploaded Content'],
-          sentiment: 'Neutral',
-          actionItems: ['Review and process']
-        },
-        exports: ['PDF']
-      }));
-
-      onUploadComplete(newRecordings);
-      onClose();
-    } catch (error) {
-      console.error('File processing failed:', error);
-    } finally {
-      setIsProcessing(false);
-    }
+  const handleProcessError = (error: string) => {
+    console.error('File processing failed:', error);
+    // You could show a toast or error message here
   };
 
   return (
@@ -165,16 +131,35 @@ const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onUploadComp
                 />
                 
                 {uploadedFiles.length > 0 && (
-                  <div className="flex justify-end space-x-2 pt-4 border-t">
-                    <Button variant="outline" onClick={onClose}>
-                      Cancel
-                    </Button>
-                    <Button 
-                      onClick={handleProcessFiles} 
-                      disabled={isProcessing}
-                    >
-                      {isProcessing ? 'Processing...' : `Process ${uploadedFiles.length} File(s)`}
-                    </Button>
+                  <div className="space-y-4 pt-4 border-t">
+                    {/* <div className="text-sm text-gray-600 mb-4">
+                      Ready to process {uploadedFiles.length} file(s). Each file will be processed and stored locally for faster access.
+                    </div> */}
+                    
+                    {uploadedFiles.map((uploadFile, index) => (
+                      <div key={index} className="border rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-medium">{uploadFile.name}</span>
+                          <span className="text-sm text-gray-500">
+                            {(uploadFile.size / (1024 * 1024)).toFixed(2)} MB
+                          </span>
+                        </div>
+                        
+                        <ProcessFileButton
+                          file={uploadFile.file}
+                          onProcessComplete={handleProcessComplete}
+                          onProcessError={handleProcessError}
+                          showProgress={true}
+                          showStorageInfo={true}
+                        />
+                      </div>
+                    ))}
+                    
+                    <div className="flex justify-end space-x-2 pt-4 border-t">
+                      <Button variant="outline" onClick={onClose}>
+                        Cancel
+                      </Button>
+                    </div>
                   </div>
                 )}
               </TabsContent>
