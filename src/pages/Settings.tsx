@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useUser } from '@clerk/clerk-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -6,13 +7,15 @@ import { Label } from '../components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 
 const Settings: React.FC = () => {
+  const { user } = useUser();
+  
   const [formData, setFormData] = useState({
     // Profile settings
-    firstName: 'John',
-    lastName: 'Doe',
-    email: 'john.doe@example.com',
-    company: 'SynaptiVoice',
-    phone: '+1 (555) 123-4567',
+    firstName: '',
+    lastName: '',
+    email: '',
+    company: '',
+    phone: '',
     
     // Notification settings
     emailNotifications: true,
@@ -32,6 +35,19 @@ const Settings: React.FC = () => {
     sessionTimeout: 60,
   });
 
+  useEffect(() => {
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        email: user.primaryEmailAddress?.emailAddress || '',
+        company: user.publicMetadata?.company as string || '',
+        phone: user.publicMetadata?.phone as string || ''
+      }));
+    }
+  }, [user]);
+
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({
       ...prev,
@@ -46,21 +62,46 @@ const Settings: React.FC = () => {
 
   const renderContent = () => {
     return (
-      <div className="space-y-6">
+      <div className="mx-auto max-w-[1200px] space-y-6">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
             <p className="text-gray-600 mt-2">Manage your account preferences and configuration</p>
           </div>
-          <Button onClick={handleSave}>💾 Save Changes</Button>
+          <Button onClick={handleSave}>
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+            Save Changes
+          </Button>
         </div>
 
         <Tabs defaultValue="profile" className="w-full">
           <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="profile">👤 Profile</TabsTrigger>
-            <TabsTrigger value="notifications">🔔 Notifications</TabsTrigger>
-            <TabsTrigger value="recording">🎙️ Recording</TabsTrigger>
-            <TabsTrigger value="security">🔒 Security</TabsTrigger>
+            <TabsTrigger value="profile">
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              Profile
+            </TabsTrigger>
+            <TabsTrigger value="notifications">
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 2a7 7 0 00-7 7v3a4 4 0 004 4h6a4 4 0 004-4V9a7 7 0 00-7-7zM8 21h8" />
+              </svg>
+              Notifications
+            </TabsTrigger>
+            <TabsTrigger value="recording">
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+              </svg>
+              Recording
+            </TabsTrigger>
+            <TabsTrigger value="security">
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+              Security
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="profile" className="space-y-6">
@@ -247,7 +288,6 @@ const Settings: React.FC = () => {
                 </div>
                 <div className="flex space-x-2 pt-4">
                   <Button variant="outline">Change Password</Button>
-                  <Button variant="outline">Download Data</Button>
                   <Button variant="destructive">Delete Account</Button>
                 </div>
               </CardContent>

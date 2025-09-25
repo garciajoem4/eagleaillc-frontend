@@ -156,7 +156,7 @@ const initialState: BillingState = {
     {
       id: 'basic',
       name: 'Basic Plan',
-      price: 19.99,
+      price: 7,
       interval: 'month',
       features: [
         'Up to 50 recordings per month',
@@ -176,7 +176,7 @@ const initialState: BillingState = {
     {
       id: 'professional',
       name: 'Professional Plan',
-      price: 49.99,
+      price: 15,
       interval: 'month',
       recommended: true,
       features: [
@@ -199,7 +199,7 @@ const initialState: BillingState = {
     {
       id: 'enterprise',
       name: 'Enterprise Plan',
-      price: 99.99,
+      price: 25,
       interval: 'month',
       features: [
         'Everything in Professional',

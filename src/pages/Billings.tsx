@@ -90,7 +90,7 @@ const Billings: React.FC = () => {
 
   return (
     <StripeProvider>
-      <div className="space-y-6">
+      <div className="mx-auto max-w-[1200px] space-y-6">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Billing & Payments</h1>
@@ -98,7 +98,12 @@ const Billings: React.FC = () => {
               Manage your subscription and payment history for {user?.firstName || 'User'}
             </p>
           </div>
-          <Button>📄 Download Invoice</Button>
+          <Button className="flex items-center gap-2">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Download Invoice
+          </Button>
         </div>
 
         <Tabs defaultValue="overview" className="w-full">
@@ -115,7 +120,9 @@ const Billings: React.FC = () => {
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
-                      <span className="text-red-600">⚠️</span>
+                      <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
                       <span className="text-red-800">{error}</span>
                     </div>
                     <Button onClick={clearError} size="sm" variant="outline">
@@ -131,7 +138,12 @@ const Billings: React.FC = () => {
               <Card className="border-yellow-200 bg-yellow-50">
                 <CardContent className="p-4">
                   <div className="space-y-2">
-                    <h3 className="font-medium text-yellow-800">⚠️ Usage Warnings</h3>
+                    <h3 className="font-medium text-yellow-800 flex items-center gap-2">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      Usage Warnings
+                    </h3>
                     {usageWarnings.map((warning, index) => (
                       <div key={index} className="flex items-center justify-between">
                         <span className="text-yellow-700 text-sm">{warning}</span>
@@ -150,7 +162,9 @@ const Billings: React.FC = () => {
               <Card className="border-red-200 bg-red-50">
                 <CardContent className="p-4">
                   <div className="flex items-center space-x-2">
-                    <span className="text-red-600">💳</span>
+                    <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                    </svg>
                     <span className="text-red-800">
                       {paymentFailures} recent payment failure(s). Please update your payment method.
                     </span>
@@ -221,14 +235,44 @@ const Billings: React.FC = () => {
                         <h4 className="font-medium mb-2">Features included:</h4>
                         <ul className="space-y-1 text-sm text-gray-600">
                           {currentPlan.features?.map((feature, index) => (
-                            <li key={index}>✅ {feature}</li>
+                            <li key={index} className="flex items-center gap-2">
+                              <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              {feature}
+                            </li>
                           )) || (
                             <>
-                              <li>✅ Unlimited recordings</li>
-                              <li>✅ Smart transcription</li>
-                              <li>✅ Intelligence analytics</li>
-                              <li>✅ Export options</li>
-                              <li>✅ Priority support</li>
+                              <li className="flex items-center gap-2">
+                                <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                                Unlimited recordings
+                              </li>
+                              <li className="flex items-center gap-2">
+                                <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                                Smart transcription
+                              </li>
+                              <li className="flex items-center gap-2">
+                                <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                                Intelligence analytics
+                              </li>
+                              <li className="flex items-center gap-2">
+                                <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                                Export options
+                              </li>
+                              <li className="flex items-center gap-2">
+                                <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                                Priority support
+                              </li>
                             </>
                           )}
                         </ul>
@@ -264,8 +308,20 @@ const Billings: React.FC = () => {
                   {defaultPaymentMethod ? (
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
-                        <div className="text-2xl">
-                          {defaultPaymentMethod.type === 'card' ? '💳' : defaultPaymentMethod.type === 'bank_account' ? '🏦' : '💰'}
+                        <div className="flex-shrink-0">
+                          {defaultPaymentMethod.type === 'card' ? (
+                            <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                            </svg>
+                          ) : defaultPaymentMethod.type === 'bank_account' ? (
+                            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                            </svg>
+                          ) : (
+                            <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                          )}
                         </div>
                         <div>
                           <p className="font-medium">
@@ -362,16 +418,24 @@ const Billings: React.FC = () => {
                                   variant="outline"
                                   onClick={() => downloadInvoice(record.id)}
                                   disabled={!record.invoiceUrl}
+                                  className="flex items-center gap-1"
                                 >
-                                  📥 Download
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                  </svg>
+                                  Download
                                 </Button>
                                 {record.status === 'pending' && (
                                   <Button 
                                     size="sm"
                                     onClick={() => retryPayment(record.id)}
                                     disabled={isLoading}
+                                    className="flex items-center gap-1"
                                   >
-                                    💳 Pay Now
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                                    </svg>
+                                    Pay Now
                                   </Button>
                                 )}
                               </div>
