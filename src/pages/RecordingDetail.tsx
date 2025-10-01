@@ -1,5 +1,5 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useParams } from 'react-router-dom';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
@@ -7,6 +7,7 @@ import { Input } from '../components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { sampleTranscriptData } from '../data/sampleTranscript';
 import { useRecordingDetail } from '../hooks/useRecordingDetail';
+import { audioStorageService } from '../services/audioStorageService';
 
 // Additional icons available for future use:
 // FiPlay, FiPause, FiDownload, FiShare2, FiMoreVertical,
@@ -15,6 +16,10 @@ import { useRecordingDetail } from '../hooks/useRecordingDetail';
 // FiSettings, FiBookmark, FiTag, FiPieChart, FiSearch
 
 const RecordingDetail: React.FC = () => {
+  const { id: recordingId } = useParams<{ id: string }>();
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [isLoadingAudio, setIsLoadingAudio] = useState(true);
+
   // Use recording utilities hook with all state management
   const {
     // State variables
@@ -72,6 +77,49 @@ const RecordingDetail: React.FC = () => {
     exportTranscriptData,
     exportIntelligenceData
   } = useRecordingDetail(sampleTranscriptData);
+
+  // Load audio from localStorage
+  useEffect(() => {
+    const loadAudioFromStorage = async () => {
+      if (!recordingId) {
+        setIsLoadingAudio(false);
+        return;
+      }
+
+      try {
+        console.log('Loading audio from localStorage for recording:', recordingId);
+        
+        // Try to get audio from localStorage
+        const storedAudio = await audioStorageService.getAudio(recordingId);
+        
+        if (storedAudio) {
+          // Create blob URL from stored audio
+          const blobUrl = URL.createObjectURL(storedAudio.blob);
+          setAudioUrl(blobUrl);
+          console.log('Successfully loaded audio from localStorage:', blobUrl);
+        } else {
+          console.log('No audio found in localStorage, using fallback');
+          // Fallback to default audio or show message
+          setAudioUrl('/july_12_2022_audio.mp3'); // Fallback to sample audio
+        }
+      } catch (error) {
+        console.error('Error loading audio from localStorage:', error);
+        // Fallback to default audio
+        setAudioUrl('/july_12_2022_audio.mp3');
+      } finally {
+        setIsLoadingAudio(false);
+      }
+    };
+
+    loadAudioFromStorage();
+
+    // Cleanup blob URL when component unmounts or recordingId changes
+    return () => {
+      if (audioUrl && audioUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(audioUrl);
+      }
+    };
+  }, [recordingId, audioUrl]);
 
   if (!sampleTranscriptData) {
     return (
@@ -159,7 +207,7 @@ const RecordingDetail: React.FC = () => {
                           filter: 'sepia(20%) saturate(70%) hue-rotate(200deg) brightness(1.1)',
                         }}
                       >
-                        <source src="/july_12_2022_audio.mp3" type="audio/mpeg" />
+                        {audioUrl && <source src={audioUrl} type="audio/mpeg" />}
                         Your browser does not support the audio element.
                       </audio>
                     </div>
@@ -1015,7 +1063,7 @@ const RecordingDetail: React.FC = () => {
                           filter: 'sepia(20%) saturate(70%) hue-rotate(200deg) brightness(1.1)',
                         }}
                       >
-                        <source src="/july_12_2022_audio.mp3" type="audio/mpeg" />
+                        {audioUrl && <source src={audioUrl} type="audio/mpeg" />}
                         Your browser does not support the audio element.
                       </audio>
                     </div>
