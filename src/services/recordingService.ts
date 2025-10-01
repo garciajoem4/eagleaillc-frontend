@@ -2,6 +2,7 @@
 // Handles API calls for recordings and coordinates with local storage
 
 import { audioStorageService } from './audioStorageService';
+import { authenticatedAPIService, AuthenticatedAPIService } from './authenticatedAPIService';
 import { RECORDING_ENDPOINTS, STORAGE_ENDPOINTS, buildUrl, API_CONFIG } from '../endpoints';
 import { Recording } from '../types';
 
@@ -30,18 +31,18 @@ export interface UploadProgress {
 
 class RecordingService {
   private baseUrl: string;
-  private headers: Record<string, string>;
+  private apiService: AuthenticatedAPIService;
 
   constructor() {
     this.baseUrl = API_CONFIG.FULL_BASE_URL;
-    this.headers = API_CONFIG.HEADERS;
+    this.apiService = authenticatedAPIService;
   }
 
   /**
-   * Set authentication token
+   * Initialize the service with authentication
    */
-  setAuthToken(token: string): void {
-    this.headers['Authorization'] = `Bearer ${token}`;
+  initialize(getTokenFn: () => Promise<string | null>, isAuthenticated: boolean): void {
+    this.apiService.initialize(getTokenFn, isAuthenticated);
   }
 
   /**
@@ -118,14 +119,10 @@ class RecordingService {
     formData.append('fileSize', file.size.toString());
     formData.append('mimeType', file.type);
 
-    const response = await fetch(buildUrl(RECORDING_ENDPOINTS.CREATE), {
-      method: 'POST',
-      headers: {
-        // Don't set Content-Type for FormData, browser will set it with boundary
-        'Authorization': this.headers['Authorization'],
-      },
-      body: formData,
-    });
+    const response = await this.apiService.post(
+      buildUrl(RECORDING_ENDPOINTS.CREATE),
+      formData
+    );
 
     if (!response.ok) {
       throw new Error(`Upload failed: ${response.statusText}`);
@@ -155,11 +152,10 @@ class RecordingService {
     audioUrl?: string;
     status: 'pending' | 'processing' | 'completed' | 'failed';
   }> {
-    const response = await fetch(buildUrl(RECORDING_ENDPOINTS.PROCESS(recordingId)), {
-      method: 'POST',
-      headers: this.headers,
-      body: JSON.stringify(options),
-    });
+    const response = await this.apiService.post(
+      buildUrl(RECORDING_ENDPOINTS.PROCESS(recordingId)),
+      options
+    );
 
     if (!response.ok) {
       throw new Error(`Processing failed: ${response.statusText}`);
@@ -198,9 +194,9 @@ class RecordingService {
     storeLocally: boolean = true
   ): Promise<string | null> {
     try {
-      const response = await fetch(buildUrl(STORAGE_ENDPOINTS.DOWNLOAD(recordingId)), {
-        headers: this.headers,
-      });
+      const response = await this.apiService.get(
+        buildUrl(STORAGE_ENDPOINTS.DOWNLOAD(recordingId))
+      );
 
       if (!response.ok) {
         throw new Error(`Failed to fetch audio: ${response.statusText}`);
@@ -256,9 +252,7 @@ class RecordingService {
     }
 
     const url = `${buildUrl(RECORDING_ENDPOINTS.LIST)}?${queryParams}`;
-    const response = await fetch(url, {
-      headers: this.headers,
-    });
+    const response = await this.apiService.get(url);
 
     if (!response.ok) {
       throw new Error(`Failed to fetch recordings: ${response.statusText}`);
@@ -272,9 +266,9 @@ class RecordingService {
    */
   async getRecording(recordingId: string): Promise<Recording | null> {
     try {
-      const response = await fetch(buildUrl(RECORDING_ENDPOINTS.GET_BY_ID(recordingId)), {
-        headers: this.headers,
-      });
+      const response = await this.apiService.get(
+        buildUrl(RECORDING_ENDPOINTS.GET_BY_ID(recordingId))
+      );
 
       if (!response.ok) {
         if (response.status === 404) {
@@ -296,10 +290,9 @@ class RecordingService {
   async deleteRecording(recordingId: string): Promise<void> {
     try {
       // Delete from server
-      const response = await fetch(buildUrl(RECORDING_ENDPOINTS.DELETE(recordingId)), {
-        method: 'DELETE',
-        headers: this.headers,
-      });
+      const response = await this.apiService.delete(
+        buildUrl(RECORDING_ENDPOINTS.DELETE(recordingId))
+      );
 
       if (!response.ok) {
         throw new Error(`Failed to delete recording: ${response.statusText}`);
@@ -318,9 +311,9 @@ class RecordingService {
    * Get recording transcript
    */
   async getTranscript(recordingId: string): Promise<any> {
-    const response = await fetch(buildUrl(RECORDING_ENDPOINTS.TRANSCRIPT(recordingId)), {
-      headers: this.headers,
-    });
+    const response = await this.apiService.get(
+      buildUrl(RECORDING_ENDPOINTS.TRANSCRIPT(recordingId))
+    );
 
     if (!response.ok) {
       throw new Error(`Failed to fetch transcript: ${response.statusText}`);
@@ -333,9 +326,9 @@ class RecordingService {
    * Get recording intelligence analysis
    */
   async getIntelligence(recordingId: string): Promise<any> {
-    const response = await fetch(buildUrl(RECORDING_ENDPOINTS.INTELLIGENCE(recordingId)), {
-      headers: this.headers,
-    });
+    const response = await this.apiService.get(
+      buildUrl(RECORDING_ENDPOINTS.INTELLIGENCE(recordingId))
+    );
 
     if (!response.ok) {
       throw new Error(`Failed to fetch intelligence: ${response.statusText}`);
@@ -351,9 +344,9 @@ class RecordingService {
     recordingId: string,
     format: 'pdf' | 'docx' | 'txt' | 'json'
   ): Promise<Blob> {
-    const response = await fetch(buildUrl(RECORDING_ENDPOINTS.EXPORT(recordingId, format)), {
-      headers: this.headers,
-    });
+    const response = await this.apiService.get(
+      buildUrl(RECORDING_ENDPOINTS.EXPORT(recordingId, format))
+    );
 
     if (!response.ok) {
       throw new Error(`Failed to export recording: ${response.statusText}`);

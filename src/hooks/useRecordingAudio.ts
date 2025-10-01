@@ -2,6 +2,7 @@
 // Provides easy-to-use interface for components to handle audio recording storage and playback
 
 import { useCallback, useEffect } from 'react';
+import { useAuth } from '@clerk/clerk-react';
 import { useAppDispatch, useAppSelector } from '../redux/hooks';
 import {
   processFileWithLocalStorage,
@@ -13,6 +14,7 @@ import {
   selectLocalStorageStats,
 } from '../redux';
 import { ProcessFileOptions } from '../services/recordingService';
+import { recordingService } from '../services/recordingService';
 
 export interface UseRecordingAudioReturn {
   // State
@@ -46,10 +48,21 @@ export interface UseRecordingAudioReturn {
 
 export const useRecordingAudio = (): UseRecordingAudioReturn => {
   const dispatch = useAppDispatch();
+  const { getToken, isSignedIn } = useAuth();
   
   // Selectors
   const localAudioStatus = useAppSelector(selectLocalAudioStatus);
   const localStorageStats = useAppSelector(selectLocalStorageStats);
+
+  // Initialize recording service with authentication
+  useEffect(() => {
+    if (isSignedIn && getToken) {
+      recordingService.initialize(
+        () => getToken({ template: 'synaptivoice-api' }),
+        isSignedIn
+      );
+    }
+  }, [isSignedIn, getToken]);
 
   // Audio URL helpers
   const getAudioUrl = useCallback((recordingId: string) => {
