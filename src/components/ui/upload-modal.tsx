@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { UploadFile } from '../../hooks/useFileUpload';
 import { Button } from './button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './card';
@@ -15,6 +16,7 @@ interface UploadModalProps {
 }
 
 const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onUploadComplete }) => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'upload' | 'url'>('upload');
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadFile[]>([]);
@@ -78,8 +80,14 @@ const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onUploadComp
       audioUrl // Include local audio URL if available
     };
 
+    // Call the parent callback to update the recordings list
     onUploadComplete([newRecording]);
+    
+    // Close the modal
     onClose();
+    
+    // Temporary: Navigate directly to the recording detail page
+    navigate(`/app/recordings/${recordingId}`);
   };
 
   const handleProcessError = (error: string) => {

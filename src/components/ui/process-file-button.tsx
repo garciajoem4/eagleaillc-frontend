@@ -2,11 +2,13 @@
 // Demonstrates integration of local storage functionality with UI
 
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from './button';
 import { Badge } from './badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './card';
 import { Progress } from './progress';
 import { useRecordingAudio } from '../../hooks/useRecordingAudio';
+import { audioStorageService } from '../../services/audioStorageService';
 import { ProcessFileOptions } from '../../services/recordingService';
 
 interface ProcessFileButtonProps {
@@ -28,6 +30,7 @@ const ProcessFileButton: React.FC<ProcessFileButtonProps> = ({
   showProgress = true,
   showStorageInfo = false
 }) => {
+  const navigate = useNavigate();
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStage, setProcessingStage] = useState<string>('');
   const [progress, setProgress] = useState(0);
@@ -39,9 +42,7 @@ const ProcessFileButton: React.FC<ProcessFileButtonProps> = ({
 
   const {
     processFile,
-    localStorageStats,
     formatFileSize,
-    getStorageUtilization,
     refreshStorageStats
   } = useRecordingAudio();
 
@@ -57,6 +58,9 @@ const ProcessFileButton: React.FC<ProcessFileButtonProps> = ({
       setProcessingStage('Uploading file...');
       setProgress(20);
 
+      // Simulate upload time
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
       // Configure processing options
       const options: ProcessFileOptions = {
         storeLocally: true,
@@ -65,19 +69,34 @@ const ProcessFileButton: React.FC<ProcessFileButtonProps> = ({
         exportFormats: ['pdf', 'docx']
       };
 
-      // Stage 2: Processing
+      // Stage 2: Processing with AI
       setProcessingStage('Processing with AI...');
       setProgress(50);
 
-      // Process the file
-      await processFile(file, options);
+      // TODO: Uncomment for future API integration
+      // await processFile(file, options);
+      
+      // Simulate API processing time
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
       // Stage 3: Storing locally
       setProcessingStage('Storing locally...');
       setProgress(80);
 
-      // Simulate additional processing time
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Generate a mock recording ID
+      const recordingId = `recording-${Date.now()}`;
+
+      // Store file in localStorage using audioStorageService
+      await audioStorageService.storeAudio(
+        recordingId,
+        file,
+        file.name,
+        {
+          duration: 0, // Will be updated after processing
+          transcriptId: `transcript-${recordingId}`,
+          processed: true
+        }
+      );
 
       // Stage 4: Complete
       setProcessingStage('Complete!');
@@ -86,19 +105,22 @@ const ProcessFileButton: React.FC<ProcessFileButtonProps> = ({
       // Refresh storage stats
       await refreshStorageStats();
 
-      // Mock result for demonstration
-      const mockResult = {
-        recordingId: `recording-${Date.now()}`,
+      // Create result object
+      const result = {
+        recordingId,
         audioUrl: URL.createObjectURL(file),
         locallyStored: true
       };
 
-      setProcessResult(mockResult);
+      setProcessResult(result);
 
-      // Call completion callback
+      // Call completion callback if provided
       if (onProcessComplete) {
-        onProcessComplete(mockResult.recordingId, mockResult.audioUrl);
+        onProcessComplete(result.recordingId, result.audioUrl);
       }
+
+      // Navigate to recording detail page
+      navigate(`/app/recordings/${recordingId}`);
 
     } catch (error) {
       console.error('Error processing file:', error);
