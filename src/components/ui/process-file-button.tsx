@@ -87,16 +87,37 @@ const ProcessFileButton: React.FC<ProcessFileButtonProps> = ({
       const recordingId = `recording-${Date.now()}`;
 
       // Store file in localStorage using audioStorageService
-      await audioStorageService.storeAudio(
-        recordingId,
-        file,
-        file.name,
-        {
-          duration: 0, // Will be updated after processing
-          transcriptId: `transcript-${recordingId}`,
-          processed: true
+      try {
+        console.log('Starting localStorage operation...', {
+          recordingId,
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type
+        });
+
+        // Check if IndexedDB is available
+        if (!window.indexedDB) {
+          throw new Error('IndexedDB is not available in this browser');
         }
-      );
+
+        await audioStorageService.storeAudio(
+          recordingId,
+          file,
+          file.name,
+          {
+            duration: 0, // Will be updated after processing
+            transcriptId: `transcript-${recordingId}`,
+            processed: true
+          }
+        );
+
+        console.log('Successfully stored audio in localStorage:', recordingId);
+      } catch (storageError) {
+        console.error('Failed to store audio in localStorage:', storageError);
+        // Continue with the process even if localStorage fails
+        setProcessingStage('Local storage failed, continuing...');
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
 
       // Stage 4: Complete
       setProcessingStage('Complete!');
