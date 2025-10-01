@@ -92,7 +92,7 @@ const RecordingDetail: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-[1200px] space-y-6">
       <div className="space-y-4">
         <Link to="/app/recordings">
           <Button variant="outline">← Back to Recordings</Button>

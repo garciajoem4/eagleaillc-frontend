@@ -18,7 +18,7 @@ const plans: SubscriptionPlan[] = [
   {
     id: 'basic',
     name: 'Basic Plan',
-    price: 1,
+    price: 7,
     interval: 'month',
     features: [
       'Up to 10 recordings per month',
@@ -30,7 +30,7 @@ const plans: SubscriptionPlan[] = [
   {
     id: 'professional',
     name: 'Professional Plan',
-    price: 2,
+    price: 15,
     interval: 'month',
     recommended: true,
     features: [
