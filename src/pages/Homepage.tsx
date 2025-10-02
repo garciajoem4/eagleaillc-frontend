@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useStripe, useElements, CardElement } from '@stripe/react-stripe-js';
 import { useClerk, useSignUp } from '@clerk/clerk-react';
@@ -46,6 +46,64 @@ const plans: SubscriptionPlan[] = [
       'Advanced search & filtering',
     ],
   },
+];
+
+// Dummy transcription data for cycling demo
+const transcriptionExamples = [
+  {
+    id: 1,
+    title: "Sales Team Meeting",
+    lines: [
+      { timestamp: "00:23", text: "Let's discuss the quarterly targets for our sales team..." },
+      { timestamp: "00:31", text: "I think we should focus on customer retention this quarter." },
+      { timestamp: "00:45", text: "Great point! Let's add that as an action item." }
+    ]
+  },
+  {
+    id: 2,
+    title: "Project Planning",
+    lines: [
+      { timestamp: "01:12", text: "We need to finalize the project timeline for the Q2 launch." },
+      { timestamp: "01:28", text: "The development team estimates 6 weeks for the core features." },
+      { timestamp: "01:45", text: "Let's schedule weekly check-ins to track progress." }
+    ]
+  },
+  {
+    id: 3,
+    title: "Client Consultation",
+    lines: [
+      { timestamp: "00:15", text: "Thank you for joining us today. Let's review your requirements." },
+      { timestamp: "00:32", text: "We're looking for a solution that can scale with our growth." },
+      { timestamp: "00:48", text: "Our platform is designed exactly for that kind of scalability." }
+    ]
+  },
+  {
+    id: 4,
+    title: "Product Development",
+    lines: [
+      { timestamp: "02:05", text: "The user feedback indicates we need better mobile optimization." },
+      { timestamp: "02:18", text: "I agree, mobile users represent 60% of our traffic now." },
+      { timestamp: "02:34", text: "Let's prioritize the mobile-first redesign for next sprint." }
+    ]
+  },
+  {
+    id: 5,
+    title: "Marketing Strategy",
+    lines: [
+      { timestamp: "00:42", text: "Our latest campaign generated a 23% increase in conversions." },
+      { timestamp: "00:58", text: "That's excellent! What channels performed best?" },
+      { timestamp: "01:15", text: "LinkedIn and email marketing showed the highest ROI." }
+    ]
+  },
+  {
+    id: 6,
+    title: "Performance Review",
+    lines: [
+      { timestamp: "03:22", text: "You've consistently exceeded your targets this quarter." },
+      { timestamp: "03:35", text: "Thank you! I've been focusing on improving my client relationships." },
+      { timestamp: "03:52", text: "It shows. Your client satisfaction scores are outstanding." }
+    ]
+  }
 ];
 
 const SubscriptionModal: React.FC<{
@@ -315,6 +373,7 @@ const SubscriptionModal: React.FC<{
 
 const Homepage: React.FC = () => {
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
+  const [currentTranscriptionIndex, setCurrentTranscriptionIndex] = useState(0);
   const [subscriptionModal, setSubscriptionModal] = useState<{
     isOpen: boolean;
     plan: SubscriptionPlan | null;
@@ -322,6 +381,17 @@ const Homepage: React.FC = () => {
     isOpen: false,
     plan: null,
   });
+
+  // Cycle through transcription examples
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTranscriptionIndex((prevIndex) => 
+        (prevIndex + 1) % transcriptionExamples.length
+      );
+    }, 8000); // Change every 8 seconds
+
+    return () => clearInterval(interval);
+  }, []);
 
   const toggleFAQ = (index: number) => {
     setOpenFAQ(openFAQ === index ? null : index);
@@ -427,8 +497,8 @@ const Homepage: React.FC = () => {
               Turn every conversation into valuable business intelligence.
             </p>
           </div>
-          <div className="h-[85px] flex items-center justify-center opacity-50">
-            <div className="flex items-end space-x-1">
+          <div className="h-[85px] flex items-center justify-center opacity-70">
+            <div className="flex items-center space-x-1">
               {[...Array(50)].map((_, i) => {
                 // Create frequency distribution that mimics human voice
                 const centerDistance = Math.abs(i - 25);
@@ -482,22 +552,41 @@ const Homepage: React.FC = () => {
           </div>
           {/* Transcription Animation */}
           <div className="mt-8 animate-fade-in-up" style={{animationDelay: '1.2s'}}>
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 max-w-2xl mx-auto border border-white/20">
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 max-w-2xl mx-auto border border-white/20 transition-all duration-500">
               <div className="text-left">
-                <div className="flex items-center mb-4">
-                  <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse mr-2"></div>
-                  <span className="text-sm text-blue-100">Live Transcription</span>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center">
+                    <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse mr-2"></div>
+                    <span className="text-sm text-blue-100">Live Transcription</span>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="text-xs text-blue-200 opacity-60 mr-2">
+                      {transcriptionExamples[currentTranscriptionIndex].title}
+                    </span>
+                    <div className="flex space-x-1">
+                      {transcriptionExamples.map((_, index) => (
+                        <div
+                          key={index}
+                          className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                            index === currentTranscriptionIndex 
+                              ? 'bg-white/80' 
+                              : 'bg-white/30'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-2 text-white/90 text-sm">
-                  <div className="animate-typing">
-                    <span className="opacity-60">[00:23]</span> "Let's discuss the quarterly targets for our sales team..."
-                  </div>
-                  <div className="animate-typing" style={{animationDelay: '2s'}}>
-                    <span className="opacity-60">[00:31]</span> "I think we should focus on customer retention this quarter."
-                  </div>
-                  <div className="animate-typing" style={{animationDelay: '4s'}}>
-                    <span className="opacity-60">[00:45]</span> "Great point! Let's add that as an action item."
-                  </div>
+                <div className="space-y-2 text-white/90 text-sm" key={currentTranscriptionIndex}>
+                  {transcriptionExamples[currentTranscriptionIndex].lines.map((line, index) => (
+                    <div 
+                      key={index}
+                      className="animate-typing"
+                      style={{animationDelay: `${index * 2}s`}}
+                    >
+                      <span className="opacity-60">[{line.timestamp}]</span> "{line.text}"
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

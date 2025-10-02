@@ -251,6 +251,20 @@
   }
 }
 
+@keyframes typing-restart {
+  0% {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 @keyframes pulse-soft {
   0%, 100% {
     opacity: 0.6;
@@ -290,6 +304,11 @@
 
 .animate-typing {
   animation: typing 1s ease-out forwards;
+  opacity: 0;
+}
+
+.animate-typing-restart {
+  animation: typing-restart 1s ease-out forwards;
   opacity: 0;
 }
 
