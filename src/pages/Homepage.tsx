@@ -351,22 +351,21 @@ const Homepage: React.FC = () => {
   return (
     <div className="min-h-screen bg-white">
       {/* Navigation Header */}
-      <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
+      <nav className="bg-white/95 backdrop-blur-sm border-b border-[#4e69fd]/20 sticky top-0 z-50 transition-all duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <h1 className="text-2xl font-bold text-blue-600">SynaptiVoice</h1>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-[#4e69fd] to-[#7c3aed] bg-clip-text text-transparent">
+                  SynaptiVoice
+                </h1>
               </div>
               <div className="hidden md:block ml-10">
                 <div className="flex items-baseline space-x-8">
-                  <a href="#products" className="text-gray-900 hover:text-blue-600 px-3 py-2 text-sm font-medium">
-                    Products
-                  </a>
-                  <a href="#pricing" className="text-gray-900 hover:text-blue-600 px-3 py-2 text-sm font-medium">
+                  <a href="#pricing" className="text-gray-900 hover:text-[#4e69fd] px-3 py-2 text-sm font-medium transition-colors duration-200">
                     Pricing
                   </a>
-                  <a href="#resources" className="text-gray-900 hover:text-blue-600 px-3 py-2 text-sm font-medium">
+                  <a href="#resources" className="text-gray-900 hover:text-[#4e69fd] px-3 py-2 text-sm font-medium transition-colors duration-200">
                     Resources
                   </a>
                 </div>
@@ -374,12 +373,12 @@ const Homepage: React.FC = () => {
             </div>
             <div className="flex items-center space-x-4">
               <Link to="/login">
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" className="border-[#4e69fd] text-[#4e69fd] hover:bg-[#4e69fd] hover:text-white transition-all duration-200">
                   Log In
                 </Button>
               </Link>
               <Link to="/login">
-                <Button size="sm">
+                <Button size="sm" className="bg-[#4e69fd] hover:bg-[#3d54e6] text-white transition-all duration-200">
                   Get Started Free
                 </Button>
               </Link>
@@ -389,28 +388,132 @@ const Homepage: React.FC = () => {
       </nav>
 
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-blue-50 to-indigo-100 py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
+      <section className="relative bg-gradient-to-br from-[#4e69fd] via-[#6366f1] to-[#7c3aed] py-20 overflow-hidden">
+        {/* Animated Background Elements */}
+        <div className="absolute inset-0">
+          {/* Moving gradient orbs */}
+          <div className="absolute top-10 left-10 w-72 h-72 bg-gradient-to-r from-white/10 to-[#8b5cf6]/20 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute bottom-10 right-10 w-96 h-96 bg-gradient-to-r from-[#06b6d4]/20 to-white/10 rounded-full blur-3xl animate-pulse" style={{animationDelay: '1s'}}></div>
+          <div className="absolute top-1/2 left-1/3 w-64 h-64 bg-gradient-to-r from-[#f472b6]/20 to-white/10 rounded-full blur-3xl animate-pulse" style={{animationDelay: '2s'}}></div>
+          
+          {/* Moving particles */}
+          <div className="absolute inset-0">
+            {[...Array(20)].map((_, i) => (
+              <div
+                key={i}
+                className="absolute w-2 h-2 bg-white/30 rounded-full animate-float"
+                style={{
+                  left: `${Math.random() * 100}%`,
+                  top: `${Math.random() * 100}%`,
+                  animationDelay: `${Math.random() * 8}s`,
+                  animationDuration: `${8 + Math.random() * 4}s`
+                }}
+              ></div>
+            ))}
+          </div>
+        </div>
+
+        {/* Sound Wave Animation */}
+        
+
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <div className="animate-fade-in-up">
+            <h1 className="text-2xl md:text-5xl font-bold text-white mb-6">
               Transform Your Meetings with 
-              <span className="text-blue-600 block"> Smart Powered Intelligence</span>
+              <span className="pb-4 block bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent animate-gradient-x"> Powered Intelligence</span>
             </h1>
-            <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
+            <p className="text-xl text-blue-100 mb-8 max-w-3xl mx-auto opacity-90 animate-fade-in-up" style={{animationDelay: '0.3s'}}>
               Automatically transcribe, analyze, and extract actionable insights from your recordings. 
               Turn every conversation into valuable business intelligence.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          </div>
+          <div className="h-[85px] flex items-center justify-center opacity-50">
+            <div className="flex items-end space-x-1">
+              {[...Array(50)].map((_, i) => {
+                // Create frequency distribution that mimics human voice
+                const centerDistance = Math.abs(i - 25);
+                const frequencyWeight = Math.exp(-Math.pow(centerDistance, 2) / 200); // Gaussian distribution
+                
+                // Calculate speech characteristics
+                const baseHeight = 15 + frequencyWeight * 65; // Voice frequency range
+                const speechCycle = Math.floor(i / 8); // Group into speech segments
+                const isCoreSpeech = centerDistance < 15; // Core speech frequencies
+                
+                // Determine animation type based on position and speech cycle
+                let animationClass = 'animate-sound-wave-pause';
+                let animationDelay = i * 0.08;
+                let animationDuration = '2s';
+                
+                if (isCoreSpeech) {
+                  // Core speech frequencies - most active
+                  if (speechCycle % 3 === 0) {
+                    animationClass = 'animate-sound-wave-speaking';
+                    animationDuration = '1.2s';
+                    animationDelay = (i * 0.05) + (speechCycle * 0.3);
+                  } else if (speechCycle % 3 === 1) {
+                    animationClass = 'animate-sound-wave-syllable';
+                    animationDuration = '0.8s';
+                    animationDelay = (i * 0.06) + (speechCycle * 0.2);
+                  }
+                } else {
+                  // Harmonic frequencies - less active
+                  if (speechCycle % 4 === 0) {
+                    animationClass = 'animate-sound-wave-syllable';
+                    animationDuration = '1.5s';
+                    animationDelay = (i * 0.1) + (speechCycle * 0.4);
+                  }
+                }
+                
+                return (
+                  <div
+                    key={i}
+                    className={`bg-white/40 rounded-full ${animationClass}`}
+                    style={{
+                      width: '5px',
+                      height: `${baseHeight}px`,
+                      animationDelay: `${animationDelay}s`,
+                      animationDuration: animationDuration,
+                      transform: `scaleY(${0.6 + frequencyWeight * 0.4})` // Height variation based on frequency
+                    }}
+                  ></div>
+                );
+              })}
+            </div>
+          </div>
+          {/* Transcription Animation */}
+          <div className="mt-8 animate-fade-in-up" style={{animationDelay: '1.2s'}}>
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 max-w-2xl mx-auto border border-white/20">
+              <div className="text-left">
+                <div className="flex items-center mb-4">
+                  <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse mr-2"></div>
+                  <span className="text-sm text-blue-100">Live Transcription</span>
+                </div>
+                <div className="space-y-2 text-white/90 text-sm">
+                  <div className="animate-typing">
+                    <span className="opacity-60">[00:23]</span> "Let's discuss the quarterly targets for our sales team..."
+                  </div>
+                  <div className="animate-typing" style={{animationDelay: '2s'}}>
+                    <span className="opacity-60">[00:31]</span> "I think we should focus on customer retention this quarter."
+                  </div>
+                  <div className="animate-typing" style={{animationDelay: '4s'}}>
+                    <span className="opacity-60">[00:45]</span> "Great point! Let's add that as an action item."
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="mt-8 animate-fade-in-up" style={{animationDelay: '1.6s'}}>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in-up" style={{animationDelay: '0.6s'}}>
               <Link to="/trial">
-                <Button size="lg" className="px-8 py-3 text-lg">
+                <Button size="lg" className="px-8 py-3 text-lg bg-white text-[#4e69fd] hover:bg-gray-50 hover:scale-105 transition-all duration-300 shadow-xl">
                   Start Free Trial
                 </Button>
               </Link>
-              <Button variant="outline" size="lg" className="px-8 py-3 text-lg">
+              {/* <Button variant="outline" size="lg" className="px-8 py-3 text-lg border-white text-white hover:bg-white hover:text-[#4e69fd] hover:scale-105 transition-all duration-300">
                 Watch Demo
-              </Button>
+              </Button> */}
             </div>
-            <p className="text-sm text-gray-500 mt-4">No credit card required • 14-day free trial</p>
+            <p className="text-sm text-blue-100 mt-4 opacity-80 animate-fade-in-up" style={{animationDelay: '0.9s'}}>No credit card required • 14-day free trial</p>
           </div>
         </div>
       </section>
@@ -429,15 +532,15 @@ const Homepage: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* AI Transcription */}
-            <Card className="border-2 hover:border-blue-200 transition-colors p-6">
+            <Card className="border-2 hover:border-[#4e69fd]/30 transition-all duration-300 p-6 hover:shadow-lg hover:shadow-[#4e69fd]/10">
               <div className="flex items-start space-x-4">
-                <div className="w-16 h-16 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <svg className="w-8 h-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="w-16 h-16 bg-gradient-to-br from-[#4e69fd] to-[#7c3aed] rounded-xl flex items-center justify-center flex-shrink-0">
+                  <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                   </svg>
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Powered Transcription</h3>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Transcription</h3>
                   <p className="text-gray-600 mb-4">
                     Accurate, real-time transcription with speaker identification and timestamp precision
                   </p>
@@ -452,15 +555,15 @@ const Homepage: React.FC = () => {
             </Card>
 
             {/* Smart Intelligence */}
-            <Card className="border-2 hover:border-blue-200 transition-colors p-6">
+            <Card className="border-2 hover:border-[#4e69fd]/30 transition-all duration-300 p-6 hover:shadow-lg hover:shadow-[#4e69fd]/10">
               <div className="flex items-start space-x-4">
-                <div className="w-16 h-16 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <svg className="w-8 h-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="w-16 h-16 bg-gradient-to-br from-[#4e69fd] to-[#7c3aed] rounded-xl flex items-center justify-center flex-shrink-0">
+                  <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                   </svg>
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Smart Intelligence Analysis</h3>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Intelligence Analysis</h3>
                   <p className="text-gray-600 mb-4">
                     Automatically extract action items, decisions, issues, and questions from conversations
                   </p>
@@ -475,10 +578,10 @@ const Homepage: React.FC = () => {
             </Card>
 
             {/* Advanced Search */}
-            <Card className="border-2 hover:border-blue-200 transition-colors p-6">
+            <Card className="border-2 hover:border-[#4e69fd]/30 transition-all duration-300 p-6 hover:shadow-lg hover:shadow-[#4e69fd]/10">
               <div className="flex items-start space-x-4">
-                <div className="w-16 h-16 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <svg className="w-8 h-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="w-16 h-16 bg-gradient-to-br from-[#4e69fd] to-[#7c3aed] rounded-xl flex items-center justify-center flex-shrink-0">
+                  <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </div>
@@ -498,10 +601,10 @@ const Homepage: React.FC = () => {
             </Card>
 
             {/* Audio Playback */}
-            <Card className="border-2 hover:border-blue-200 transition-colors p-6">
+            <Card className="border-2 hover:border-[#4e69fd]/30 transition-all duration-300 p-6 hover:shadow-lg hover:shadow-[#4e69fd]/10">
               <div className="flex items-start space-x-4">
-                <div className="w-16 h-16 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <svg className="w-8 h-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="w-16 h-16 bg-gradient-to-br from-[#4e69fd] to-[#7c3aed] rounded-xl flex items-center justify-center flex-shrink-0">
+                  <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1.586a1 1 0 01.707.293l2.414 2.414a1 1 0 00.707.293H15M9 10V9a1 1 0 011-1h1m4 1h1a1 1 0 011 1v1m-4 3v1a1 1 0 01-1 1H9.586a1 1 0 01-.707-.293L6.465 13.293A1 1 0 016 12.586V11a1 1 0 011-1h1" />
                   </svg>
                 </div>
@@ -521,10 +624,10 @@ const Homepage: React.FC = () => {
             </Card>
 
             {/* Export Options */}
-            <Card className="border-2 hover:border-blue-200 transition-colors p-6">
+            <Card className="border-2 hover:border-[#4e69fd]/30 transition-all duration-300 p-6 hover:shadow-lg hover:shadow-[#4e69fd]/10">
               <div className="flex items-start space-x-4">
-                <div className="w-16 h-16 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <svg className="w-8 h-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="w-16 h-16 bg-gradient-to-br from-[#4e69fd] to-[#7c3aed] rounded-xl flex items-center justify-center flex-shrink-0">
+                  <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                 </div>
@@ -544,10 +647,10 @@ const Homepage: React.FC = () => {
             </Card>
 
             {/* Security & Privacy */}
-            <Card className="border-2 hover:border-blue-200 transition-colors p-6">
+            <Card className="border-2 hover:border-[#4e69fd]/30 transition-all duration-300 p-6 hover:shadow-lg hover:shadow-[#4e69fd]/10">
               <div className="flex items-start space-x-4">
-                <div className="w-16 h-16 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <svg className="w-8 h-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="w-16 h-16 bg-gradient-to-br from-[#4e69fd] to-[#7c3aed] rounded-xl flex items-center justify-center flex-shrink-0">
+                  <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                   </svg>
                 </div>
@@ -586,17 +689,17 @@ const Homepage: React.FC = () => {
               <Card 
                 key={plan.id} 
                 className={`relative transition-all hover:shadow-lg ${
-                  plan.recommended ? 'border-blue-500 shadow-md' : ''
+                  plan.recommended ? 'border-[#4e69fd] shadow-md' : ''
                 }`}
               >
                 {plan.recommended && (
                   <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                    <Badge className="bg-blue-600 text-white">Most Popular</Badge>
+                    <Badge className="bg-[#4e69fd] text-white">Most Popular</Badge>
                   </div>
                 )}
                 <CardHeader className="text-center pb-4">
                   <CardTitle className="text-xl font-bold">{plan.name}</CardTitle>
-                  <div className="text-4xl font-bold text-blue-600 mt-2">
+                  <div className="text-4xl font-bold text-[#4e69fd] mt-2">
                     {formatPrice(plan.price)}
                     <span className="text-lg text-gray-600 font-normal">/{plan.interval}</span>
                   </div>
@@ -613,7 +716,7 @@ const Homepage: React.FC = () => {
                     ))}
                   </ul>
                   <Button 
-                    className={`w-full ${plan.recommended ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
+                    className={`w-full ${plan.recommended ? 'bg-[#4e69fd] hover:bg-[#3d54e6]' : ''}`}
                     variant={plan.recommended ? 'default' : 'outline'}
                     onClick={() => handleSubscribe(plan)}
                   >
@@ -729,7 +832,7 @@ const Homepage: React.FC = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-blue-600">
+      <section className="py-20 bg-gradient-to-r from-[#4e69fd] to-[#7c3aed]">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
             Ready to Transform Your Meetings?
@@ -739,7 +842,7 @@ const Homepage: React.FC = () => {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/trial">
-              <Button size="lg" variant="secondary" className="px-8 py-3 text-lg">
+              <Button size="lg" variant="secondary" className="px-8 py-3 text-lg bg-white text-[#4e69fd] hover:bg-gray-50 hover:scale-105 transition-all duration-300">
                 Start Free Trial
               </Button>
             </Link>
@@ -762,8 +865,6 @@ const Homepage: React.FC = () => {
               <ul className="space-y-2 text-sm text-gray-400">
                 <li><a href="#features" className="hover:text-white">Features</a></li>
                 <li><a href="#integrations" className="hover:text-white">Integrations</a></li>
-                <li><button className="hover:text-white text-left">API</button></li>
-                <li><button className="hover:text-white text-left">Security</button></li>
               </ul>
             </div>
             <div>
@@ -771,8 +872,6 @@ const Homepage: React.FC = () => {
               <ul className="space-y-2 text-sm text-gray-400">
                 <li><button className="hover:text-white text-left">About</button></li>
                 <li><button className="hover:text-white text-left">Blog</button></li>
-                <li><button className="hover:text-white text-left">Careers</button></li>
-                <li><button className="hover:text-white text-left">Contact</button></li>
               </ul>
             </div>
             <div>
@@ -780,7 +879,6 @@ const Homepage: React.FC = () => {
               <ul className="space-y-2 text-sm text-gray-400">
                 <li><button className="hover:text-white text-left">Help Center</button></li>
                 <li><button className="hover:text-white text-left">Documentation</button></li>
-                <li><button className="hover:text-white text-left">Status</button></li>
                 <li><button className="hover:text-white text-left">Contact Support</button></li>
               </ul>
             </div>
