@@ -374,6 +374,7 @@ const SubscriptionModal: React.FC<{
 const Homepage: React.FC = () => {
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
   const [currentTranscriptionIndex, setCurrentTranscriptionIndex] = useState(0);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [subscriptionModal, setSubscriptionModal] = useState<{
     isOpen: boolean;
     plan: SubscriptionPlan | null;
@@ -421,34 +422,35 @@ const Homepage: React.FC = () => {
   return (
     <div className="min-h-screen bg-white">
       {/* Navigation Header */}
-      <nav className="bg-white/95 backdrop-blur-sm border-b border-[#4e69fd]/20 sticky top-0 z-50 transition-all duration-300">
+      <nav className="absolute w-full top-[8px] px-[50px] z-50 transition-all duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
+            {/* Left - Hamburger Menu */}
+            <div className="absolute left-1/2 transform -translate-x-[calc(100%+200px)] flex items-center justify-end space-x-8 py-2">
+              <a href="#pricing" className="text-white font-normal px-3 py-2 text-sm font-medium transition-colors duration-200">
+                Pricing
+              </a>
+              <a href="#resources" className="text-white font-normal px-3 py-2 text-sm font-medium transition-colors duration-200">
+                Resources
+              </a>
+            </div>
+
+            {/* Center - Logo */}
+            <div className="flex-1 flex justify-center">
+              <div className="bg-white rounded-b-3xl pt-10 pb-7 px-16">
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-[#4e69fd] to-[#7c3aed] bg-clip-text text-transparent">
                   SynaptiVoice
                 </h1>
               </div>
-              <div className="hidden md:block ml-10">
-                <div className="flex items-baseline space-x-8">
-                  <a href="#pricing" className="text-gray-900 hover:text-[#4e69fd] px-3 py-2 text-sm font-medium transition-colors duration-200">
-                    Pricing
-                  </a>
-                  <a href="#resources" className="text-gray-900 hover:text-[#4e69fd] px-3 py-2 text-sm font-medium transition-colors duration-200">
-                    Resources
-                  </a>
-                </div>
-              </div>
             </div>
-            <div className="flex items-center space-x-4">
-              <Link to="/login">
-                <Button variant="outline" size="sm" className="border-[#4e69fd] text-[#4e69fd] hover:bg-[#4e69fd] hover:text-white transition-all duration-200">
-                  Log In
-                </Button>
+
+            {/* Right - User Icon and CTA */}
+            <div className="absolute left-1/2 transform translate-x-[200px] flex items-center space-x-4">
+              <Link to="/login" className="text-white font-normal px-3 py-2 text-sm font-medium transition-colors duration-200">
+                Log In
               </Link>
-              <Link to="/login">
-                <Button size="sm" className="bg-[#4e69fd] hover:bg-[#3d54e6] text-white transition-all duration-200">
+              <Link to="/trial">
+                <Button className="bg-white text-gray-900 font-normal hover:text-white hover:bg-[#3d54e6] transition-all duration-200">
                   Get Started Free
                 </Button>
               </Link>
@@ -458,7 +460,7 @@ const Homepage: React.FC = () => {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-br from-[#4e69fd] via-[#6366f1] to-[#7c3aed] py-20 overflow-hidden">
+      <section className="relative bg-gradient-to-br border-[10px] border-white rounded-[50px] from-[#4e69fd] via-[#6366f1] to-[#7c3aed] py-20 !pt-[150px] overflow-hidden">
         {/* Animated Background Elements */}
         <div className="absolute inset-0">
           {/* Moving gradient orbs */}
@@ -492,10 +494,10 @@ const Homepage: React.FC = () => {
               Transform Your Meetings with 
               <span className="pb-4 block bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent animate-gradient-x"> Powered Intelligence</span>
             </h1>
-            <p className="text-xl text-blue-100 mb-8 max-w-3xl mx-auto opacity-90 animate-fade-in-up" style={{animationDelay: '0.3s'}}>
+            {/* <p className="text-xl text-blue-100 mb-8 max-w-3xl mx-auto opacity-90 animate-fade-in-up" style={{animationDelay: '0.3s'}}>
               Automatically transcribe, analyze, and extract actionable insights from your recordings. 
               Turn every conversation into valuable business intelligence.
-            </p>
+            </p> */}
           </div>
           <div className="h-[85px] flex items-center justify-center opacity-70">
             <div className="flex items-center space-x-1">
