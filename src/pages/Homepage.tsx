@@ -541,7 +541,7 @@ const Homepage: React.FC = () => {
                     key={i}
                     className={`bg-white/40 rounded-full ${animationClass}`}
                     style={{
-                      width: '5px',
+                      width: '4px',
                       height: `${baseHeight}px`,
                       animationDelay: `${animationDelay}s`,
                       animationDuration: animationDuration,

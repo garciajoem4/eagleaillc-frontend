@@ -2,6 +2,7 @@ import { useCallback, useState, useEffect, useMemo, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { DetailedIntelligence } from '../types';
 import { sampleIntelligence } from '../data/sampleIntelligence';
+import { audioStorageService } from '../services/audioStorageService';
 
 interface TranscriptData {
   full_transcription?: string;
@@ -22,6 +23,10 @@ export const useRecordingDetail = (
   const { id } = useParams<{ id: string }>();
 
   // State variables
+  const { id: recordingId } = useParams<{ id: string }>();
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [isLoadingAudio, setIsLoadingAudio] = useState(true);
+
   const [detailedIntelligence, setDetailedIntelligence] = useState<DetailedIntelligence | null>(null);
   const [transcriptView, setTranscriptView] = useState<'full' | 'segments'>('segments');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -42,6 +47,11 @@ export const useRecordingDetail = (
   const [audioDuration, setAudioDuration] = useState<number>(0);
   const audioRef = useRef<HTMLAudioElement>(null);
 
+  // Audio visualization states
+  const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
+  const [analyserNode, setAnalyserNode] = useState<AnalyserNode | null>(null);
+  const [frequencyData, setFrequencyData] = useState<Uint8Array>(new Uint8Array(24));
+
   const fullSegmentButtons: string[] = ['PDF', 'JSON', 'CSV', 'TXT'];
   const fullOnlyButtons: string[] = ['PDF', 'JSON', 'TXT'];
   const segmentsOnlyButtons: string[] = ['PDF', 'CSV', 'TXT'];
@@ -50,6 +60,49 @@ export const useRecordingDetail = (
   const decisionsButtons: string[] = ['PDF', 'JSON', 'CSV', 'TXT'];
   const issuesButtons: string[] = ['PDF', 'JSON', 'CSV', 'TXT'];
   const questionsButtons: string[] = ['PDF', 'JSON', 'CSV', 'TXT'];
+
+  // Load audio from localStorage
+    useEffect(() => {
+      const loadAudioFromStorage = async () => {
+        if (!recordingId) {
+          setIsLoadingAudio(false);
+          return;
+        }
+  
+        try {
+          console.log('Loading audio from localStorage for recording:', recordingId);
+          
+          // Try to get audio from localStorage
+          const storedAudio = await audioStorageService.getAudio(recordingId);
+          
+          if (storedAudio) {
+            // Create blob URL from stored audio
+            const blobUrl = URL.createObjectURL(storedAudio.blob);
+            setAudioUrl(blobUrl);
+            console.log('Successfully loaded audio from localStorage:', blobUrl);
+          } else {
+            console.log('No audio found in localStorage, using fallback');
+            // Fallback to default audio or show message
+            setAudioUrl('/july_12_2022_audio.mp3'); // Fallback to sample audio
+          }
+        } catch (error) {
+          console.error('Error loading audio from localStorage:', error);
+          // Fallback to default audio
+          setAudioUrl('/july_12_2022_audio.mp3');
+        } finally {
+          setIsLoadingAudio(false);
+        }
+      };
+  
+      loadAudioFromStorage();
+  
+      // Cleanup blob URL when component unmounts or recordingId changes
+      return () => {
+        if (audioUrl && audioUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(audioUrl);
+        }
+      };
+    }, [recordingId, audioUrl]);
 
   // Load sample intelligence data for demonstration
   useEffect(() => {
@@ -92,6 +145,83 @@ export const useRecordingDetail = (
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
     };
   }, []);
+
+  // Setup audio analysis with Web Audio API
+  const setupAudioAnalysis = useCallback(() => {
+    if (!audioRef.current || audioContext || analyserNode) return;
+
+    try {
+      const context = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const analyser = context.createAnalyser();
+      const source = context.createMediaElementSource(audioRef.current);
+      
+      analyser.fftSize = 64; // Will give us 32 frequency bins, we'll use 24
+      analyser.smoothingTimeConstant = 0.8;
+      
+      source.connect(analyser);
+      analyser.connect(context.destination);
+      
+      setAudioContext(context);
+      setAnalyserNode(analyser);
+      setFrequencyData(new Uint8Array(analyser.frequencyBinCount));
+    } catch (error) {
+      console.error('Error setting up audio analysis:', error);
+    }
+  }, [audioRef, audioContext, analyserNode]);
+
+  // Animation loop for frequency data
+  const updateFrequencyData = useCallback(() => {
+    if (!analyserNode) return;
+
+    const dataArray = new Uint8Array(analyserNode.frequencyBinCount);
+    analyserNode.getByteFrequencyData(dataArray);
+    
+    // Take first 24 frequency bins for our visualization
+    const displayData = new Uint8Array(24);
+    for (let i = 0; i < 24; i++) {
+      displayData[i] = dataArray[i];
+    }
+    
+    setFrequencyData(displayData);
+  }, [analyserNode]);
+
+  // Separate animation loop management
+  useEffect(() => {
+    let frameId: number | null = null;
+    
+    const animate = () => {
+      if (isAudioPlaying && analyserNode) {
+        updateFrequencyData();
+        frameId = requestAnimationFrame(animate);
+      }
+    };
+
+    if (isAudioPlaying && analyserNode) {
+      animate();
+    }
+
+    return () => {
+      if (frameId) {
+        cancelAnimationFrame(frameId);
+      }
+    };
+  }, [isAudioPlaying, analyserNode, updateFrequencyData]);
+
+  // Setup audio analysis when audio starts playing
+  useEffect(() => {
+    if (isAudioPlaying && audioRef.current && !audioContext) {
+      setupAudioAnalysis();
+    }
+  }, [isAudioPlaying, audioContext, setupAudioAnalysis, audioRef]);
+
+  // Cleanup audio context on unmount
+  useEffect(() => {
+    return () => {
+      if (audioContext && audioContext.state !== 'closed') {
+        audioContext.close().catch(console.error);
+      }
+    };
+  }, [audioContext]);
 
   // Generate time range options based on recording duration
   const timeRangeOptions = useMemo(() => {
@@ -705,6 +835,9 @@ export const useRecordingDetail = (
 
   return {
     // State variables
+    recordingId,
+    audioUrl,
+    setIsLoadingAudio,
     detailedIntelligence,
     setDetailedIntelligence,
     transcriptView,
@@ -734,6 +867,13 @@ export const useRecordingDetail = (
     audioDuration,
     setAudioDuration,
     audioRef,
+
+    // Audio visualization state
+    audioContext,
+    analyserNode,
+    frequencyData,
+    setupAudioAnalysis,
+    updateFrequencyData,
 
     // Plain constants
     fullSegmentButtons,
