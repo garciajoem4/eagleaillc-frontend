@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
@@ -7,7 +7,6 @@ import { Input } from '../components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { sampleTranscriptData } from '../data/sampleTranscript';
 import { useRecordingDetail } from '../hooks/useRecordingDetail';
-import { audioStorageService } from '../services/audioStorageService';
 
 // Additional icons available for future use:
 // FiPlay, FiPause, FiDownload, FiShare2, FiMoreVertical,
@@ -16,13 +15,12 @@ import { audioStorageService } from '../services/audioStorageService';
 // FiSettings, FiBookmark, FiTag, FiPieChart, FiSearch
 
 const RecordingDetail: React.FC = () => {
-  const { id: recordingId } = useParams<{ id: string }>();
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [isLoadingAudio, setIsLoadingAudio] = useState(true);
-
   // Use recording utilities hook with all state management
   const {
     // State variables
+    recordingId,
+    audioUrl,
+    setIsLoadingAudio,
     detailedIntelligence,
     transcriptView,
     setTranscriptView,
@@ -47,6 +45,13 @@ const RecordingDetail: React.FC = () => {
     currentAudioTime,
     isAudioPlaying,
     audioRef,
+
+    // Audio visualization state
+    audioContext,
+    analyserNode,
+    frequencyData,
+    setupAudioAnalysis,
+    updateFrequencyData,
 
     // Plain constants
     fullSegmentButtons,
@@ -77,49 +82,6 @@ const RecordingDetail: React.FC = () => {
     exportTranscriptData,
     exportIntelligenceData
   } = useRecordingDetail(sampleTranscriptData);
-
-  // Load audio from localStorage
-  useEffect(() => {
-    const loadAudioFromStorage = async () => {
-      if (!recordingId) {
-        setIsLoadingAudio(false);
-        return;
-      }
-
-      try {
-        console.log('Loading audio from localStorage for recording:', recordingId);
-        
-        // Try to get audio from localStorage
-        const storedAudio = await audioStorageService.getAudio(recordingId);
-        
-        if (storedAudio) {
-          // Create blob URL from stored audio
-          const blobUrl = URL.createObjectURL(storedAudio.blob);
-          setAudioUrl(blobUrl);
-          console.log('Successfully loaded audio from localStorage:', blobUrl);
-        } else {
-          console.log('No audio found in localStorage, using fallback');
-          // Fallback to default audio or show message
-          setAudioUrl('/july_12_2022_audio.mp3'); // Fallback to sample audio
-        }
-      } catch (error) {
-        console.error('Error loading audio from localStorage:', error);
-        // Fallback to default audio
-        setAudioUrl('/july_12_2022_audio.mp3');
-      } finally {
-        setIsLoadingAudio(false);
-      }
-    };
-
-    loadAudioFromStorage();
-
-    // Cleanup blob URL when component unmounts or recordingId changes
-    return () => {
-      if (audioUrl && audioUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(audioUrl);
-      }
-    };
-  }, [recordingId, audioUrl]);
 
   if (!sampleTranscriptData) {
     return (
@@ -492,17 +454,18 @@ const RecordingDetail: React.FC = () => {
                                       : 'bg-gray-50'
                                   }`}
                                 >
-                                  <div className="flex-shrink-0 text-right min-w-[95px]">
+                                  <div className="flex-shrink-0 text-left min-w-[45px]">
                                     <div className={`text-xs font-mono mb-1 ${
                                       isCurrentlyActive ? 'text-blue-600 font-bold' : 'text-gray-500'
                                     }`}>
-                                      {formatSegmentTime(segment.start)} - {formatSegmentTime(segment.end)}
+                                      {/* {formatSegmentTime(segment.start)} - {formatSegmentTime(segment.end)} */}
+                                      {formatSegmentTime(segment.start)}
                                     </div>
-                                    {isCurrentlyActive && (
+                                    {/* {isCurrentlyActive && (
                                       <Badge variant="default" className="text-xs bg-blue-100 text-blue-800">
                                         Active
                                       </Badge>
-                                    )}
+                                    )} */}
                                   </div>
                                   <div className="flex-1">
                                     <p className={`text-sm ${
@@ -1049,6 +1012,42 @@ const RecordingDetail: React.FC = () => {
                   </TabsContent>
                 </Tabs>
                 <div className="pl-3">
+                  {/* Audio Soundwave Visualization */}
+                  <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-gray-700">Audio Visualization</h3>
+                      <Badge variant={isAudioPlaying ? "default" : "secondary"} className="text-xs">
+                        {isAudioPlaying ? "Playing" : "Paused"}
+                      </Badge>
+                    </div>
+                    
+                    <div className="flex items-center justify-center space-x-1 h-20 bg-white/50 rounded-lg p-3">
+                      {Array.from({ length: 24 }).map((_, index) => {
+                        const height = isAudioPlaying && frequencyData[index] 
+                          ? Math.max((frequencyData[index] / 255) * 100, 5)
+                          : Math.random() * 20 + 5; // Subtle random movement when paused
+                        
+                        return (
+                          <div
+                            key={index}
+                            className="flex-1 max-w-[4px] bg-gradient-to-t from-blue-400 to-blue-600 rounded-full transition-all duration-100 ease-out"
+                            style={{
+                              height: `${height}%`,
+                              opacity: isAudioPlaying ? 0.8 : 0.3,
+                              transform: `scaleY(${isAudioPlaying ? 1 : 0.3})`,
+                            }}
+                          />
+                        );
+                      })}
+                    </div>
+                    
+                    {/* <div className="mt-2 text-center">
+                      <span className="text-xs text-gray-500">
+                        {isAudioPlaying ? "Real-time audio analysis" : "Click play to see audio visualization"}
+                      </span>
+                    </div> */}
+                  </div>
+                  
                   <div className="bg-gradient-to-r from-blue-50 to-indigo-50 mb-6 p-2 rounded-lg border border-blue-100">
                     <div className="mb-4">
                       {/* <h4 className="text-sm font-medium text-gray-700 mb-2">
