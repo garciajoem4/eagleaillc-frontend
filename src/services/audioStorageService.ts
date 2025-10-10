@@ -13,6 +13,9 @@ interface StoredAudio {
     duration?: number;
     transcriptId?: string;
     processed?: boolean;
+    isTrimmed?: boolean;
+    hasFullVersion?: boolean;
+    isFullVersion?: boolean;
   };
 }
 
@@ -247,6 +250,116 @@ class AudioStorageService {
         currentSize -= file.size;
       }
     }
+  }
+
+  /**
+   * Store both trimmed and full audio for free trial users
+   */
+  async storeDualAudio(
+    id: string,
+    trimmedFile: File | Blob,
+    fullFile: File | Blob,
+    fileName: string,
+    metadata?: StoredAudio['metadata']
+  ): Promise<void> {
+    // Store trimmed version with regular ID (for immediate use)
+    await this.storeAudio(id, trimmedFile, fileName, {
+      ...metadata,
+      isTrimmed: true,
+      hasFullVersion: true
+    });
+
+    // Store full version with special suffix
+    await this.storeAudio(`${id}-full`, fullFile, fileName, {
+      ...metadata,
+      isTrimmed: false,
+      isFullVersion: true
+    });
+  }
+
+  /**
+   * Get the appropriate audio version based on user subscription status
+   */
+  async getAudioForUser(id: string, isFreeTrial: boolean): Promise<StoredAudio | null> {
+    if (isFreeTrial) {
+      // Free trial users get trimmed version
+      return this.getAudio(id);
+    } else {
+      // Paid users get full version if available, otherwise regular version
+      const fullVersion = await this.getAudio(`${id}-full`);
+      if (fullVersion) {
+        return fullVersion;
+      }
+      return this.getAudio(id);
+    }
+  }
+
+  /**
+   * Check if a recording has both trimmed and full versions
+   */
+  async hasDualVersions(id: string): Promise<{
+    hasTrimmed: boolean;
+    hasFull: boolean;
+  }> {
+    const trimmed = await this.hasAudio(id);
+    const full = await this.hasAudio(`${id}-full`);
+    
+    return {
+      hasTrimmed: trimmed,
+      hasFull: full
+    };
+  }
+
+  /**
+   * Migrate a free trial user to use full versions after subscription
+   */
+  async migrateFreeTrialToFull(recordingIds: string[]): Promise<void> {
+    for (const id of recordingIds) {
+      const versions = await this.hasDualVersions(id);
+      
+      if (versions.hasFull) {
+        // Get full version
+        const fullVersion = await this.getAudio(`${id}-full`);
+        if (fullVersion) {
+          // Update metadata to indicate it's no longer trimmed
+          const updatedMetadata = {
+            ...fullVersion.metadata,
+            isTrimmed: false,
+            isFullVersion: false // Now it's the main version
+          };
+          
+          // Store full version as main version
+          await this.storeAudio(id, fullVersion.blob, fullVersion.fileName, updatedMetadata);
+          
+          // Optionally keep full version for reference
+          // Or delete it: await this.deleteAudio(`${id}-full`);
+        }
+      }
+    }
+  }
+
+  /**
+   * Get metadata for both versions of a recording
+   */
+  async getDualVersionMetadata(id: string): Promise<{
+    trimmed?: Omit<StoredAudio, 'blob'>;
+    full?: Omit<StoredAudio, 'blob'>;
+  }> {
+    const result: any = {};
+    
+    const trimmed = await this.getAudio(id);
+    if (trimmed) {
+      const { blob, ...metadata } = trimmed;
+      result.trimmed = metadata;
+    }
+    
+    const full = await this.getAudio(`${id}-full`);
+    if (full) {
+      const { blob, ...metadata } = full;
+      result.full = metadata;
+    }
+    
+    return result;
   }
 
   /**
