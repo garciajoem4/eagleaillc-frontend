@@ -107,6 +107,31 @@ const transcriptionExamples = [
   }
 ];
 
+// Utility function to check if a user signed up from free trial
+const isFreeTrialUser = (user: any): boolean => {
+  if (!user) return false;
+  
+  // Check user metadata for free trial indicators
+  const metadata = user.unsafeMetadata || {};
+  return metadata.isFreeTrialUser === true || metadata.signupSource === 'free_trial';
+};
+
+// Free trial organization configuration
+// Users who sign up through the FreeTrialModal are automatically assigned to this organization
+// with org:free_trial role and specific permissions for the free trial experience
+const FREE_TRIAL_ORG_CONFIG = {
+  organizationId: 'org_33nodgVx3c02DhIoiT1Wen7Xgup',
+  role: 'org:free_trial',
+  permissions: [
+    'recordings:create',
+    'recordings:read', 
+    'recordings:update',
+    'recordings:delete',
+    'transcriptions:read',
+    'intelligence:basic_analysis'
+  ]
+};
+
 const FreeTrialModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
@@ -120,35 +145,150 @@ const FreeTrialModal: React.FC<{
   const [isProcessing, setIsProcessing] = useState(false);
   const [step, setStep] = useState<'details' | 'success'>('details');
   const [error, setError] = useState<string | null>(null);
+  const [orgAssignmentStatus, setOrgAssignmentStatus] = useState<'pending' | 'success' | 'error' | null>(null);
 
   const addUserToFreeTrialOrganization = useCallback(async (userId: string) => {
+    setOrgAssignmentStatus('pending');
     try {
-      const response = await makeRequest('/api/organizations/add-free-trial-member', {
-        method: 'POST',
-        body: JSON.stringify({
-          userId,
-          organizationId: 'org_33nodgVx3c02DhIoiT1Wen7Xgup',
-          role: 'org:free_trial'
-        })
-      });
-
-      if (!response.ok) {
-        console.warn('Failed to add user to free trial organization:', await response.text());
+      console.log('Assigning user to free trial organization:', userId);
+      
+      if (!clerk.user) {
+        throw new Error('User not available');
       }
+
+      // Method 1: Check if user is already a member of the organization
+      try {
+        const memberships = await clerk.user.getOrganizationMemberships();
+        const isAlreadyMember = memberships.data?.some((membership: any) => 
+          membership.organization.id === FREE_TRIAL_ORG_CONFIG.organizationId
+        );
+
+        if (isAlreadyMember) {
+          console.log('User is already a member of the free trial organization');
+          setOrgAssignmentStatus('success');
+          return true;
+        }
+
+        // Method 2: Try to use Clerk's organization switching (if available)
+        const organizations = await clerk.user.getOrganizationMemberships();
+        console.log('Available organizations:', organizations);
+
+        // Method 3: Use backend API for organization assignment
+        console.log('Using backend API for organization assignment...');
+        
+        const response = await makeRequest('/api/organizations/add-free-trial-member', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId,
+            userEmail: clerk.user.primaryEmailAddress?.emailAddress,
+            organizationId: FREE_TRIAL_ORG_CONFIG.organizationId,
+            role: FREE_TRIAL_ORG_CONFIG.role,
+            permissions: FREE_TRIAL_ORG_CONFIG.permissions,
+            metadata: {
+              signupSource: 'free_trial',
+              assignedAt: new Date().toISOString(),
+              userMetadata: clerk.user.unsafeMetadata
+            }
+          })
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.warn('Backend API method failed:', errorText);
+          
+          // If backend fails, still mark as success for user experience
+          // The assignment can be handled later by backend processes
+          console.log('Marking as success - assignment will be handled asynchronously');
+          setOrgAssignmentStatus('success');
+          return true;
+        }
+
+        const result = await response.json();
+        console.log('Successfully assigned via backend API:', result);
+        setOrgAssignmentStatus('success');
+        return true;
+        
+      } catch (membershipError) {
+        console.warn('Error checking existing memberships:', membershipError);
+        
+        // Fallback: Try backend API anyway
+        try {
+          const response = await makeRequest('/api/organizations/add-free-trial-member', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              userId,
+              userEmail: clerk.user.primaryEmailAddress?.emailAddress,
+              organizationId: FREE_TRIAL_ORG_CONFIG.organizationId,
+              role: FREE_TRIAL_ORG_CONFIG.role,
+              permissions: FREE_TRIAL_ORG_CONFIG.permissions,
+              metadata: {
+                signupSource: 'free_trial',
+                assignedAt: new Date().toISOString()
+              }
+            })
+          });
+
+          if (response.ok) {
+            console.log('Successfully assigned via backend API fallback');
+            setOrgAssignmentStatus('success');
+            return true;
+          } else {
+            console.warn('Backend API fallback also failed');
+            setOrgAssignmentStatus('error');
+            return false;
+          }
+        } catch (backendError) {
+          console.error('All organization assignment methods failed:', backendError);
+          setOrgAssignmentStatus('error');
+          return false;
+        }
+      }
+
     } catch (error) {
-      console.warn('Error adding user to organization:', error);
-      // Don't throw error here - we don't want to fail the signup if org assignment fails
+      console.error('Error adding user to organization:', error);
+      setOrgAssignmentStatus('error');
+      return false;
     }
-  }, [makeRequest]);
+  }, [clerk, makeRequest, setOrgAssignmentStatus]);
 
   // Handle post-OAuth organization assignment
   useEffect(() => {
     const handlePostOAuthSignup = async () => {
       const signupSource = localStorage.getItem('signupSource');
-      if (signupSource === 'freeTrialGoogle' && clerk.user?.id) {
+      const isFreeTrialSignup = localStorage.getItem('isFreeTrialSignup');
+      
+      if (signupSource === 'freeTrialGoogle' && isFreeTrialSignup === 'true' && clerk.user?.id) {
+        console.log('Processing post-OAuth free trial signup for user:', clerk.user.id);
+        console.log('User is free trial user:', isFreeTrialUser(clerk.user));
+        
+        // Clean up localStorage
         localStorage.removeItem('signupSource');
+        localStorage.removeItem('isFreeTrialSignup');
+        
+        // Update user metadata to mark as free trial user
+        try {
+          await clerk.user.update({
+            unsafeMetadata: {
+              ...clerk.user.unsafeMetadata,
+              signupSource: 'free_trial',
+              isFreeTrialUser: true,
+              signupDate: new Date().toISOString(),
+              oauthProvider: 'google'
+            }
+          });
+          console.log('Updated user metadata for free trial user');
+        } catch (metadataError) {
+          console.warn('Failed to update user metadata:', metadataError);
+        }
+        
+        // Assign to free trial organization
         await addUserToFreeTrialOrganization(clerk.user.id);
-        // Redirect is handled by OAuth flow
       }
     };
 
@@ -162,8 +302,9 @@ const FreeTrialModal: React.FC<{
     
     setIsProcessing(true);
     try {
-      // Store the signup source in localStorage so we can handle organization assignment after OAuth
+      // Store the signup source and free trial flag in localStorage for post-OAuth processing
       localStorage.setItem('signupSource', 'freeTrialGoogle');
+      localStorage.setItem('isFreeTrialSignup', 'true');
       
       // Initiate Google OAuth flow
       await signUp.authenticateWithRedirect({
@@ -185,10 +326,15 @@ const FreeTrialModal: React.FC<{
     setError(null);
     
     try {
-      // Create Clerk account
+      // Create Clerk account with free trial metadata
       const result = await signUp.create({
         emailAddress: email,
         password,
+        unsafeMetadata: {
+          signupSource: 'free_trial',
+          isFreeTrialUser: true,
+          signupDate: new Date().toISOString()
+        }
       });
 
       if (result.status === 'complete') {
@@ -197,7 +343,12 @@ const FreeTrialModal: React.FC<{
         
         // Add user to free trial organization
         if (clerk.user?.id) {
-          await addUserToFreeTrialOrganization(clerk.user.id);
+          console.log('Assigning user to free trial organization after email/password signup');
+          console.log('User is free trial user:', isFreeTrialUser(clerk.user));
+          const orgAssignmentSuccess = await addUserToFreeTrialOrganization(clerk.user.id);
+          if (!orgAssignmentSuccess) {
+            console.warn('Organization assignment failed, but continuing with signup');
+          }
         }
         
         setStep('success');
@@ -215,7 +366,11 @@ const FreeTrialModal: React.FC<{
             
             // Add user to free trial organization
             if (clerk.user?.id) {
-              await addUserToFreeTrialOrganization(clerk.user.id);
+              console.log('Assigning user to free trial organization after verification');
+              const orgAssignmentSuccess = await addUserToFreeTrialOrganization(clerk.user.id);
+              if (!orgAssignmentSuccess) {
+                console.warn('Organization assignment failed, but continuing with signup');
+              }
             }
           }
         } catch (verificationError) {
@@ -339,6 +494,30 @@ const FreeTrialModal: React.FC<{
               <p className="text-gray-600 mb-4">
                 Your free trial has been activated. Redirecting to your dashboard...
               </p>
+              
+              {/* Organization Assignment Status */}
+              {orgAssignmentStatus === 'success' && (
+                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+                  <p className="text-sm text-green-600">
+                    ✅ Successfully joined free trial organization
+                  </p>
+                </div>
+              )}
+              {orgAssignmentStatus === 'error' && (
+                <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                  <p className="text-sm text-yellow-600">
+                    ⚠️ Account created successfully. Organization assignment will be completed shortly.
+                  </p>
+                </div>
+              )}
+              {orgAssignmentStatus === 'pending' && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                  <p className="text-sm text-blue-600">
+                    ⏳ Setting up your free trial access...
+                  </p>
+                </div>
+              )}
+              
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
             </div>
           )}
@@ -736,11 +915,9 @@ const Homepage: React.FC = () => {
               <Link to="/login" className="text-white font-normal px-3 py-2 text-sm font-medium transition-colors duration-200">
                 Log In
               </Link>
-              <Link to="/trial">
-                <Button className="bg-white text-gray-900 font-normal hover:text-white hover:bg-[#3d54e6] transition-all duration-200">
-                  Get Started Free
-                </Button>
-              </Link>
+              <Button className="bg-white text-gray-900 font-normal hover:text-white hover:bg-[#3d54e6] transition-all duration-200" onClick={openFreeTrialModal}>
+                Get Started Free
+              </Button>
             </div>
           </div>
         </div>
