@@ -1,5 +1,6 @@
 import { useCallback, useState, useEffect, useMemo, useRef } from 'react';
 import { useParams } from 'react-router-dom';
+import { useUser } from '@clerk/clerk-react';
 import { DetailedIntelligence } from '../types';
 import { sampleIntelligence } from '../data/sampleIntelligence';
 import { audioStorageService } from '../services/audioStorageService';
@@ -27,10 +28,24 @@ export const useRecordingDetail = (
   freeTrialOptions?: FreeTrialOptions
 ) => {
   const { id } = useParams<{ id: string }>();
+  const { user } = useUser();
 
   // Free trial configuration
   const isFreeTrial = freeTrialOptions?.isFreeTrial || false;
   const freeTrialTimeLimit = freeTrialOptions?.freeTrialTimeLimitSeconds || 300;
+
+  // Check if user is actually on free trial based on Clerk organization
+  const FREE_TRIAL_ORG_ID = 'org_33nodgVx3c02DhIoiT1Wen7Xgup';
+  const FREE_TRIAL_ROLE = 'org:free_trial';
+  
+  const actualIsFreeTrial = useMemo(() => {
+    if (!user?.organizationMemberships) return false;
+    
+    return user.organizationMemberships.some((membership) => 
+      membership.organization.id === FREE_TRIAL_ORG_ID && 
+      membership.role === FREE_TRIAL_ROLE
+    );
+  }, [user?.organizationMemberships]);
 
   // State variables
   const { id: recordingId } = useParams<{ id: string }>();
@@ -81,15 +96,21 @@ export const useRecordingDetail = (
   
         try {
           console.log('Loading audio from localStorage for recording:', recordingId);
+          console.log('User is free trial:', actualIsFreeTrial);
           
-          // Try to get audio from localStorage
-          const storedAudio = await audioStorageService.getAudio(recordingId);
+          // Use the new getAudioForUser method to get the appropriate version
+          const storedAudio = await audioStorageService.getAudioForUser(recordingId, actualIsFreeTrial);
           
           if (storedAudio) {
             // Create blob URL from stored audio
             const blobUrl = URL.createObjectURL(storedAudio.blob);
             setAudioUrl(blobUrl);
-            console.log('Successfully loaded audio from localStorage:', blobUrl);
+            console.log('Successfully loaded audio from localStorage:', {
+              recordingId,
+              isFreeTrial: actualIsFreeTrial,
+              isTrimmed: storedAudio.metadata?.isTrimmed,
+              blobUrl
+            });
           } else {
             console.log('No audio found in localStorage, using fallback');
             // Fallback to default audio or show message
@@ -112,7 +133,7 @@ export const useRecordingDetail = (
           URL.revokeObjectURL(audioUrl);
         }
       };
-    }, [recordingId, audioUrl]);
+    }, [recordingId, audioUrl, actualIsFreeTrial]);
 
   // Load sample intelligence data for demonstration
   useEffect(() => {

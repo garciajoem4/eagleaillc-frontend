@@ -322,7 +322,7 @@ const RecordingDetail: React.FC = () => {
                 <CardTitle className="text-lg">Processing Note</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-amber-700 bg-amber-50 p-3 rounded-lg">
+                <p className="text-amber-700 bg-amber-50 p-3 text-xs rounded-lg">
                   {detailedIntelligence.confidence_note}
                 </p>
               </CardContent>
@@ -533,7 +533,7 @@ const RecordingDetail: React.FC = () => {
                                 </div>
                               );
                             }) : (
-                              <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
+                              <div className="bg-gray-50 p-4 rounded-lg text-center text-xs text-gray-500">
                                 {searchQuery || selectedTimeRange !== 'all' 
                                   ? 'No segments match your search criteria' 
                                   : 'No segments available'
@@ -1235,7 +1235,7 @@ const RecordingDetail: React.FC = () => {
                   </div>
                   <div className="mb-6">
                     <CardTitle className="text-lg mb-2">Notes</CardTitle>
-                    <p className="text-amber-700 bg-amber-50 p-3 text-sm rounded-lg">
+                    <p className="text-amber-700 bg-amber-50 p-3 text-xs rounded-lg">
                       {detailedIntelligence?.confidence_note}
                     </p>
                   </div>
