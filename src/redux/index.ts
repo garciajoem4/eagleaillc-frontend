@@ -44,12 +44,21 @@ export {
   updateRecording as updateRecordingAsync,
   deleteRecording,
   processRecording,
+  processFileWithLocalStorage,
+  checkLocalAudioStatus,
+  getRecordingAudio,
+  updateLocalStorageStats,
+  clearLocalStorage,
   // Selectors
   selectRecordings,
   selectFilteredRecordings,
   selectSortedRecordings,
   selectRecordingById,
   selectIsRecordingSelected,
+  selectLocalAudioStatus,
+  selectLocalStorageStats,
+  selectRecordingAudioUrl,
+  selectHasLocalAudio,
 } from './slices/recordingsSlice';
 
 // Uploads slice actions and selectors exports

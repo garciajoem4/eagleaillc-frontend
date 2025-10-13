@@ -1,7 +1,9 @@
 import { useCallback, useState, useEffect, useMemo, useRef } from 'react';
 import { useParams } from 'react-router-dom';
+import { useUser } from '@clerk/clerk-react';
 import { DetailedIntelligence } from '../types';
 import { sampleIntelligence } from '../data/sampleIntelligence';
+import { audioStorageService } from '../services/audioStorageService';
 
 interface TranscriptData {
   full_transcription?: string;
@@ -16,12 +18,40 @@ interface TranscriptData {
   date_uploaded?: string;
 }
 
+interface FreeTrialOptions {
+  isFreeTrial: boolean;
+  freeTrialTimeLimitSeconds: number;
+}
+
 export const useRecordingDetail = (
-  sampleTranscriptData: TranscriptData
+  sampleTranscriptData: TranscriptData,
+  freeTrialOptions?: FreeTrialOptions
 ) => {
   const { id } = useParams<{ id: string }>();
+  const { user } = useUser();
+
+  // Free trial configuration
+  const isFreeTrial = freeTrialOptions?.isFreeTrial || false;
+  const freeTrialTimeLimit = freeTrialOptions?.freeTrialTimeLimitSeconds || 300;
+
+  // Check if user is actually on free trial based on Clerk organization
+  const FREE_TRIAL_ORG_ID = 'org_33nodgVx3c02DhIoiT1Wen7Xgup';
+  const FREE_TRIAL_ROLE = 'org:free_trial';
+  
+  const actualIsFreeTrial = useMemo(() => {
+    if (!user?.organizationMemberships) return false;
+    
+    return user.organizationMemberships.some((membership) => 
+      membership.organization.id === FREE_TRIAL_ORG_ID && 
+      membership.role === FREE_TRIAL_ROLE
+    );
+  }, [user?.organizationMemberships]);
 
   // State variables
+  const { id: recordingId } = useParams<{ id: string }>();
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [isLoadingAudio, setIsLoadingAudio] = useState(true);
+
   const [detailedIntelligence, setDetailedIntelligence] = useState<DetailedIntelligence | null>(null);
   const [transcriptView, setTranscriptView] = useState<'full' | 'segments'>('segments');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -42,6 +72,11 @@ export const useRecordingDetail = (
   const [audioDuration, setAudioDuration] = useState<number>(0);
   const audioRef = useRef<HTMLAudioElement>(null);
 
+  // Audio visualization states
+  const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
+  const [analyserNode, setAnalyserNode] = useState<AnalyserNode | null>(null);
+  const [frequencyData, setFrequencyData] = useState<Uint8Array>(new Uint8Array(24));
+
   const fullSegmentButtons: string[] = ['PDF', 'JSON', 'CSV', 'TXT'];
   const fullOnlyButtons: string[] = ['PDF', 'JSON', 'TXT'];
   const segmentsOnlyButtons: string[] = ['PDF', 'CSV', 'TXT'];
@@ -50,6 +85,55 @@ export const useRecordingDetail = (
   const decisionsButtons: string[] = ['PDF', 'JSON', 'CSV', 'TXT'];
   const issuesButtons: string[] = ['PDF', 'JSON', 'CSV', 'TXT'];
   const questionsButtons: string[] = ['PDF', 'JSON', 'CSV', 'TXT'];
+
+  // Load audio from localStorage
+    useEffect(() => {
+      const loadAudioFromStorage = async () => {
+        if (!recordingId) {
+          setIsLoadingAudio(false);
+          return;
+        }
+  
+        try {
+          console.log('Loading audio from localStorage for recording:', recordingId);
+          console.log('User is free trial:', actualIsFreeTrial);
+          
+          // Use the new getAudioForUser method to get the appropriate version
+          const storedAudio = await audioStorageService.getAudioForUser(recordingId, actualIsFreeTrial);
+          
+          if (storedAudio) {
+            // Create blob URL from stored audio
+            const blobUrl = URL.createObjectURL(storedAudio.blob);
+            setAudioUrl(blobUrl);
+            console.log('Successfully loaded audio from localStorage:', {
+              recordingId,
+              isFreeTrial: actualIsFreeTrial,
+              isTrimmed: storedAudio.metadata?.isTrimmed,
+              blobUrl
+            });
+          } else {
+            console.log('No audio found in localStorage, using fallback');
+            // Fallback to default audio or show message
+            setAudioUrl('/july_12_2022_audio.mp3'); // Fallback to sample audio
+          }
+        } catch (error) {
+          console.error('Error loading audio from localStorage:', error);
+          // Fallback to default audio
+          setAudioUrl('/july_12_2022_audio.mp3');
+        } finally {
+          setIsLoadingAudio(false);
+        }
+      };
+  
+      loadAudioFromStorage();
+  
+      // Cleanup blob URL when component unmounts or recordingId changes
+      return () => {
+        if (audioUrl && audioUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(audioUrl);
+        }
+      };
+    }, [recordingId, audioUrl, actualIsFreeTrial]);
 
   // Load sample intelligence data for demonstration
   useEffect(() => {
@@ -93,6 +177,83 @@ export const useRecordingDetail = (
     };
   }, []);
 
+  // Setup audio analysis with Web Audio API
+  const setupAudioAnalysis = useCallback(() => {
+    if (!audioRef.current || audioContext || analyserNode) return;
+
+    try {
+      const context = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const analyser = context.createAnalyser();
+      const source = context.createMediaElementSource(audioRef.current);
+      
+      analyser.fftSize = 64; // Will give us 32 frequency bins, we'll use 24
+      analyser.smoothingTimeConstant = 0.8;
+      
+      source.connect(analyser);
+      analyser.connect(context.destination);
+      
+      setAudioContext(context);
+      setAnalyserNode(analyser);
+      setFrequencyData(new Uint8Array(analyser.frequencyBinCount));
+    } catch (error) {
+      console.error('Error setting up audio analysis:', error);
+    }
+  }, [audioRef, audioContext, analyserNode]);
+
+  // Animation loop for frequency data
+  const updateFrequencyData = useCallback(() => {
+    if (!analyserNode) return;
+
+    const dataArray = new Uint8Array(analyserNode.frequencyBinCount);
+    analyserNode.getByteFrequencyData(dataArray);
+    
+    // Take first 24 frequency bins for our visualization
+    const displayData = new Uint8Array(24);
+    for (let i = 0; i < 24; i++) {
+      displayData[i] = dataArray[i];
+    }
+    
+    setFrequencyData(displayData);
+  }, [analyserNode]);
+
+  // Separate animation loop management
+  useEffect(() => {
+    let frameId: number | null = null;
+    
+    const animate = () => {
+      if (isAudioPlaying && analyserNode) {
+        updateFrequencyData();
+        frameId = requestAnimationFrame(animate);
+      }
+    };
+
+    if (isAudioPlaying && analyserNode) {
+      animate();
+    }
+
+    return () => {
+      if (frameId) {
+        cancelAnimationFrame(frameId);
+      }
+    };
+  }, [isAudioPlaying, analyserNode, updateFrequencyData]);
+
+  // Setup audio analysis when audio starts playing
+  useEffect(() => {
+    if (isAudioPlaying && audioRef.current && !audioContext) {
+      setupAudioAnalysis();
+    }
+  }, [isAudioPlaying, audioContext, setupAudioAnalysis, audioRef]);
+
+  // Cleanup audio context on unmount
+  useEffect(() => {
+    return () => {
+      if (audioContext && audioContext.state !== 'closed') {
+        audioContext.close().catch(console.error);
+      }
+    };
+  }, [audioContext]);
+
   // Generate time range options based on recording duration
   const timeRangeOptions = useMemo(() => {
     const totalMinutes = Math.ceil(sampleTranscriptData.duration_seconds / 60);
@@ -112,6 +273,25 @@ export const useRecordingDetail = (
     
     return ranges;
   }, [sampleTranscriptData.duration_seconds]);
+
+  // Generate free trial time range options (only 0-5 minutes)
+  const freeTrialTimeRangeOptions = useMemo(() => {
+    const ranges = [];
+    
+    // Only show 0-5 minute range for free trial users
+    ranges.push({
+      value: '0-5',
+      label: '0:00 - 5:00'
+    });
+    
+    return ranges;
+  }, []);
+
+  // Check if content exceeds free trial limit
+  const hasExceededFreeTrialLimit = useMemo(() => {
+    if (!isFreeTrial) return false;
+    return sampleTranscriptData.duration_seconds > freeTrialTimeLimit;
+  }, [isFreeTrial, sampleTranscriptData.duration_seconds, freeTrialTimeLimit]);
 
   // Utility functions for timestamp handling
   const parseTimestampToSeconds = useCallback((timestamp: string): number => {
@@ -141,11 +321,22 @@ export const useRecordingDetail = (
       
       let matchesTimeRange = true;
       
+      // Free trial restriction: only show segments within the time limit
+      if (isFreeTrial && segment.start >= freeTrialTimeLimit) {
+        return false;
+      }
+      
       // When audio has been played (even if paused), filter by 5-minute chunks around current time
       if (currentAudioTime > 0) {
         const chunkDuration = 300; // 5 minutes in seconds
         const chunkStart = Math.floor(currentAudioTime / chunkDuration) * chunkDuration;
         const chunkEnd = chunkStart + chunkDuration;
+        
+        // For free trial users, also ensure chunk doesn't exceed time limit
+        if (isFreeTrial && chunkStart >= freeTrialTimeLimit) {
+          return false;
+        }
+        
         matchesTimeRange = segment.start >= chunkStart && segment.start < chunkEnd;
       } else if (selectedTimeRange !== 'all') {
         // Use dropdown time range when audio hasn't been played yet
@@ -156,7 +347,7 @@ export const useRecordingDetail = (
       
       return matchesSearch && matchesTimeRange;
     });
-  }, [searchQuery, selectedTimeRange, currentAudioTime, sampleTranscriptData.segments]);
+  }, [searchQuery, selectedTimeRange, currentAudioTime, sampleTranscriptData.segments, isFreeTrial, freeTrialTimeLimit]);
 
   // Get currently active segment based on audio time
   const currentActiveSegment = useMemo(() => {
@@ -175,11 +366,24 @@ export const useRecordingDetail = (
         item.task?.toLowerCase().includes(searchText) ||
         item.assigned_to?.toLowerCase().includes(searchText);
 
+      // Free trial restriction: only show items within the time limit
+      if (isFreeTrial) {
+        const itemStartSeconds = parseTimestampToSeconds(item.timestamp_start);
+        if (itemStartSeconds >= freeTrialTimeLimit) {
+          return false;
+        }
+      }
+
       // When audio has been played (even if paused), filter by 5-minute chunks around current time
       if (currentAudioTime > 0) {
         const chunkDuration = 300; // 5 minutes in seconds
         const chunkStart = Math.floor(currentAudioTime / chunkDuration) * chunkDuration;
         const chunkEnd = chunkStart + chunkDuration;
+        
+        // For free trial users, also ensure chunk doesn't exceed time limit
+        if (isFreeTrial && chunkStart >= freeTrialTimeLimit) {
+          return false;
+        }
         
         const itemStartSeconds = parseTimestampToSeconds(item.timestamp_start);
         const itemEndSeconds = parseTimestampToSeconds(item.timestamp_end);
@@ -191,7 +395,7 @@ export const useRecordingDetail = (
 
       return matchesSearch;
     });
-  }, [actionItemsSearch, detailedIntelligence, currentAudioTime, parseTimestampToSeconds]);
+  }, [actionItemsSearch, detailedIntelligence, currentAudioTime, parseTimestampToSeconds, isFreeTrial, freeTrialTimeLimit]);
 
   const filteredDecisions = useMemo(() => {
     if (!detailedIntelligence?.decisions) return [];
@@ -200,11 +404,24 @@ export const useRecordingDetail = (
       const matchesSearch = searchText === '' || 
         decision.decision?.toLowerCase().includes(searchText);
 
+      // Free trial restriction: only show items within the time limit
+      if (isFreeTrial) {
+        const itemStartSeconds = parseTimestampToSeconds(decision.timestamp_start);
+        if (itemStartSeconds >= freeTrialTimeLimit) {
+          return false;
+        }
+      }
+
       // When audio has been played (even if paused), filter by 5-minute chunks around current time
       if (currentAudioTime > 0) {
         const chunkDuration = 300; // 5 minutes in seconds
         const chunkStart = Math.floor(currentAudioTime / chunkDuration) * chunkDuration;
         const chunkEnd = chunkStart + chunkDuration;
+        
+        // For free trial users, also ensure chunk doesn't exceed time limit
+        if (isFreeTrial && chunkStart >= freeTrialTimeLimit) {
+          return false;
+        }
         
         const itemStartSeconds = parseTimestampToSeconds(decision.timestamp_start);
         const itemEndSeconds = parseTimestampToSeconds(decision.timestamp_end);
@@ -216,7 +433,7 @@ export const useRecordingDetail = (
 
       return matchesSearch;
     });
-  }, [decisionsSearch, detailedIntelligence, currentAudioTime, parseTimestampToSeconds]);
+  }, [decisionsSearch, detailedIntelligence, currentAudioTime, parseTimestampToSeconds, isFreeTrial, freeTrialTimeLimit]);
 
   const filteredIssues = useMemo(() => {
     if (!detailedIntelligence?.issues) return [];
@@ -225,11 +442,24 @@ export const useRecordingDetail = (
       const matchesSearch = searchText === '' || 
         issue.issue?.toLowerCase().includes(searchText);
 
+      // Free trial restriction: only show items within the time limit
+      if (isFreeTrial) {
+        const itemStartSeconds = parseTimestampToSeconds(issue.timestamp_start);
+        if (itemStartSeconds >= freeTrialTimeLimit) {
+          return false;
+        }
+      }
+
       // When audio has been played (even if paused), filter by 5-minute chunks around current time
       if (currentAudioTime > 0) {
         const chunkDuration = 300; // 5 minutes in seconds
         const chunkStart = Math.floor(currentAudioTime / chunkDuration) * chunkDuration;
         const chunkEnd = chunkStart + chunkDuration;
+        
+        // For free trial users, also ensure chunk doesn't exceed time limit
+        if (isFreeTrial && chunkStart >= freeTrialTimeLimit) {
+          return false;
+        }
         
         const itemStartSeconds = parseTimestampToSeconds(issue.timestamp_start);
         const itemEndSeconds = parseTimestampToSeconds(issue.timestamp_end);
@@ -241,7 +471,7 @@ export const useRecordingDetail = (
 
       return matchesSearch;
     });
-  }, [issuesSearch, detailedIntelligence, currentAudioTime, parseTimestampToSeconds]);
+  }, [issuesSearch, detailedIntelligence, currentAudioTime, parseTimestampToSeconds, isFreeTrial, freeTrialTimeLimit]);
 
   const filteredQuestions = useMemo(() => {
     if (!detailedIntelligence?.questions) return [];
@@ -250,11 +480,24 @@ export const useRecordingDetail = (
       const matchesSearch = searchText === '' || 
         question.question?.toLowerCase().includes(searchText);
 
+      // Free trial restriction: only show items within the time limit
+      if (isFreeTrial) {
+        const itemStartSeconds = parseTimestampToSeconds(question.timestamp_start);
+        if (itemStartSeconds >= freeTrialTimeLimit) {
+          return false;
+        }
+      }
+
       // When audio has been played (even if paused), filter by 5-minute chunks around current time
       if (currentAudioTime > 0) {
         const chunkDuration = 300; // 5 minutes in seconds
         const chunkStart = Math.floor(currentAudioTime / chunkDuration) * chunkDuration;
         const chunkEnd = chunkStart + chunkDuration;
+        
+        // For free trial users, also ensure chunk doesn't exceed time limit
+        if (isFreeTrial && chunkStart >= freeTrialTimeLimit) {
+          return false;
+        }
         
         const itemStartSeconds = parseTimestampToSeconds(question.timestamp_start);
         const itemEndSeconds = parseTimestampToSeconds(question.timestamp_end);
@@ -266,7 +509,7 @@ export const useRecordingDetail = (
 
       return matchesSearch;
     });
-  }, [questionsSearch, detailedIntelligence, currentAudioTime, parseTimestampToSeconds]);
+  }, [questionsSearch, detailedIntelligence, currentAudioTime, parseTimestampToSeconds, isFreeTrial, freeTrialTimeLimit]);
 
   // Get currently active intelligence items based on audio time
   const currentActiveItems = useMemo(() => {
@@ -705,6 +948,9 @@ export const useRecordingDetail = (
 
   return {
     // State variables
+    recordingId,
+    audioUrl,
+    setIsLoadingAudio,
     detailedIntelligence,
     setDetailedIntelligence,
     transcriptView,
@@ -735,6 +981,13 @@ export const useRecordingDetail = (
     setAudioDuration,
     audioRef,
 
+    // Audio visualization state
+    audioContext,
+    analyserNode,
+    frequencyData,
+    setupAudioAnalysis,
+    updateFrequencyData,
+
     // Plain constants
     fullSegmentButtons,
     fullOnlyButtons,
@@ -754,6 +1007,10 @@ export const useRecordingDetail = (
     filteredIssues,
     filteredQuestions,
     currentActiveItems,
+
+    // Free trial computed values
+    hasExceededFreeTrialLimit,
+    freeTrialTimeRangeOptions,
 
     // Utility functions
     parseTimestampToSeconds,

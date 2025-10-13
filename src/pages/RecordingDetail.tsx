@@ -1,5 +1,6 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useMemo } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useUser } from '@clerk/clerk-react';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
@@ -14,10 +15,35 @@ import { useRecordingDetail } from '../hooks/useRecordingDetail';
 // FiAlertCircle, FiCheckCircle, FiCopy, FiEdit3, FiTrash2,
 // FiSettings, FiBookmark, FiTag, FiPieChart, FiSearch
 
+// Constants for free trial limitations
+const FREE_TRIAL_ORG_ID = 'org_33nodgVx3c02DhIoiT1Wen7Xgup';
+const FREE_TRIAL_ROLE = 'org:free_trial';
+const FREE_TRIAL_TIME_LIMIT_SECONDS = 300; // 5 minutes
+
 const RecordingDetail: React.FC = () => {
+  const navigate = useNavigate();
+  const { user: clerkUser } = useUser();
+
+  // Check if user is on free trial by examining organization memberships
+  const isFreeTrial = useMemo(() => {
+    if (!clerkUser?.organizationMemberships) return false;
+    
+    return clerkUser.organizationMemberships.some(membership => 
+      membership.organization.id === FREE_TRIAL_ORG_ID && 
+      membership.role === FREE_TRIAL_ROLE
+    );
+  }, [clerkUser]);
+
+  const handleSubscribe = () => {
+    console.log('Navigate to subscription page');
+    navigate('/app/billing');
+  };
   // Use recording utilities hook with all state management
   const {
     // State variables
+    recordingId,
+    audioUrl,
+    setIsLoadingAudio,
     detailedIntelligence,
     transcriptView,
     setTranscriptView,
@@ -43,6 +69,13 @@ const RecordingDetail: React.FC = () => {
     isAudioPlaying,
     audioRef,
 
+    // Audio visualization state
+    audioContext,
+    analyserNode,
+    frequencyData,
+    setupAudioAnalysis,
+    updateFrequencyData,
+
     // Plain constants
     fullSegmentButtons,
     fullOnlyButtons,
@@ -63,6 +96,10 @@ const RecordingDetail: React.FC = () => {
     filteredQuestions,
     currentActiveItems,
 
+    // Free trial computed values
+    hasExceededFreeTrialLimit,
+    freeTrialTimeRangeOptions,
+
     // Export functions
     getSeverityVariant,
     formatDate,
@@ -71,7 +108,7 @@ const RecordingDetail: React.FC = () => {
     renderHighlightedText,
     exportTranscriptData,
     exportIntelligenceData
-  } = useRecordingDetail(sampleTranscriptData);
+  } = useRecordingDetail(sampleTranscriptData, { isFreeTrial, freeTrialTimeLimitSeconds: FREE_TRIAL_TIME_LIMIT_SECONDS });
 
   if (!sampleTranscriptData) {
     return (
@@ -92,7 +129,7 @@ const RecordingDetail: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-[1200px] space-y-6">
       <div className="space-y-4">
         <Link to="/app/recordings">
           <Button variant="outline">← Back to Recordings</Button>
@@ -159,7 +196,7 @@ const RecordingDetail: React.FC = () => {
                           filter: 'sepia(20%) saturate(70%) hue-rotate(200deg) brightness(1.1)',
                         }}
                       >
-                        <source src="/july_12_2022_audio.mp3" type="audio/mpeg" />
+                        {audioUrl && <source src={audioUrl} type="audio/mpeg" />}
                         Your browser does not support the audio element.
                       </audio>
                     </div>
@@ -285,7 +322,7 @@ const RecordingDetail: React.FC = () => {
                 <CardTitle className="text-lg">Processing Note</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-amber-700 bg-amber-50 p-3 rounded-lg">
+                <p className="text-amber-700 bg-amber-50 p-3 text-xs rounded-lg">
                   {detailedIntelligence.confidence_note}
                 </p>
               </CardContent>
@@ -352,14 +389,19 @@ const RecordingDetail: React.FC = () => {
                                   value={selectedTimeRange}
                                   onChange={(e) => setSelectedTimeRange(e.target.value)}
                                   className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  disabled={currentAudioTime > 0}
+                                  disabled={currentAudioTime > 0 || isFreeTrial}
                                 >
-                                  {timeRangeOptions.map((option) => (
+                                  {(isFreeTrial ? freeTrialTimeRangeOptions : timeRangeOptions).map((option) => (
                                     <option key={option.value} value={option.value}>
                                       {option.label}
                                     </option>
                                   ))}
                                 </select>
+                                {isFreeTrial && (
+                                  <p className="text-xs text-blue-600 mt-1">
+                                    Free trial: 0 - 5 mins
+                                  </p>
+                                )}
                               </div>
                             </div>
                             
@@ -444,17 +486,18 @@ const RecordingDetail: React.FC = () => {
                                       : 'bg-gray-50'
                                   }`}
                                 >
-                                  <div className="flex-shrink-0 text-right min-w-[95px]">
+                                  <div className="flex-shrink-0 text-left min-w-[45px]">
                                     <div className={`text-xs font-mono mb-1 ${
                                       isCurrentlyActive ? 'text-blue-600 font-bold' : 'text-gray-500'
                                     }`}>
-                                      {formatSegmentTime(segment.start)} - {formatSegmentTime(segment.end)}
+                                      {/* {formatSegmentTime(segment.start)} - {formatSegmentTime(segment.end)} */}
+                                      {formatSegmentTime(segment.start)}
                                     </div>
-                                    {isCurrentlyActive && (
+                                    {/* {isCurrentlyActive && (
                                       <Badge variant="default" className="text-xs bg-blue-100 text-blue-800">
                                         Active
                                       </Badge>
-                                    )}
+                                    )} */}
                                   </div>
                                   <div className="flex-1">
                                     <p className={`text-sm ${
@@ -490,13 +533,34 @@ const RecordingDetail: React.FC = () => {
                                 </div>
                               );
                             }) : (
-                              <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
+                              <div className="bg-gray-50 p-4 rounded-lg text-center text-xs text-gray-500">
                                 {searchQuery || selectedTimeRange !== 'all' 
                                   ? 'No segments match your search criteria' 
                                   : 'No segments available'
                                 }
                               </div>
                             )}
+                          </div>
+                        )}
+
+                        {/* Free Trial Upgrade Banner for Segments */}
+                        {isFreeTrial && hasExceededFreeTrialLimit && (
+                          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                            <div className="flex items-center justify-between">
+                              <div className="pr-4">
+                                <h4 className="text-xs font-medium text-blue-800">More Content Available</h4>
+                                <p className="text-xs text-blue-700">
+                                  This recording has content beyond 5 minutes. Upgrade to view the complete transcript.
+                                </p>
+                              </div>
+                              <Button
+                                onClick={handleSubscribe}
+                                className="bg-blue-600 hover:bg-blue-700 text-white"
+                                size="sm"
+                              >
+                                Subscribe to a plan
+                              </Button>
+                            </div>
                           </div>
                         )}
                       </CardContent>
@@ -656,6 +720,27 @@ const RecordingDetail: React.FC = () => {
                                 </div>
                               )}
                             </div>
+
+                            {/* Free Trial Upgrade Banner for Action Items */}
+                            {isFreeTrial && hasExceededFreeTrialLimit && (
+                              <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                <div className="flex items-center justify-between">
+                                  <div className="pr-4">
+                                    <h4 className="text-xs font-medium text-blue-800">More Action Items Available</h4>
+                                    <p className="text-xs text-blue-700">
+                                      Additional action items exist beyond the 5-minute free trial limit.
+                                    </p>
+                                  </div>
+                                  <Button
+                                    onClick={handleSubscribe}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                                    size="sm"
+                                  >
+                                    Subscribe to a plan
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
                           </TabsContent>
 
                           {/* Decisions Tab */}
@@ -778,6 +863,27 @@ const RecordingDetail: React.FC = () => {
                                 </div>
                               )}
                             </div>
+
+                            {/* Free Trial Upgrade Banner for Decisions */}
+                            {isFreeTrial && hasExceededFreeTrialLimit && (
+                              <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                <div className="flex items-center justify-between">
+                                  <div className="pr-4">
+                                    <h4 className="text-xs font-medium text-blue-800">More Decisions Available</h4>
+                                    <p className="text-xs text-blue-700">
+                                      Additional decisions exist beyond the 5-minute free trial limit.
+                                    </p>
+                                  </div>
+                                  <Button
+                                    onClick={handleSubscribe}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                                    size="sm"
+                                  >
+                                    Subscribe to a plan
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
                           </TabsContent>
 
                           {/* Issues Tab */}
@@ -886,6 +992,27 @@ const RecordingDetail: React.FC = () => {
                                 </div>
                               )}
                             </div>
+
+                            {/* Free Trial Upgrade Banner for Issues */}
+                            {isFreeTrial && hasExceededFreeTrialLimit && (
+                              <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                <div className="flex items-center justify-between">
+                                  <div className="pr-4">
+                                    <h4 className="text-xs font-medium text-blue-800">More Issues Available</h4>
+                                    <p className="text-xs text-blue-700">
+                                      Additional issues exist beyond the 5-minute free trial limit.
+                                    </p>
+                                  </div>
+                                  <Button
+                                    onClick={handleSubscribe}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                                    size="sm"
+                                  >
+                                    Subscribe to a plan
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
                           </TabsContent>
 
                           {/* Questions Tab */}
@@ -994,6 +1121,27 @@ const RecordingDetail: React.FC = () => {
                                 </div>
                               )}
                             </div>
+
+                            {/* Free Trial Upgrade Banner for Questions */}
+                            {isFreeTrial && hasExceededFreeTrialLimit && (
+                              <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                <div className="flex items-center justify-between">
+                                  <div className="pr-4">
+                                    <h4 className="text-xs font-medium text-blue-800">More Questions Available</h4>
+                                    <p className="text-xs text-blue-700">
+                                      Additional questions exist beyond the 5-minute free trial limit.
+                                    </p>
+                                  </div>
+                                  <Button
+                                    onClick={handleSubscribe}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                                    size="sm"
+                                  >
+                                    Subscribe to a plan
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
                           </TabsContent>
                         </Tabs>
                       </CardContent>
@@ -1001,6 +1149,42 @@ const RecordingDetail: React.FC = () => {
                   </TabsContent>
                 </Tabs>
                 <div className="pl-3">
+                  {/* Audio Soundwave Visualization */}
+                  <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-gray-700">Audio Visualization</h3>
+                      <Badge variant={isAudioPlaying ? "default" : "secondary"} className="text-xs">
+                        {isAudioPlaying ? "Playing" : "Paused"}
+                      </Badge>
+                    </div>
+                    
+                    <div className="flex items-center justify-center space-x-1 h-20 bg-white/50 rounded-lg p-3">
+                      {Array.from({ length: 24 }).map((_, index) => {
+                        const height = isAudioPlaying && frequencyData[index] 
+                          ? Math.max((frequencyData[index] / 255) * 100, 5)
+                          : Math.random() * 20 + 5; // Subtle random movement when paused
+                        
+                        return (
+                          <div
+                            key={index}
+                            className="flex-1 max-w-[4px] bg-gradient-to-t from-blue-400 to-blue-600 rounded-full transition-all duration-100 ease-out"
+                            style={{
+                              height: `${height}%`,
+                              opacity: isAudioPlaying ? 0.8 : 0.3,
+                              transform: `scaleY(${isAudioPlaying ? 1 : 0.3})`,
+                            }}
+                          />
+                        );
+                      })}
+                    </div>
+                    
+                    {/* <div className="mt-2 text-center">
+                      <span className="text-xs text-gray-500">
+                        {isAudioPlaying ? "Real-time audio analysis" : "Click play to see audio visualization"}
+                      </span>
+                    </div> */}
+                  </div>
+                  
                   <div className="bg-gradient-to-r from-blue-50 to-indigo-50 mb-6 p-2 rounded-lg border border-blue-100">
                     <div className="mb-4">
                       {/* <h4 className="text-sm font-medium text-gray-700 mb-2">
@@ -1015,7 +1199,7 @@ const RecordingDetail: React.FC = () => {
                           filter: 'sepia(20%) saturate(70%) hue-rotate(200deg) brightness(1.1)',
                         }}
                       >
-                        <source src="/july_12_2022_audio.mp3" type="audio/mpeg" />
+                        {audioUrl && <source src={audioUrl} type="audio/mpeg" />}
                         Your browser does not support the audio element.
                       </audio>
                     </div>
@@ -1051,12 +1235,23 @@ const RecordingDetail: React.FC = () => {
                   </div>
                   <div className="mb-6">
                     <CardTitle className="text-lg mb-2">Notes</CardTitle>
-                    <p className="text-amber-700 bg-amber-50 p-3 text-sm rounded-lg">
+                    <p className="text-amber-700 bg-amber-50 p-3 text-xs rounded-lg">
                       {detailedIntelligence?.confidence_note}
                     </p>
                   </div>
                   <div className="mb-6">
-                    <CardTitle className="text-lg mb-4">Exports</CardTitle>
+                    <div className="flex items-center justify-between mb-4">
+                      <CardTitle className="text-lg">Exports</CardTitle>
+                      {isFreeTrial && (
+                        <Button
+                          onClick={handleSubscribe}
+                          className="bg-blue-600 hover:bg-blue-700 text-white"
+                          size="sm"
+                        >
+                          Subscribe to plan
+                        </Button>
+                      )}
+                    </div>
                     
                     {activeAutomationTab === 'transcript' ? (
                       // Transcript Export Options
@@ -1079,6 +1274,7 @@ const RecordingDetail: React.FC = () => {
                                     size="sm" 
                                     variant="outline" 
                                     className="text-xs"
+                                    disabled={isFreeTrial}
                                     onClick={() => exportTranscriptData('full-segments', format.toLowerCase() as 'pdf' | 'json' | 'csv' | 'txt')}
                                   >
                                     {format}
@@ -1124,6 +1320,7 @@ const RecordingDetail: React.FC = () => {
                                         size="sm" 
                                         variant="outline" 
                                         className="text-xs"
+                                        disabled={isFreeTrial}
                                         onClick={() => exportTranscriptData('full-only', format.toLowerCase() as 'pdf' | 'json' | 'txt')}
                                       >
                                         {format}
@@ -1149,6 +1346,7 @@ const RecordingDetail: React.FC = () => {
                                         size="sm" 
                                         variant="outline" 
                                         className="text-xs"
+                                        disabled={isFreeTrial}
                                         onClick={() => exportTranscriptData('segments-only', format.toLowerCase() as 'pdf' | 'json' | 'txt' | 'csv')}
                                       >
                                         {format}
@@ -1182,6 +1380,7 @@ const RecordingDetail: React.FC = () => {
                                     size="sm" 
                                     variant="outline" 
                                     className="text-xs"
+                                    disabled={isFreeTrial}
                                     onClick={() => exportIntelligenceData('all', format.toLowerCase() as 'pdf' | 'json' | 'txt' | 'csv')}
                                   >
                                     {format}
@@ -1230,6 +1429,7 @@ const RecordingDetail: React.FC = () => {
                                     size="sm" 
                                     variant="outline" 
                                     className="text-xs"
+                                    disabled={isFreeTrial}
                                     onClick={() => exportIntelligenceData('action-items', format.toLowerCase() as 'pdf' | 'json' | 'txt' | 'csv')}
                                   >
                                     {format}
@@ -1258,6 +1458,7 @@ const RecordingDetail: React.FC = () => {
                                     size="sm" 
                                     variant="outline" 
                                     className="text-xs"
+                                    disabled={isFreeTrial}
                                     onClick={() => exportIntelligenceData('decisions', format.toLowerCase() as 'pdf' | 'json' | 'txt' | 'csv')}
                                   >
                                     {format}
@@ -1286,6 +1487,7 @@ const RecordingDetail: React.FC = () => {
                                     size="sm" 
                                     variant="outline" 
                                     className="text-xs"
+                                    disabled={isFreeTrial}
                                     onClick={() => exportIntelligenceData('issues', format.toLowerCase() as 'pdf' | 'json' | 'txt' | 'csv')}
                                   >
                                     {format}
@@ -1314,6 +1516,7 @@ const RecordingDetail: React.FC = () => {
                                     size="sm" 
                                     variant="outline" 
                                     className="text-xs"
+                                    disabled={isFreeTrial}
                                     onClick={() => exportIntelligenceData('questions', format.toLowerCase() as 'pdf' | 'json' | 'txt' | 'csv')}
                                   >
                                     {format}
