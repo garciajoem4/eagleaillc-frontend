@@ -3,13 +3,184 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import ReduxDemo from '../components/ReduxDemo';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler,
+} from 'chart.js';
+import { Line, Bar, Doughnut } from 'react-chartjs-2';
+
+// Register Chart.js components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 const Dashboard: React.FC = () => {
+  // Chart data configurations
+  const totalRecordingsData = {
+    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+    datasets: [
+      {
+        label: 'Total Recordings',
+        data: [25, 28, 32, 35, 37, 42],
+        borderColor: 'rgb(59, 130, 246)',
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.4,
+      },
+    ],
+  };
+
+  const minutesProcessedData = {
+    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+    datasets: [
+      {
+        label: 'Minutes Processed',
+        data: [980, 1050, 1120, 1150, 1180, 1234],
+        backgroundColor: 'rgba(34, 197, 94, 0.8)',
+        borderColor: 'rgb(34, 197, 94)',
+        borderWidth: 1,
+      },
+    ],
+  };
+
+  const accuracyRateData = {
+    datasets: [
+      {
+        data: [98, 2],
+        backgroundColor: ['rgba(168, 85, 247, 0.8)', 'rgba(229, 231, 235, 0.3)'],
+        borderColor: ['rgb(168, 85, 247)', 'rgb(229, 231, 235)'],
+        borderWidth: 2,
+      },
+    ],
+  };
+
+  const revenueData = {
+    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+    datasets: [
+      {
+        label: 'Revenue',
+        data: [2100, 2250, 2400, 2530, 2650, 2456],
+        borderColor: 'rgb(239, 68, 68)',
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.4,
+      },
+    ],
+  };
+
+  // Chart options
+  const lineChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: false,
+      },
+      title: {
+        display: false,
+      },
+    },
+    scales: {
+      x: {
+        display: false,
+      },
+      y: {
+        display: false,
+      },
+    },
+    elements: {
+      point: {
+        radius: 3,
+      },
+    },
+  };
+
+  const barChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: false,
+      },
+    },
+    scales: {
+      x: {
+        display: false,
+      },
+      y: {
+        display: false,
+      },
+    },
+  };
+
+  const doughnutOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: false,
+      },
+    },
+    cutout: '70%',
+  };
+
   const stats = [
-    { title: 'Total Recordings', value: '42', change: '+12%', changeType: 'increase' },
-    { title: 'Minutes Processed', value: '1,234', change: '+8%', changeType: 'increase' },
-    { title: 'Accuracy Rate', value: '98%', change: '+1%', changeType: 'increase' },
-    { title: 'This Month', value: '$2,456', change: '-3%', changeType: 'decrease' },
+    { 
+      title: 'Total Recordings', 
+      value: '42', 
+      change: '+12%', 
+      changeType: 'increase',
+      chartType: 'line',
+      chartData: totalRecordingsData,
+      chartOptions: lineChartOptions
+    },
+    { 
+      title: 'Minutes Processed', 
+      value: '1,234', 
+      change: '+8%', 
+      changeType: 'increase',
+      chartType: 'bar',
+      chartData: minutesProcessedData,
+      chartOptions: barChartOptions
+    },
+    { 
+      title: 'Accuracy Rate', 
+      value: '98%', 
+      change: '+1%', 
+      changeType: 'increase',
+      chartType: 'doughnut',
+      chartData: accuracyRateData,
+      chartOptions: doughnutOptions
+    },
+    { 
+      title: 'This Month', 
+      value: '$2,456', 
+      change: '-3%', 
+      changeType: 'decrease',
+      chartType: 'line',
+      chartData: revenueData,
+      chartOptions: lineChartOptions
+    },
   ];
 
   const recentActivity = [
@@ -30,9 +201,27 @@ const Dashboard: React.FC = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-900 mb-1">
+              <div className="text-2xl font-bold text-gray-900 mb-3">
                 {stat.value}
               </div>
+              
+              {/* Chart Container */}
+              <div className="h-16 mb-3">
+                {stat.chartType === 'line' && (
+                  <Line data={stat.chartData} options={stat.chartOptions} />
+                )}
+                {stat.chartType === 'bar' && (
+                  <Bar data={stat.chartData} options={stat.chartOptions} />
+                )}
+                {stat.chartType === 'doughnut' && (
+                  <div className="flex justify-center">
+                    <div className="w-16 h-16">
+                      <Doughnut data={stat.chartData} options={stat.chartOptions} />
+                    </div>
+                  </div>
+                )}
+              </div>
+              
               <Badge 
                 variant={stat.changeType === 'increase' ? 'default' : 'destructive'}
                 className="text-xs"
@@ -112,12 +301,6 @@ const Dashboard: React.FC = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                 </svg>
                 Upload Recording
-              </Button>
-              <Button className="w-full justify-start" variant="outline">
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-                View Reports
               </Button>
               <Button className="w-full justify-start" variant="outline">
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
