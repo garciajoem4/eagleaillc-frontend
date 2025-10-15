@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useUser } from '@clerk/clerk-react';
+import { useUser, useAuth } from '@clerk/clerk-react';
 import { Button } from './button';
 import { Badge } from './badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './card';
@@ -11,6 +11,7 @@ import { Progress } from './progress';
 import { useRecordingAudio } from '../../hooks/useRecordingAudio';
 import { audioStorageService } from '../../services/audioStorageService';
 import { AudioTrimmer } from '../../utils/audioTrimmer';
+import { WorkflowHelpers, ClerkAuthHelpers } from '../../endpoints/index';
 
 // Constants for free trial limitations
 const FREE_TRIAL_ORG_ID = 'org_33nodgVx3c02DhIoiT1Wen7Xgup';
@@ -38,6 +39,7 @@ const ProcessFileButton: React.FC<ProcessFileButtonProps> = ({
 }) => {
   const navigate = useNavigate();
   const { user: clerkUser } = useUser();
+  const { getToken } = useAuth(); // Add Clerk auth hook
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStage, setProcessingStage] = useState<string>('');
   const [progress, setProgress] = useState(0);
@@ -71,28 +73,21 @@ const ProcessFileButton: React.FC<ProcessFileButtonProps> = ({
     setProcessResult(null);
 
     try {
-      // Stage 1: Uploading
-      setProcessingStage('Uploading file...');
-      setProgress(10);
-
-      // Simulate upload time
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Stage 2: Check if trimming is needed for free trial users
+      // Stage 1: Check if trimming is needed for free trial users
       let fileToProcess: File | Blob = file;
       let originalFile: File | Blob = file;
       let isTrimmed = false;
 
       if (isFreeTrial) {
         setProcessingStage('Checking audio duration...');
-        setProgress(20);
+        setProgress(10);
 
         try {
           const duration = await AudioTrimmer.getAudioDuration(file);
           
           if (duration > FREE_TRIAL_TIME_LIMIT_SECONDS) {
             setProcessingStage('Trimming audio to 5 minutes...');
-            setProgress(30);
+            setProgress(20);
 
             const trimResult = await AudioTrimmer.trimAudio(file, FREE_TRIAL_TIME_LIMIT_SECONDS);
             fileToProcess = trimResult.trimmedBlob;
@@ -107,96 +102,168 @@ const ProcessFileButton: React.FC<ProcessFileButtonProps> = ({
         }
       }
 
-      // Stage 3: Processing with AI
-      setProcessingStage('Processing with AI...');
-      setProgress(50);
+      // Stage 2: Upload and process with API
+      setProcessingStage('Uploading to API...');
+      setProgress(30);
 
-      // TODO: Uncomment for future API integration
-      // await processFile(fileToProcess, options);
-      
-      // Simulate API processing time
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      // Stage 4: Storing locally
-      setProcessingStage('Storing locally...');
-      setProgress(80);
-
-      // Generate a mock recording ID
-      const recordingId = `recording-${Date.now()}`;
-
-      // Store file(s) in localStorage using audioStorageService
       try {
-        console.log('Starting localStorage operation...', {
-          recordingId,
-          fileName: file.name,
-          fileSize: file.size,
-          fileType: file.type,
-          isFreeTrial,
-          isTrimmed
-        });
+        // Convert Blob to File if necessary for API upload
+        const uploadFile = fileToProcess instanceof Blob && !(fileToProcess instanceof File) 
+          ? new File([fileToProcess], file.name, { type: file.type })
+          : fileToProcess as File;
 
-        // Check if IndexedDB is available
-        if (!window.indexedDB) {
-          throw new Error('IndexedDB is not available in this browser');
+        // Use the new WorkflowHelpers for API integration
+        const recordingId = await WorkflowHelpers.uploadAndProcess(
+          uploadFile,
+          getToken,
+          (status) => {
+            setProcessingStage(status);
+            setProgress(Math.min(progress + 10, 70));
+          }
+        );
+
+        // Stage 3: Poll for completion
+        setProcessingStage('Processing...');
+        setProgress(70);
+
+        await WorkflowHelpers.pollStatus(
+          recordingId,
+          getToken,
+          (status) => {
+            setProcessingStage(`Processing: ${status.status} (${status.progress || 0}%)`);
+            setProgress(70 + (status.progress || 0) * 0.1);
+          }
+        );
+
+        // Stage 4: Store locally as backup
+        setProcessingStage('Storing locally...');
+        setProgress(90);
+
+        // Store file(s) in localStorage using audioStorageService
+        try {
+          console.log('Starting localStorage operation...', {
+            recordingId,
+            fileName: file.name,
+            fileSize: file.size,
+            fileType: file.type,
+            isFreeTrial,
+            isTrimmed
+          });
+
+          const metadata = {
+            duration: isFreeTrial && isTrimmed ? FREE_TRIAL_TIME_LIMIT_SECONDS : 0,
+            transcriptId: `transcript-${recordingId}`,
+            processed: true
+          };
+
+          if (isFreeTrial && isTrimmed) {
+            // Store both trimmed and full versions for free trial users
+            await audioStorageService.storeDualAudio(
+              recordingId,
+              fileToProcess,
+              originalFile,
+              file.name,
+              metadata
+            );
+            console.log('Successfully stored both trimmed and full audio versions:', recordingId);
+          } else {
+            // Store single version for non-free trial users or files that don't need trimming
+            await audioStorageService.storeAudio(
+              recordingId,
+              fileToProcess,
+              file.name,
+              metadata
+            );
+            console.log('Successfully stored audio in localStorage:', recordingId);
+          }
+        } catch (storageError) {
+          console.error('Failed to store audio in localStorage:', storageError);
+          // Continue with the process even if localStorage fails
         }
 
-        const metadata = {
-          duration: isFreeTrial && isTrimmed ? FREE_TRIAL_TIME_LIMIT_SECONDS : 0,
-          transcriptId: `transcript-${recordingId}`,
-          processed: true
+        // Stage 5: Complete
+        setProcessingStage('Complete!');
+        setProgress(100);
+
+        // Refresh storage stats
+        await refreshStorageStats();
+
+        // Create result object
+        const result = {
+          recordingId,
+          audioUrl: URL.createObjectURL(fileToProcess),
+          locallyStored: true,
+          isTrimmed
         };
 
-        if (isFreeTrial && isTrimmed) {
-          // Store both trimmed and full versions for free trial users
-          await audioStorageService.storeDualAudio(
-            recordingId,
-            fileToProcess,
-            originalFile,
-            file.name,
-            metadata
-          );
-          console.log('Successfully stored both trimmed and full audio versions:', recordingId);
-        } else {
-          // Store single version for non-free trial users or files that don't need trimming
-          await audioStorageService.storeAudio(
-            recordingId,
-            fileToProcess,
-            file.name,
-            metadata
-          );
-          console.log('Successfully stored audio in localStorage:', recordingId);
+        setProcessResult(result);
+
+        // Call completion callback if provided
+        if (onProcessComplete) {
+          onProcessComplete(result.recordingId, result.audioUrl);
         }
-      } catch (storageError) {
-        console.error('Failed to store audio in localStorage:', storageError);
-        // Continue with the process even if localStorage fails
-        setProcessingStage('Local storage failed, continuing...');
-        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Navigate to recording detail page
+        navigate(`/app/recordings/${recordingId}`);
+
+      } catch (apiError) {
+        console.warn('API processing failed, falling back to local-only mode:', apiError);
+        
+        // Fallback to local-only processing
+        setProcessingStage('API unavailable, storing locally...');
+        setProgress(80);
+
+        // Generate a mock recording ID for fallback
+        const recordingId = `recording-${Date.now()}`;
+
+        // Store file(s) in localStorage as fallback
+        try {
+          const metadata = {
+            duration: isFreeTrial && isTrimmed ? FREE_TRIAL_TIME_LIMIT_SECONDS : 0,
+            transcriptId: `transcript-${recordingId}`,
+            processed: false // Mark as not processed by API
+          };
+
+          if (isFreeTrial && isTrimmed) {
+            await audioStorageService.storeDualAudio(
+              recordingId,
+              fileToProcess,
+              originalFile,
+              file.name,
+              metadata
+            );
+          } else {
+            await audioStorageService.storeAudio(
+              recordingId,
+              fileToProcess,
+              file.name,
+              metadata
+            );
+          }
+
+          // Complete with local storage only
+          setProcessingStage('Stored locally (offline mode)');
+          setProgress(100);
+
+          const result = {
+            recordingId,
+            audioUrl: URL.createObjectURL(fileToProcess),
+            locallyStored: true,
+            isTrimmed
+          };
+
+          setProcessResult(result);
+
+          if (onProcessComplete) {
+            onProcessComplete(result.recordingId, result.audioUrl);
+          }
+
+          navigate(`/app/recordings/${recordingId}`);
+
+        } catch (storageError: any) {
+          throw new Error(`Both API and local storage failed: ${storageError?.message || 'Unknown error'}`);
+        }
       }
-
-      // Stage 5: Complete
-      setProcessingStage('Complete!');
-      setProgress(100);
-
-      // Refresh storage stats
-      await refreshStorageStats();
-
-      // Create result object
-      const result = {
-        recordingId,
-        audioUrl: URL.createObjectURL(fileToProcess),
-        locallyStored: true,
-        isTrimmed
-      };
-
-      setProcessResult(result);
-
-      // Call completion callback if provided
-      if (onProcessComplete) {
-        onProcessComplete(result.recordingId, result.audioUrl);
-      }
-
-      // Navigate to recording detail page
-      navigate(`/app/recordings/${recordingId}`);
 
     } catch (error) {
       console.error('Error processing file:', error);
