@@ -123,7 +123,7 @@ const ProcessFileButton: React.FC<ProcessFileButtonProps> = ({
         );
 
         // Stage 3: Poll for completion
-        setProcessingStage('Processing with AI...');
+        setProcessingStage('Processing...');
         setProgress(70);
 
         await WorkflowHelpers.pollStatus(
