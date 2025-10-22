@@ -1,6 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useUser } from '@clerk/clerk-react';
+import { useUser, useAuth } from '@clerk/clerk-react';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
@@ -8,6 +8,7 @@ import { Input } from '../components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { sampleTranscriptData } from '../data/sampleTranscript';
 import { useRecordingDetail } from '../hooks/useRecordingDetail';
+import { WorkflowHelpers } from '../endpoints';
 
 // Additional icons available for future use:
 // FiPlay, FiPause, FiDownload, FiShare2, FiMoreVertical,
@@ -38,6 +39,17 @@ const RecordingDetail: React.FC = () => {
     console.log('Navigate to subscription page');
     navigate('/app/billing');
   };
+
+  // API Integration: Fetch server-side results when available
+  const { getToken } = useAuth();
+  const [isFetchingResults, setIsFetchingResults] = useState(false);
+  const [resultsError, setResultsError] = useState<string | null>(null);
+  const [apiTranscriptData, setApiTranscriptData] = useState<any>(null);
+  const [apiIntelligenceData, setApiIntelligenceData] = useState<any>(null);
+
+  // Determine which data to use: API data (if available) or sample data (fallback)
+  const activeTranscriptData = apiTranscriptData || sampleTranscriptData;
+
   // Use recording utilities hook with all state management
   const {
     // State variables
@@ -45,6 +57,7 @@ const RecordingDetail: React.FC = () => {
     audioUrl,
     setIsLoadingAudio,
     detailedIntelligence,
+    setDetailedIntelligence,
     transcriptView,
     setTranscriptView,
     searchQuery,
@@ -108,9 +121,86 @@ const RecordingDetail: React.FC = () => {
     renderHighlightedText,
     exportTranscriptData,
     exportIntelligenceData
-  } = useRecordingDetail(sampleTranscriptData, { isFreeTrial, freeTrialTimeLimitSeconds: FREE_TRIAL_TIME_LIMIT_SECONDS });
+  } = useRecordingDetail(activeTranscriptData, { isFreeTrial, freeTrialTimeLimitSeconds: FREE_TRIAL_TIME_LIMIT_SECONDS });
 
-  if (!sampleTranscriptData) {
+  // Fetch server-side results (if any) when recordingId is available
+  useEffect(() => {
+    let mounted = true;
+    
+    const fetchResults = async () => {
+      if (!recordingId || recordingId.startsWith('recording-')) {
+        // Skip API fetch for mock/local recordings
+        return;
+      }
+      
+      setIsFetchingResults(true);
+      setResultsError(null);
+
+      try {
+        const data = await WorkflowHelpers.fetchResults(recordingId, async () => {
+          try {
+            return await getToken({ template: 'synaptivoice-api' });
+          } catch (e) {
+            try {
+              return await getToken();
+            } catch (err) {
+              return null;
+            }
+          }
+        });
+
+        if (!mounted) return;
+
+        if (data) {
+          console.log('📊 Server results fetched:', data);
+          
+          // Parse and set the API data
+          // Assuming the API returns an object with transcript and intelligence data
+          if (data.transcript) {
+            setApiTranscriptData(data.transcript);
+          }
+          
+          if (data.intelligence || data.detailed_intelligence) {
+            const intelligenceData = data.intelligence || data.detailed_intelligence;
+            setApiIntelligenceData(intelligenceData);
+            // Update the detailed intelligence in the hook
+            setDetailedIntelligence(intelligenceData);
+          }
+          
+          // If the API returns the data in a different format, adjust accordingly
+          // For example, if it's all in one object:
+          if (data.full_transcription || data.segments) {
+            setApiTranscriptData(data);
+          }
+          
+          if (data.action_items || data.decisions || data.executive_summary) {
+            setApiIntelligenceData(data);
+            // Update the detailed intelligence in the hook
+            setDetailedIntelligence(data);
+          }
+        }
+      } catch (error: any) {
+        console.error('❌ Failed to fetch recording results:', error);
+        if (!mounted) return;
+        
+        // Only show error for non-404 cases (404 is expected for new recordings)
+        if (!error.message?.includes('404')) {
+          setResultsError(`API Error: ${error.message || 'Failed to fetch results'}`);
+        }
+      } finally {
+        if (mounted) setIsFetchingResults(false);
+      }
+    };
+
+    fetchResults();
+    return () => { mounted = false; };
+  }, [recordingId, getToken, setDetailedIntelligence]);
+
+  // Prevent lint warnings for hook-provided variables
+  void setIsLoadingAudio; void audioContext; void analyserNode; 
+  void setupAudioAnalysis; void updateFrequencyData;
+
+  if (!activeTranscriptData) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Card className="w-full max-w-md">
@@ -134,14 +224,37 @@ const RecordingDetail: React.FC = () => {
         <Link to="/app/recordings">
           <Button variant="outline">← Back to Recordings</Button>
         </Link>
+        
+        {/* API Integration Status */}
+        {isFetchingResults && (
+          <div className="text-sm text-blue-600 bg-blue-50 p-2 rounded-lg border border-blue-200">
+            🔄 Fetching latest processing results from server...
+          </div>
+        )}
+        {resultsError && (
+          <div className="text-sm text-amber-600 bg-amber-50 p-2 rounded-lg border border-amber-200">
+            ⚠️ {resultsError}
+          </div>
+        )}
+        {apiTranscriptData && (
+          <div className="text-sm text-green-600 bg-green-50 p-2 rounded-lg border border-green-200">
+            ✅ Using live data from server API
+          </div>
+        )}
+        {!apiTranscriptData && !isFetchingResults && recordingId && !recordingId.startsWith('recording-') && (
+          <div className="text-sm text-gray-600 bg-gray-50 p-2 rounded-lg border border-gray-200">
+            📊 Using sample data for demonstration (API data not available)
+          </div>
+        )}
+        
         <div>
           <div className="flex items-center gap-3 mb-2">
             <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
             </svg>
-            <h1 className="text-xl font-bold text-gray-900">{sampleTranscriptData.file_name.split('.')[0] || ''}</h1>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">{activeTranscriptData.file_name?.split('.')[0] || 'Unknown File'}</h1>
           </div>
-          <p className="text-gray-600 mt-1">Recording Details and Analysis</p>
+          <p className="text-gray-600 dark:text-gray-300 mt-1">Recording Details and Analysis</p>
         </div>
       </div>
 
@@ -217,15 +330,15 @@ const RecordingDetail: React.FC = () => {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-500">Name</label>
-                  <p className="text-gray-900">{sampleTranscriptData.file_name.split('.')[0] || ''}</p>
+                  <p className="text-gray-900">{activeTranscriptData.file_name?.split('.')[0] || 'Unknown File'}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-500">Date Uploaded</label>
-                  <p className="text-gray-900">{sampleTranscriptData.date_uploaded ? formatDate(new Date(sampleTranscriptData.date_uploaded)) : '-'}</p>
+                  <p className="text-gray-900">{activeTranscriptData.date_uploaded ? formatDate(new Date(activeTranscriptData.date_uploaded)) : '-'}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-500">Duration</label>
-                  <Badge variant="secondary">{Math.floor(sampleTranscriptData.duration_seconds / 60)}m {Math.floor(sampleTranscriptData.duration_seconds % 60)}s</Badge>
+                  <Badge variant="secondary">{Math.floor((activeTranscriptData.duration_seconds || 0) / 60)}m {Math.floor((activeTranscriptData.duration_seconds || 0) % 60)}s</Badge>
                 </div>
                 
               </CardContent>
@@ -347,8 +460,8 @@ const RecordingDetail: React.FC = () => {
                           <CardTitle className="text-lg">Transcript</CardTitle>
                         </div>
                         <CardDescription>
-                          Duration: {Math.floor(sampleTranscriptData.duration_seconds / 60)}m {Math.floor(sampleTranscriptData.duration_seconds % 60)}s
-                          {sampleTranscriptData.segments && ` • ${sampleTranscriptData.segments.length} segments`}
+                          Duration: {Math.floor((activeTranscriptData.duration_seconds || 0) / 60)}m {Math.floor((activeTranscriptData.duration_seconds || 0) % 60)}s
+                          {activeTranscriptData.segments && ` • ${activeTranscriptData.segments.length} segments`}
                         </CardDescription>
                       </CardHeader>
                       <CardContent>
@@ -419,7 +532,7 @@ const RecordingDetail: React.FC = () => {
                             
                             {(searchQuery || (selectedTimeRange !== 'all' && currentAudioTime === 0)) && (
                               <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <span>Showing {filteredSegments.length} of {sampleTranscriptData.segments?.length || 0} segments</span>
+                                <span>Showing {filteredSegments.length} of {activeTranscriptData.segments?.length || 0} segments</span>
                                 <Button
                                   size="sm"
                                   variant="ghost"
@@ -466,8 +579,8 @@ const RecordingDetail: React.FC = () => {
                         {transcriptView === 'full' ? (
                           <div className="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
                             <p className="text-gray-700 whitespace-pre-wrap">
-                              {sampleTranscriptData.full_transcription ? (
-                                renderHighlightedText(sampleTranscriptData.full_transcription, fullTranscriptSearchQuery)
+                              {activeTranscriptData.full_transcription ? (
+                                renderHighlightedText(activeTranscriptData.full_transcription, fullTranscriptSearchQuery)
                               ) : (
                                 'Transcript not available yet. Processing may still be in progress.'
                               )}

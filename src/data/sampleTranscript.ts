@@ -21,8 +21,8 @@ export interface TranscriptSegment {
 }
 
 export const sampleTranscriptData: TranscriptData = {
-  file_name: "july_12_2022_audio_converted.wav",
-  file_path: "/Users/johnbolanipekun/Documents/Projects/speechai/input_audio/july_12_2022_audio_converted.wav",
+  file_name: "audio.wav",
+  file_path: "audio.wav",
   duration_seconds: 8931.328,
   date_uploaded: '',
   sample_rate: 16000,

@@ -2,7 +2,6 @@ import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
-import ReduxDemo from '../components/ReduxDemo';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -196,12 +195,12 @@ const Dashboard: React.FC = () => {
         {stats.map((stat, index) => (
           <Card key={index} className="hover:shadow-lg transition-shadow duration-200">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">
+              <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">
                 {stat.title}
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-900 mb-3">
+              <div className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
                 {stat.value}
               </div>
               
@@ -265,7 +264,7 @@ const Dashboard: React.FC = () => {
                       );
                     default:
                       return (
-                        <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <svg className="w-6 h-6 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                       );
@@ -273,13 +272,13 @@ const Dashboard: React.FC = () => {
                 };
                 
                 return (
-                  <div key={index} className="flex items-center space-x-4 border-b border-gray-100 pb-4 last:border-b-0 last:pb-0">
+                  <div key={index} className="flex items-center space-x-4 border-b border-gray-100 dark:border-gray-700 pb-4 last:border-b-0 last:pb-0">
                     <div className="flex-shrink-0">
                       {getActivityIcon(activity.icon)}
                     </div>
                     <div className="flex-1">
-                      <p className="font-medium text-gray-900">{activity.action}</p>
-                      <p className="text-sm text-gray-500">{activity.time}</p>
+                      <p className="font-medium text-gray-900 dark:text-white">{activity.action}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{activity.time}</p>
                     </div>
                   </div>
                 );
