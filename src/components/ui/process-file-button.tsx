@@ -1,9 +1,11 @@
     // Process File Button Component
     // Demonstrates integration of local storage functionality with UI
 
-    import React, { useState, useMemo } from 'react';
+    import React, { useState, useMemo, useRef, useEffect } from 'react';
     import { useNavigate } from 'react-router-dom';
     import { useUser, useAuth } from '@clerk/clerk-react';
+    import { useAppDispatch } from '../../redux/hooks';
+    import { fetchAndStoreApiResults } from '../../redux/slices/recordingsSlice';
     import { Button } from './button';
     import { Badge } from './badge';
     import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './card';
@@ -40,15 +42,19 @@
       const navigate = useNavigate();
       const { user: clerkUser } = useUser();
       const { getToken } = useAuth(); // Add Clerk auth hook
+      const dispatch = useAppDispatch();
       const [isProcessing, setIsProcessing] = useState(false);
       const [processingStage, setProcessingStage] = useState<string>('');
       const [progress, setProgress] = useState(0);
+      const [isFinalizing, setIsFinalizing] = useState(false);
       const [processResult, setProcessResult] = useState<{
         recordingId?: string;
         audioUrl?: string;
         locallyStored?: boolean;
         isTrimmed?: boolean;
       } | null>(null);
+      
+      const finalizationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
       const {
         formatFileSize,
@@ -64,6 +70,26 @@
           membership.role === FREE_TRIAL_ROLE
         );
       }, [clerkUser]);
+
+      // Cleanup timeout on unmount
+      useEffect(() => {
+        return () => {
+          if (finalizationTimeoutRef.current) {
+            clearTimeout(finalizationTimeoutRef.current);
+          }
+        };
+      }, []);
+
+      // Helper function to handle finalization delay and navigation
+      const finalizeAndNavigate = (recordingId: string) => {
+        setIsFinalizing(true);
+        setProcessingStage('Finalizing Redux storage...');
+        
+        finalizationTimeoutRef.current = setTimeout(() => {
+          setIsFinalizing(false);
+          navigate(`/app/recordings/${recordingId}`);
+        }, 4000);
+      };
 
       const handleProcessFile = async () => {
         if (isProcessing) return;
@@ -156,6 +182,31 @@
               }
             );
 
+            // Stage 3.5: Fetch and store API results in Redux
+            setProcessingStage('Fetching API results...');
+            setProgress(85);
+            
+            try {
+              await dispatch(fetchAndStoreApiResults({ 
+                recordingId, 
+                getToken: async () => {
+                  try {
+                    return await getToken({ template: 'synaptivoice-api' });
+                  } catch (e) {
+                    try {
+                      return await getToken();
+                    } catch (err) {
+                      return null;
+                    }
+                  }
+                }
+              })).unwrap();
+              console.log('Successfully stored API results in Redux:', recordingId);
+            } catch (error) {
+              console.warn('Failed to fetch and store API results, continuing with local storage only:', error);
+              // Continue with the process even if API results fetch fails
+            }
+
             // Stage 4: Store locally as backup
             setProcessingStage('Storing locally...');
             setProgress(90);
@@ -234,8 +285,8 @@
               onProcessComplete(result.recordingId, result.audioUrl);
             }
 
-            // Navigate to recording detail page
-            navigate(`/app/recordings/${recordingId}`);
+            // Add delay before navigation to allow Redux to store results
+            finalizeAndNavigate(recordingId);
 
           } catch (apiError) {
             console.warn('API processing failed, falling back to local-only mode:', apiError);
@@ -312,7 +363,8 @@
                 onProcessComplete(result.recordingId, result.audioUrl);
               }
 
-              navigate(`/app/recordings/${recordingId}`);
+              // Add delay before navigation to allow Redux to store results
+              finalizeAndNavigate(recordingId);
 
             } catch (storageError: any) {
               throw new Error(`Both API and local storage failed: ${storageError?.message || 'Unknown error'}`);
@@ -368,7 +420,7 @@
       };
 
       return (
-        <div className="space-y-4">
+        <div className="relative space-y-4">
           {/* File Info */}
           <Card>
             <CardHeader>
@@ -494,6 +546,19 @@
                 </div>
               </CardContent>
             </Card>
+          )}
+
+          {/* Finalization Loading Overlay */}
+          {isFinalizing && (
+            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg z-50">
+              <div className="flex flex-col items-center space-y-3 text-white">
+                <svg className="w-8 h-8 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <p className="text-sm font-medium">Finalizing...</p>
+                <p className="text-xs text-gray-300">Preparing your recording data</p>
+              </div>
+            </div>
           )}
         </div>
       );

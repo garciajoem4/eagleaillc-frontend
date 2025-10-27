@@ -2,6 +2,7 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { Recording, RecordingFilters, TableSort } from '../../types';
 import { recordingService, ProcessFileOptions, ProcessFileResult } from '../../services/recordingService';
 import { audioStorageService } from '../../services/audioStorageService';
+import { WorkflowHelpers } from '../../endpoints';
 
 // Extended state interface for recordings management
 interface RecordingState {
@@ -210,6 +211,39 @@ export const clearLocalStorage = createAsyncThunk(
   async () => {
     await recordingService.clearLocalStorage();
     return {};
+  }
+);
+
+// Fetch and store API results after processing completes
+export const fetchAndStoreApiResults = createAsyncThunk(
+  'recordings/fetchAndStoreApiResults',
+  async ({ recordingId, getToken }: { recordingId: string; getToken: () => Promise<string | null> }) => {
+    try {
+      const data = await WorkflowHelpers.fetchResults(recordingId, getToken);
+      
+      if (data) {
+        // Transform the API data to match our Recording interface
+        const apiResults = {
+          recordingId,
+          transcript: data.full_transcription || data.transcript,
+          intelligence: data.intelligence || data.detailed_intelligence || {
+            action_items: data.action_items || [],
+            decisions: data.decisions || [],
+            issues: data.issues || [],
+            questions: data.questions || [],
+            executive_summary: data.executive_summary,
+            key_topics: data.key_topics || []
+          }
+        };
+        
+        return apiResults;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Failed to fetch API results:', error);
+      throw error;
+    }
   }
 );
 
@@ -481,6 +515,37 @@ const recordingsSlice = createSlice({
       .addCase(clearLocalStorage.fulfilled, (state) => {
         state.localAudioStatus = {};
         state.localStorageStats = null;
+      })
+      
+      // Fetch and store API results
+      .addCase(fetchAndStoreApiResults.pending, (state, action) => {
+        const recordingId = action.meta.arg.recordingId;
+        state.processing[recordingId] = true;
+      })
+      .addCase(fetchAndStoreApiResults.fulfilled, (state, action) => {
+        if (action.payload) {
+          const { recordingId, transcript, intelligence } = action.payload;
+          
+          // Update the recording with API results
+          const recording = state.recordings.find(r => r.id === recordingId);
+          if (recording) {
+            recording.transcript = transcript;
+            recording.intelligence = intelligence;
+          }
+          
+          // Also update currentRecording if it matches
+          if (state.currentRecording?.id === recordingId) {
+            state.currentRecording.transcript = transcript;
+            state.currentRecording.intelligence = intelligence;
+          }
+          
+          state.processing[recordingId] = false;
+        }
+      })
+      .addCase(fetchAndStoreApiResults.rejected, (state, action) => {
+        const recordingId = action.meta.arg.recordingId;
+        state.processing[recordingId] = false;
+        state.error = action.error.message || 'Failed to fetch API results';
       });
   },
 });
