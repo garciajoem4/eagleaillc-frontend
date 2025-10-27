@@ -362,7 +362,7 @@ const FreeTrial: React.FC = () => {
           </CardHeader>
           <CardContent className="text-center space-y-4">
             <div className="text-6xl mb-4">🚀</div>
-            <p className="text-gray-600">
+            <p className="text-gray-600 dark:text-gray-300">
               Ready to unlock the full power of your meeting intelligence?
             </p>
             <div className="space-y-2">
@@ -403,10 +403,10 @@ const FreeTrial: React.FC = () => {
       {/* Trial Content */}
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
             Try SynaptiVoice Free
           </h1>
-          <p className="text-xl text-gray-600 mb-6">
+          <p className="text-xl text-gray-600 dark:text-gray-300 mb-6">
             Upload one recording to see how our app transform your meetings into actionable insights
           </p>
           <div className="flex items-center justify-center space-x-4 text-sm text-gray-500">

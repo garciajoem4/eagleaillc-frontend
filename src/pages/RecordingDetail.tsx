@@ -1,13 +1,36 @@
 import React, { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useUser } from '@clerk/clerk-react';
+import { useUser, useAuth } from '@clerk/clerk-react';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { sampleTranscriptData } from '../data/sampleTranscript';
 import { useRecordingDetail } from '../hooks/useRecordingDetail';
+import { useAppSelector, useAppDispatch } from '../redux/hooks';
+import { fetchAndStoreApiResults } from '../redux/slices/recordingsSlice';
+
+// Add shimmer animation styles
+const shimmerStyles = `
+  @keyframes shimmer {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
+  .animate-shimmer {
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
+`;
+
+// Inject styles into document head
+if (typeof document !== 'undefined') {
+  const style = document.createElement('style');
+  style.textContent = shimmerStyles;
+  document.head.appendChild(style);
+}
 
 // Additional icons available for future use:
 // FiPlay, FiPause, FiDownload, FiShare2, FiMoreVertical,
@@ -19,6 +42,71 @@ import { useRecordingDetail } from '../hooks/useRecordingDetail';
 const FREE_TRIAL_ORG_ID = 'org_33nodgVx3c02DhIoiT1Wen7Xgup';
 const FREE_TRIAL_ROLE = 'org:free_trial';
 const FREE_TRIAL_TIME_LIMIT_SECONDS = 300; // 5 minutes
+
+// Skeleton loading components with shimmer animation
+const SkeletonBar: React.FC<{ width?: string; height?: string; className?: string }> = ({ 
+  width = "100%", 
+  height = "16px", 
+  className = "" 
+}) => (
+  <div 
+    className={`bg-gray-200 rounded animate-pulse relative overflow-hidden ${className}`}
+    style={{ width, height }}
+  >
+    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-60 animate-shimmer"></div>
+  </div>
+);
+
+const TextSkeleton: React.FC<{ lines?: number }> = ({ lines = 3 }) => (
+  <div className="space-y-2">
+    {Array.from({ length: lines }).map((_, index) => (
+      <SkeletonBar 
+        key={index}
+        width={index === lines - 1 ? "75%" : "100%"} 
+        height="16px"
+      />
+    ))}
+  </div>
+);
+
+const BadgesSkeleton: React.FC<{ count?: number }> = ({ count = 4 }) => (
+  <div className="flex flex-wrap gap-2">
+    {Array.from({ length: count }).map((_, index) => (
+      <SkeletonBar 
+        key={index}
+        width="95px" 
+        height="24px"
+        className="rounded-full"
+      />
+    ))}
+  </div>
+);
+
+const ListItemSkeleton: React.FC = () => (
+  <div className="flex gap-4 p-3 rounded-lg bg-gray-50">
+    <SkeletonBar width="45px" height="20px" />
+    <div className="flex-1 space-y-2">
+      <SkeletonBar width="100%" height="16px" />
+      <SkeletonBar width="80%" height="16px" />
+    </div>
+  </div>
+);
+
+const IntelligenceItemSkeleton: React.FC = () => (
+  <div className="border rounded-lg p-4 space-y-3">
+    <div className="flex items-start justify-between">
+      <div className="flex-1 space-y-2">
+        <SkeletonBar width="100%" height="16px" />
+        <SkeletonBar width="85%" height="16px" />
+      </div>
+      <SkeletonBar width="60px" height="20px" className="ml-2 rounded-full" />
+    </div>
+    <div className="flex items-center gap-2">
+      <SkeletonBar width="40px" height="14px" />
+      <SkeletonBar width="80px" height="14px" />
+    </div>
+  </div>
+);
 
 const RecordingDetail: React.FC = () => {
   const navigate = useNavigate();
@@ -38,10 +126,16 @@ const RecordingDetail: React.FC = () => {
     console.log('Navigate to subscription page');
     navigate('/app/billing');
   };
+
+  // API Integration: Fetch server-side results when available
+  const { getToken } = useAuth();
+
+  // Redux integration: Get recording data from store instead of direct API calls
+  const dispatch = useAppDispatch();
+
   // Use recording utilities hook with all state management
   const {
     // State variables
-    recordingId,
     audioUrl,
     setIsLoadingAudio,
     detailedIntelligence,
@@ -68,6 +162,14 @@ const RecordingDetail: React.FC = () => {
     currentAudioTime,
     isAudioPlaying,
     audioRef,
+
+    // Data management state from hook
+    dataAPI,
+    reduxRecording,
+    activeTranscriptData,
+    dataSource,
+    isFetchingResults,
+    resultsError,
 
     // Audio visualization state
     audioContext,
@@ -108,9 +210,32 @@ const RecordingDetail: React.FC = () => {
     renderHighlightedText,
     exportTranscriptData,
     exportIntelligenceData
-  } = useRecordingDetail(sampleTranscriptData, { isFreeTrial, freeTrialTimeLimitSeconds: FREE_TRIAL_TIME_LIMIT_SECONDS });
+  } = useRecordingDetail({ isFreeTrial, freeTrialTimeLimitSeconds: FREE_TRIAL_TIME_LIMIT_SECONDS }, {
+    dispatch,
+    getToken
+  });
 
-  if (!sampleTranscriptData) {
+  // Prevent lint warnings for hook-provided variables
+  void setIsLoadingAudio; void audioContext; void analyserNode; 
+  void setupAudioAnalysis; void updateFrequencyData;
+
+  if (!activeTranscriptData) {
+    if (dataSource === 'loading' || isFetchingResults) {
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <Card className="w-full max-w-md text-center bg-transparent border-none border-0">
+            <CardHeader>
+              <CardTitle>Loading Recording...</CardTitle>
+              <CardDescription>Please wait while we load the recording data.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Card className="w-full max-w-md">
@@ -120,7 +245,7 @@ const RecordingDetail: React.FC = () => {
           </CardHeader>
           <CardContent>
             <Link to="/app/recordings">
-              <Button variant="outline">← Back to Recordings</Button>
+              <Button variant="outline" className='text-xs font-light'>← Back to Recordings</Button>
             </Link>
           </CardContent>
         </Card>
@@ -132,16 +257,50 @@ const RecordingDetail: React.FC = () => {
     <div className="mx-auto max-w-[1200px] space-y-6">
       <div className="space-y-4">
         <Link to="/app/recordings">
-          <Button variant="outline">← Back to Recordings</Button>
+          <Button variant="outline" className='text-xs font-light'>← Back to Recordings</Button>
         </Link>
+        
+        {/* API Integration Status */}
+        {/* {isFetchingResults && (
+          <div className="text-sm text-blue-600 bg-blue-50 p-2 rounded-lg border border-blue-200">
+            🔄 Fetching latest processing results from server...
+          </div>
+        )}
+        {resultsError && (
+          <div className="text-sm text-amber-600 bg-amber-50 p-2 rounded-lg border border-amber-200">
+            ⚠️ {resultsError}
+          </div>
+        )}
+        {dataSource === 'redux' && (
+          <div className="text-sm text-green-600 bg-green-50 p-2 rounded-lg border border-green-200">
+            ✅ Using live data from Redux store
+          </div>
+        )}
+        {dataSource === 'api' && (
+          <div className="text-sm text-blue-600 bg-blue-50 p-2 rounded-lg border border-blue-200">
+            ✅ Using live data from API (stored in Redux)
+          </div>
+        )}
+        {dataSource === 'sample' && (
+          <div className="text-sm text-gray-600 bg-gray-50 p-2 rounded-lg border border-gray-200">
+            📊 Using sample data for demonstration (live data not available)
+          </div>
+        )} */}
+        
         <div>
           <div className="flex items-center gap-3 mb-2">
             <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
             </svg>
-            <h1 className="text-xl font-bold text-gray-900">{sampleTranscriptData.file_name.split('.')[0] || ''}</h1>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+              {
+                dataSource === 'api' ? 
+                  dataAPI?.recording?.file_name?.split('.')[0] || 'Unknown File' :
+                  <SkeletonBar width="200px" height="24px" />
+              }
+            </h1>
           </div>
-          <p className="text-gray-600 mt-1">Recording Details and Analysis</p>
+          <p className="text-gray-600 dark:text-gray-300 mt-1">Recording Details and Analysis</p>
         </div>
       </div>
 
@@ -216,16 +375,51 @@ const RecordingDetail: React.FC = () => {
                   </div>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Name</label>
-                  <p className="text-gray-900">{sampleTranscriptData.file_name.split('.')[0] || ''}</p>
+                  {
+                    dataSource === 'api' ? (
+                      <>
+                        <label className="text-sm font-medium text-gray-500">Name</label>
+                        <p className="text-gray-900">
+                          {dataAPI?.recording?.file_name?.split('.')[0] || activeTranscriptData.recording?.file_name?.split('.')[0] || 'Unknown File'}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <SkeletonBar width="100px" height="12px" className='mb-4' />
+                        <SkeletonBar width="200px" height="18px" />
+                      </>
+                    )
+                  }
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Date Uploaded</label>
-                  <p className="text-gray-900">{sampleTranscriptData.date_uploaded ? formatDate(new Date(sampleTranscriptData.date_uploaded)) : '-'}</p>
+                  {
+                    dataSource === 'api' ? (
+                      <>
+                        <label className="text-sm font-medium text-gray-500">Date Uploaded</label>
+                        <p className="text-gray-900">{dataAPI?.intelligence?.processed_at ? formatDate(new Date(dataAPI?.intelligence?.processed_at)) : '-'}</p>
+                      </>
+                    ) : (
+                      <>
+                        <SkeletonBar width="100px" height="12px" className='mb-4' />
+                        <SkeletonBar width="200px" height="18px" />
+                      </>
+                    )
+                  }
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Duration</label>
-                  <Badge variant="secondary">{Math.floor(sampleTranscriptData.duration_seconds / 60)}m {Math.floor(sampleTranscriptData.duration_seconds % 60)}s</Badge>
+                  {
+                    dataSource === 'api' ? (
+                      <>
+                        <label className="text-sm font-medium text-gray-500">Duration</label>
+                        <Badge variant="secondary">{Math.floor((dataAPI?.recording?.duration_seconds || 0) / 60)}m {Math.floor((dataAPI?.recording?.duration_seconds || 0) % 60)}s</Badge>
+                      </>
+                    ) : (
+                      <>
+                        <SkeletonBar width="100px" height="12px" className='mb-4' />
+                        <SkeletonBar width="200px" height="18px" />
+                      </>
+                    )
+                  }
                 </div>
                 
               </CardContent>
@@ -236,27 +430,51 @@ const RecordingDetail: React.FC = () => {
                 <CardTitle className="text-lg">Executive Summary</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-700 mb-4">
-                  {detailedIntelligence?.executive_summary || 'No summary available.'}
-                </p>
-                {detailedIntelligence && (
-                  <div className="space-y-3">
-                    <div>
-                      <span className="text-sm font-medium text-gray-500">Content Type: </span>
-                      <Badge variant="outline">{detailedIntelligence.content_type}</Badge>
-                    </div>
-                    <div>
-                      <span className="text-sm font-medium text-gray-500">Segments Processed: </span>
-                      <span className="text-gray-900">{detailedIntelligence.total_segments_processed}</span>
-                    </div>
-                    <div>
-                      <span className="text-sm font-medium text-gray-500">Processed At: </span>
-                      <span className="text-gray-900">
-                        {new Date(detailedIntelligence.processed_at).toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-                )}
+                {
+                  dataSource === 'api' ? (
+                    <>
+                      <p className="text-gray-700 mb-4">
+                        {dataAPI?.intelligence?.summary || 'No summary available.'}
+                      </p>
+                      <div className="space-y-3">
+                        <div>
+                          <span className="text-sm font-medium text-gray-500">Content Type: </span>
+                          <Badge variant="outline">{dataAPI?.intelligence?.content_type}</Badge>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-500">Segments Processed: </span>
+                          <span className="text-gray-900">{dataAPI?.intelligence?.segments_processed}</span>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-500">Processed At: </span>
+                          <span className="text-gray-900">
+                            {new Date(dataAPI?.intelligence?.processed_at).toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="mb-4">
+                        <TextSkeleton lines={4} />
+                      </div>
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <SkeletonBar width="100px" height="14px" />
+                          <SkeletonBar width="80px" height="20px" className="rounded-full" />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <SkeletonBar width="130px" height="14px" />
+                          <SkeletonBar width="30px" height="16px" />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <SkeletonBar width="90px" height="14px" />
+                          <SkeletonBar width="150px" height="16px" />
+                        </div>
+                      </div>
+                    </>
+                  )
+                }
               </CardContent>
             </Card>
           </div>
@@ -268,11 +486,17 @@ const RecordingDetail: React.FC = () => {
                 <CardTitle className="text-lg">Key Topics</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {(detailedIntelligence?.key_topics || []).map((topic: string, index: number) => (
-                    <Badge key={index} variant="secondary">{topic}</Badge>
-                  ))}
-                </div>
+                {
+                  dataSource === 'api' ? (
+                    <div className="flex flex-wrap gap-2">
+                      {(dataAPI?.intelligence?.topics || []).map((topic: string, index: number) => (
+                        <Badge key={index} variant="secondary">{topic}</Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <BadgesSkeleton count={5} />
+                  )
+                }
               </CardContent>
             </Card>
 
@@ -281,22 +505,66 @@ const RecordingDetail: React.FC = () => {
               <CardHeader>
                 <CardTitle className="text-lg">Analysis Stats</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
+              <CardContent className={`space-y-4 ${dataSource === 'api' && '!space-y-2'}`}>
                 <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Action Items:</span>
-                  <Badge variant="outline">{detailedIntelligence?.action_items.length || 0}</Badge>
+                  {
+                    dataSource === 'api' ? (
+                      <>
+                        <span className="text-sm text-gray-600">Action Items:</span>
+                        <Badge variant="outline">{dataAPI?.intelligence?.action_items?.length || 0}</Badge>
+                      </>
+                    ) : (
+                      <>
+                        <SkeletonBar width="150px" height="12px" />
+                        <SkeletonBar width="30px" height="12px" />
+                      </>
+                    )
+                  }
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Decisions:</span>
-                  <Badge variant="outline">{detailedIntelligence?.decisions.length || 0}</Badge>
+                  {
+                    dataSource === 'api' ? (
+                      <>
+                        <span className="text-sm text-gray-600">Decisions:</span>
+                        <Badge variant="outline">{dataAPI?.intelligence?.decisions?.length || 0}</Badge>
+                      </>
+                    ) : (
+                      <>
+                        <SkeletonBar width="150px" height="12px" />
+                        <SkeletonBar width="30px" height="12px" />
+                      </>
+                    )
+                  }
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Issues:</span>
-                  <Badge variant="outline">{detailedIntelligence?.issues.length || 0}</Badge>
+                  {
+                    dataSource === 'api' ? (
+                      <>
+                        <span className="text-sm text-gray-600">Issues:</span>
+                        <Badge variant="outline">{dataAPI?.intelligence?.issues?.length || 0}</Badge>
+                      </>
+                    ) : (
+                      <>
+                        <SkeletonBar width="150px" height="12px" />
+                        <SkeletonBar width="30px" height="12px" />
+                      </>
+                    )
+                  }
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Questions:</span>
-                  <Badge variant="outline">{detailedIntelligence?.questions.length || 0}</Badge>
+                  {
+                    dataSource === 'api' ? (
+                      <>
+                        <span className="text-sm text-gray-600">Questions:</span>
+                        <Badge variant="outline">{dataAPI?.intelligence?.questions?.length || 0}</Badge>
+                      </>
+                    ) : (
+                      <>
+                        <SkeletonBar width="150px" height="12px" />
+                        <SkeletonBar width="30px" height="12px" />
+                      </>
+                    )
+                  }
                 </div>
               </CardContent>
             </Card>
@@ -322,9 +590,15 @@ const RecordingDetail: React.FC = () => {
                 <CardTitle className="text-lg">Processing Note</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-amber-700 bg-amber-50 p-3 text-xs rounded-lg">
-                  {detailedIntelligence.confidence_note}
-                </p>
+                { 
+                  dataSource === 'api' ? (
+                    <p className="text-amber-700 bg-amber-50 p-3 text-xs rounded-lg">
+                      {dataAPI?.intelligence?.notes || '-'}
+                    </p>
+                  ) : (
+                    <TextSkeleton lines={2} />
+                  )
+                }
               </CardContent>
             </Card>
           )}
@@ -346,10 +620,20 @@ const RecordingDetail: React.FC = () => {
                         <div className="flex justify-between items-center">
                           <CardTitle className="text-lg">Transcript</CardTitle>
                         </div>
-                        <CardDescription>
-                          Duration: {Math.floor(sampleTranscriptData.duration_seconds / 60)}m {Math.floor(sampleTranscriptData.duration_seconds % 60)}s
-                          {sampleTranscriptData.segments && ` • ${sampleTranscriptData.segments.length} segments`}
-                        </CardDescription>
+                        <div>
+                          {
+                            dataSource === 'api' ? (
+                              <CardDescription>
+                                Duration: {Math.floor((dataAPI?.transcript?.duration_seconds || 0) / 60)}m {Math.floor((dataAPI?.transcript?.duration_seconds || 0) % 60)}s
+                                {dataAPI?.transcript?.segments && ` • ${dataAPI?.transcript?.segments.length} segments`}
+                              </CardDescription>
+                            ) : (
+                              <span className='flex items-center space-x-2'>
+                                <SkeletonBar width="120px" height="12px" /> <span>•</span> <SkeletonBar width="90px" height="12px" />
+                              </span>
+                            )
+                          }
+                        </div>
                       </CardHeader>
                       <CardContent>
                         {/* Transcript View Toggle */}
@@ -382,14 +666,15 @@ const RecordingDetail: React.FC = () => {
                                   value={searchQuery}
                                   onChange={(e) => setSearchQuery(e.target.value)}
                                   className="w-full"
+                                  disabled={dataSource !== 'api'}
                                 />
                               </div>
                               <div className="min-w-[150px]">
                                 <select
                                   value={selectedTimeRange}
                                   onChange={(e) => setSelectedTimeRange(e.target.value)}
-                                  className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  disabled={currentAudioTime > 0 || isFreeTrial}
+                                  className="w-full p-2 border text-sm border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  disabled={currentAudioTime > 0 || isFreeTrial || dataSource !== 'api'}
                                 >
                                   {(isFreeTrial ? freeTrialTimeRangeOptions : timeRangeOptions).map((option) => (
                                     <option key={option.value} value={option.value}>
@@ -412,14 +697,14 @@ const RecordingDetail: React.FC = () => {
                                   <Badge variant="default" className="bg-blue-100 text-blue-800">
                                     {isAudioPlaying ? '' : 'PAUSED |'} Audio Filter: {Math.floor(Math.floor(currentAudioTime / 300) * 300 / 60)}:00 - {Math.floor((Math.floor(currentAudioTime / 300) * 300 + 300) / 60)}:00
                                   </Badge>
-                                  <span className="text-blue-600">({filteredSegments.length} segments)</span>
+                                  <span className="text-blue-600">({filteredSegments?.length || 0} segments)</span>
                                 </div>
                               </div>
                             )}
                             
                             {(searchQuery || (selectedTimeRange !== 'all' && currentAudioTime === 0)) && (
                               <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <span>Showing {filteredSegments.length} of {sampleTranscriptData.segments?.length || 0} segments</span>
+                                <span>Showing {filteredSegments?.length || 0} of {dataAPI.transcript?.segments?.length || 0} segments</span>
                                 <Button
                                   size="sm"
                                   variant="ghost"
@@ -445,6 +730,7 @@ const RecordingDetail: React.FC = () => {
                                   value={fullTranscriptSearchQuery}
                                   onChange={(e) => setFullTranscriptSearchQuery(e.target.value)}
                                   className="w-full"
+                                  disabled={dataSource !== 'api'}
                                 />
                               </div>
                             </div>
@@ -465,81 +751,101 @@ const RecordingDetail: React.FC = () => {
 
                         {transcriptView === 'full' ? (
                           <div className="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
-                            <p className="text-gray-700 whitespace-pre-wrap">
-                              {sampleTranscriptData.full_transcription ? (
-                                renderHighlightedText(sampleTranscriptData.full_transcription, fullTranscriptSearchQuery)
-                              ) : (
-                                'Transcript not available yet. Processing may still be in progress.'
-                              )}
-                            </p>
+                            {dataSource === 'api' ? (
+                              <p className="text-gray-700 whitespace-pre-wrap">
+                                {dataAPI.transcript?.full_transcription ? (
+                                  renderHighlightedText(dataAPI.transcript.full_transcription, fullTranscriptSearchQuery)
+                                ) : (
+                                  'Transcript not available yet. Processing may still be in progress.'
+                                )}
+                              </p>
+                            ) : (
+                              <TextSkeleton lines={12} />
+                            )}
                           </div>
                         ) : (
                           <div className="space-y-3 max-h-96 overflow-y-auto">
-                            {filteredSegments.length > 0 ? filteredSegments.map((segment, index) => {
-                              const isCurrentlyActive = currentActiveSegment?.start === segment.start && currentActiveSegment?.end === segment.end;
-                              return (
-                                <div 
-                                  key={index} 
-                                  className={`flex gap-4 p-3 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer ${
-                                    isCurrentlyActive 
-                                      ? 'bg-blue-50 border-l-4 border-l-blue-500 shadow-md' 
-                                      : 'bg-gray-50'
-                                  }`}
-                                >
-                                  <div className="flex-shrink-0 text-left min-w-[45px]">
-                                    <div className={`text-xs font-mono mb-1 ${
-                                      isCurrentlyActive ? 'text-blue-600 font-bold' : 'text-gray-500'
-                                    }`}>
-                                      {/* {formatSegmentTime(segment.start)} - {formatSegmentTime(segment.end)} */}
-                                      {formatSegmentTime(segment.start)}
+                            {
+                              dataSource === 'api' ? (
+                                (
+                                  (filteredSegments?.length || 0) > 0 ? filteredSegments.map((segment, index) => {
+                                    const segmentStart = segment.start_sec ?? segment.start ?? 0;
+                                    const segmentEnd = segment.end_sec ?? segment.end ?? 0;
+                                    const activeStart = currentActiveSegment?.start_sec ?? currentActiveSegment?.start ?? 0;
+                                    const activeEnd = currentActiveSegment?.end_sec ?? currentActiveSegment?.end ?? 0;
+                                    const isCurrentlyActive = activeStart === segmentStart && activeEnd === segmentEnd;
+                                    return (
+                                      <div 
+                                        key={index} 
+                                        className={`flex gap-4 p-3 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer ${
+                                          isCurrentlyActive 
+                                            ? 'bg-blue-50 border-l-4 border-l-blue-500 shadow-md' 
+                                            : 'bg-gray-50'
+                                        }`}
+                                      >
+                                        <div className="flex-shrink-0 text-left min-w-[45px]">
+                                          <div className={`text-xs font-mono mb-1 ${
+                                            isCurrentlyActive ? 'text-blue-600 font-bold' : 'text-gray-500'
+                                          }`}>
+                                            {/* {formatSegmentTime(segment.start)} - {formatSegmentTime(segment.end)} */}
+                                            {formatSegmentTime(segment.start_sec ?? segment.start ?? 0)}
+                                          </div>
+                                          {/* {isCurrentlyActive && (
+                                            <Badge variant="default" className="text-xs bg-blue-100 text-blue-800">
+                                              Active
+                                            </Badge>
+                                          )} */}
+                                        </div>
+                                        <div className="flex-1">
+                                          <p className={`text-sm ${
+                                            isCurrentlyActive ? 'text-blue-900 font-medium' : 'text-gray-900'
+                                          }`}>
+                                            {searchQuery ? (
+                                              segment.text.split(new RegExp(`(${searchQuery})`, 'gi')).map((part, i) =>
+                                                part.toLowerCase() === searchQuery.toLowerCase() ? (
+                                                  <mark key={i} className="bg-yellow-200 px-1 rounded">
+                                                    {part}
+                                                  </mark>
+                                                ) : (
+                                                  part
+                                                )
+                                              )
+                                            ) : (
+                                              segment.text
+                                            )}
+                                          </p>
+                                          <div className="flex items-center gap-2 mt-2">
+                                            <span className={`text-xs ${
+                                              isCurrentlyActive ? 'text-blue-600' : 'text-gray-500'
+                                            }`}>
+                                              Duration: {Math.round((segmentEnd - segmentStart) * 10) / 10}s
+                                            </span>
+                                            {/* {isCurrentlyActive && (
+                                              <span className="text-xs text-blue-600">
+                                                Currently playing
+                                              </span>
+                                            )} */}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  }) : (
+                                    <div className="bg-gray-50 p-4 rounded-lg text-center text-xs text-gray-500">
+                                      {searchQuery || selectedTimeRange !== 'all' 
+                                        ? 'No segments match your search criteria' 
+                                        : 'No segments available'
+                                      }
                                     </div>
-                                    {/* {isCurrentlyActive && (
-                                      <Badge variant="default" className="text-xs bg-blue-100 text-blue-800">
-                                        Active
-                                      </Badge>
-                                    )} */}
-                                  </div>
-                                  <div className="flex-1">
-                                    <p className={`text-sm ${
-                                      isCurrentlyActive ? 'text-blue-900 font-medium' : 'text-gray-900'
-                                    }`}>
-                                      {searchQuery ? (
-                                        segment.text.split(new RegExp(`(${searchQuery})`, 'gi')).map((part, i) =>
-                                          part.toLowerCase() === searchQuery.toLowerCase() ? (
-                                            <mark key={i} className="bg-yellow-200 px-1 rounded">
-                                              {part}
-                                            </mark>
-                                          ) : (
-                                            part
-                                          )
-                                        )
-                                      ) : (
-                                        segment.text
-                                      )}
-                                    </p>
-                                    <div className="flex items-center gap-2 mt-2">
-                                      <span className={`text-xs ${
-                                        isCurrentlyActive ? 'text-blue-600' : 'text-gray-500'
-                                      }`}>
-                                        Duration: {Math.round((segment.end - segment.start) * 10) / 10}s
-                                      </span>
-                                      {/* {isCurrentlyActive && (
-                                        <span className="text-xs text-blue-600">
-                                          Currently playing
-                                        </span>
-                                      )} */}
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            }) : (
-                              <div className="bg-gray-50 p-4 rounded-lg text-center text-xs text-gray-500">
-                                {searchQuery || selectedTimeRange !== 'all' 
-                                  ? 'No segments match your search criteria' 
-                                  : 'No segments available'
-                                }
-                              </div>
-                            )}
+                                  )
+                                )
+                              ) : (
+                                // Show skeleton loading for sample data
+                                Array.from({ length: 8 }).map((_, index) => (
+                                    <ListItemSkeleton key={index} />
+                                  )
+                                )
+                              )
+                            }
                           </div>
                         )}
 
@@ -593,6 +899,7 @@ const RecordingDetail: React.FC = () => {
                                   value={actionItemsSearch}
                                   onChange={(e) => setActionItemsSearch(e.target.value)}
                                   className="w-full"
+                                  disabled={dataSource !== 'api'}
                                 />
                               </div>
                             </div>
@@ -604,14 +911,14 @@ const RecordingDetail: React.FC = () => {
                                   <Badge variant="default" className="bg-blue-100 text-blue-800">
                                     {isAudioPlaying ? '' : 'PAUSED |'} Audio Filter: {Math.floor(Math.floor(currentAudioTime / 300) * 300 / 60)}:00 - {Math.floor((Math.floor(currentAudioTime / 300) * 300 + 300) / 60)}:00
                                   </Badge>
-                                  <span className="text-blue-600">({filteredActionItems.length} items)</span>
+                                  <span className="text-blue-600">({filteredActionItems?.length || 0} items)</span>
                                 </div>
                               </div>
                             )}
                             
                             {actionItemsSearch && currentAudioTime === 0 && (
                               <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <span>Showing {filteredActionItems.length} of {detailedIntelligence?.action_items.length || 0} action items</span>
+                                <span>Showing {filteredActionItems?.length || 0} of {detailedIntelligence?.action_items?.length || 0} action items</span>
                                 <Button
                                   size="sm"
                                   variant="ghost"
@@ -625,24 +932,36 @@ const RecordingDetail: React.FC = () => {
                             <div className="space-y-3">
                               <div className="flex items-center gap-3 mb-4">
                                 <h3 className="text-lg font-semibold text-gray-900">Action Items</h3>
-                                <Badge variant="outline">{filteredActionItems.length}</Badge>
-                                {filteredActionItems.length !== (detailedIntelligence?.action_items.length || 0) && (
+                                {
+                                  dataSource === 'api' ? (
+                                    <Badge variant="outline">{filteredActionItems?.length || 0}</Badge>
+                                  ) : (
+                                    <SkeletonBar width="30px" height="12px" />
+                                  )
+                                }
+                                {(filteredActionItems?.length || 0) !== (detailedIntelligence?.action_items?.length || 0) && (
                                   <Badge variant="secondary" className="text-xs">
-                                    of {detailedIntelligence?.action_items.length || 0} total
+                                    of {detailedIntelligence?.action_items?.length || 0} total
                                   </Badge>
                                 )}
                               </div>
-                              {filteredActionItems.length ? (
+                              {(filteredActionItems?.length || 0) > 0 ? (
                                 <div className="space-y-3 max-h-96 overflow-y-auto">
-                                  {filteredActionItems.map((item, index) => {
-                                    const isCurrentlyActive = currentActiveItems.actionItems.some(activeItem => 
-                                      activeItem.timestamp_start === item.timestamp_start && 
-                                      activeItem.timestamp_end === item.timestamp_end
-                                    );
-                                    return (
-                                      <Card key={index} className={`border-l-4 ${
-                                        isCurrentlyActive 
-                                          ? 'border-l-blue-500 bg-blue-50 shadow-md' 
+                                  {dataSource === 'sample' ? (
+                                    // Show skeleton loading for sample data
+                                    Array.from({ length: 5 }).map((_, index) => (
+                                      <IntelligenceItemSkeleton key={index} />
+                                    ))
+                                  ) : (
+                                    filteredActionItems.map((item, index) => {
+                                      const isCurrentlyActive = currentActiveItems.actionItems.some(activeItem => 
+                                        activeItem.timestamp_start === item.timestamp_start && 
+                                        activeItem.timestamp_end === item.timestamp_end
+                                      );
+                                      return (
+                                        <Card key={index} className={`border-l-4 ${
+                                          isCurrentlyActive 
+                                            ? 'border-l-blue-500 bg-blue-50 shadow-md' 
                                           : 'border-l-blue-500'
                                       }`}>
                                         <CardContent className="p-4">
@@ -709,7 +1028,8 @@ const RecordingDetail: React.FC = () => {
                                         </CardContent>
                                       </Card>
                                     );
-                                  })}
+                                  })
+                                )}
                                 </div>
                               ) : (
                                 <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
@@ -752,6 +1072,7 @@ const RecordingDetail: React.FC = () => {
                                   value={decisionsSearch}
                                   onChange={(e) => setDecisionsSearch(e.target.value)}
                                   className="w-full"
+                                  disabled={dataSource !== 'api'}
                                 />
                               </div>
                             </div>
@@ -763,14 +1084,14 @@ const RecordingDetail: React.FC = () => {
                                   <Badge variant="default" className="bg-green-100 text-green-800">
                                     {isAudioPlaying ? '' : 'PAUSED |'} Audio Filter: {Math.floor(Math.floor(currentAudioTime / 300) * 300 / 60)}:00 - {Math.floor((Math.floor(currentAudioTime / 300) * 300 + 300) / 60)}:00
                                   </Badge>
-                                  <span className="text-green-600">({filteredDecisions.length} items)</span>
+                                  <span className="text-green-600">({filteredDecisions?.length || 0} items)</span>
                                 </div>
                               </div>
                             )}
                             
                             {decisionsSearch && currentAudioTime === 0 && (
                               <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <span>Showing {filteredDecisions.length} of {detailedIntelligence?.decisions.length || 0} decisions</span>
+                                <span>Showing {filteredDecisions?.length || 0} of {detailedIntelligence?.decisions?.length || 0} decisions</span>
                                 <Button
                                   size="sm"
                                   variant="ghost"
@@ -784,28 +1105,40 @@ const RecordingDetail: React.FC = () => {
                             <div className="space-y-3">
                               <div className="flex items-center gap-3 mb-4">
                                 <h3 className="text-lg font-semibold text-gray-900">Decisions</h3>
-                                <Badge variant="outline">{filteredDecisions.length}</Badge>
-                                {filteredDecisions.length !== (detailedIntelligence?.decisions.length || 0) && (
+                                {
+                                  dataSource === 'api' ? (
+                                    <Badge variant="outline">{filteredDecisions?.length || 0}</Badge>
+                                  ) : (
+                                    <SkeletonBar width="30px" height="12px" />
+                                  )
+                                }
+                                {(filteredDecisions?.length || 0) !== (detailedIntelligence?.decisions?.length || 0) && (
                                   <Badge variant="secondary" className="text-xs">
                                     of {detailedIntelligence?.decisions.length || 0} total
                                   </Badge>
                                 )}
                               </div>
-                              {filteredDecisions.length ? (
+                              {(filteredDecisions?.length || 0) > 0 ? (
                                 <div className="space-y-3 max-h-96 overflow-y-auto">
-                                  {filteredDecisions.map((decision, index) => {
-                                    const isCurrentlyActive = currentActiveItems.decisions.some(activeDecision => 
-                                      activeDecision.timestamp_start === decision.timestamp_start && 
-                                      activeDecision.timestamp_end === decision.timestamp_end
-                                    );
-                                    return (
-                                      <Card key={index} className={`border-l-4 ${
-                                        isCurrentlyActive 
-                                          ? 'border-l-green-500 bg-green-50 shadow-md' 
-                                          : 'border-l-green-500'
-                                      }`}>
-                                        <CardContent className="p-4">
-                                          <div className="flex items-start justify-between mb-2">
+                                  {dataSource === 'sample' ? (
+                                    // Show skeleton loading for sample data
+                                    Array.from({ length: 4 }).map((_, index) => (
+                                      <IntelligenceItemSkeleton key={index} />
+                                    ))
+                                  ) : (
+                                    filteredDecisions.map((decision, index) => {
+                                      const isCurrentlyActive = currentActiveItems.decisions.some(activeDecision => 
+                                        activeDecision.timestamp_start === decision.timestamp_start && 
+                                        activeDecision.timestamp_end === decision.timestamp_end
+                                      );
+                                      return (
+                                        <Card key={index} className={`border-l-4 ${
+                                          isCurrentlyActive 
+                                            ? 'border-l-green-500 bg-green-50 shadow-md' 
+                                            : 'border-l-green-500'
+                                        }`}>
+                                          <CardContent className="p-4">
+                                            <div className="flex items-start justify-between mb-2">
                                             <div className="flex items-center gap-2">
                                               <Badge variant={getSeverityVariant(decision.confidence)} className="text-xs">
                                                 {decision.confidence}
@@ -852,7 +1185,8 @@ const RecordingDetail: React.FC = () => {
                                         </CardContent>
                                       </Card>
                                     );
-                                  })}
+                                  })
+                                )}
                                 </div>
                               ) : (
                                 <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
@@ -895,6 +1229,7 @@ const RecordingDetail: React.FC = () => {
                                   value={issuesSearch}
                                   onChange={(e) => setIssuesSearch(e.target.value)}
                                   className="w-full"
+                                  disabled={dataSource !== 'api'}
                                 />
                               </div>
                             </div>
@@ -906,14 +1241,14 @@ const RecordingDetail: React.FC = () => {
                                   <Badge variant="default" className="bg-red-100 text-red-800">
                                     {isAudioPlaying ? '' : 'PAUSED |'} Audio Filter: {Math.floor(Math.floor(currentAudioTime / 300) * 300 / 60)}:00 - {Math.floor((Math.floor(currentAudioTime / 300) * 300 + 300) / 60)}:00
                                   </Badge>
-                                  <span className="text-red-600">({filteredIssues.length} items)</span>
+                                  <span className="text-red-600">({filteredIssues?.length || 0} items)</span>
                                 </div>
                               </div>
                             )}
                             
                             {issuesSearch && currentAudioTime === 0 && (
                               <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <span>Showing {filteredIssues.length} of {detailedIntelligence?.issues.length || 0} issues</span>
+                                <span>Showing {filteredIssues?.length || 0} of {detailedIntelligence?.issues?.length || 0} issues</span>
                                 <Button
                                   size="sm"
                                   variant="ghost"
@@ -927,28 +1262,40 @@ const RecordingDetail: React.FC = () => {
                             <div className="space-y-3">
                               <div className="flex items-center gap-3 mb-4">
                                 <h3 className="text-lg font-semibold text-gray-900">Issues</h3>
-                                <Badge variant="outline">{filteredIssues.length}</Badge>
-                                {filteredIssues.length !== (detailedIntelligence?.issues.length || 0) && (
+                                {
+                                  dataSource === 'api' ? (
+                                    <Badge variant="outline">{filteredIssues?.length || 0}</Badge>
+                                  ) : (
+                                    <SkeletonBar width="30px" height="12px" />
+                                  )
+                                }
+                                {(filteredIssues?.length || 0) !== (detailedIntelligence?.issues?.length || 0) && (
                                   <Badge variant="secondary" className="text-xs">
                                     of {detailedIntelligence?.issues.length || 0} total
                                   </Badge>
                                 )}
                               </div>
-                              {filteredIssues.length ? (
+                              {(filteredIssues?.length || 0) > 0 ? (
                                 <div className="space-y-3 max-h-96 overflow-y-auto">
-                                  {filteredIssues.map((issue, index) => {
-                                    const isCurrentlyActive = currentActiveItems.issues.some(activeIssue => 
-                                      activeIssue.timestamp_start === issue.timestamp_start && 
-                                      activeIssue.timestamp_end === issue.timestamp_end
-                                    );
-                                    return (
-                                      <Card key={index} className={`border-l-4 ${
-                                        isCurrentlyActive 
-                                          ? 'border-l-red-500 bg-red-50 shadow-md' 
-                                          : 'border-l-red-500'
-                                      }`}>
-                                        <CardContent className="p-4">
-                                          <div className="flex items-start justify-between mb-2">
+                                  {dataSource === 'sample' ? (
+                                    // Show skeleton loading for sample data
+                                    Array.from({ length: 3 }).map((_, index) => (
+                                      <IntelligenceItemSkeleton key={index} />
+                                    ))
+                                  ) : (
+                                    filteredIssues.map((issue, index) => {
+                                      const isCurrentlyActive = currentActiveItems.issues.some(activeIssue => 
+                                        activeIssue.timestamp_start === issue.timestamp_start && 
+                                        activeIssue.timestamp_end === issue.timestamp_end
+                                      );
+                                      return (
+                                        <Card key={index} className={`border-l-4 ${
+                                          isCurrentlyActive 
+                                            ? 'border-l-red-500 bg-red-50 shadow-md' 
+                                            : 'border-l-red-500'
+                                        }`}>
+                                          <CardContent className="p-4">
+                                            <div className="flex items-start justify-between mb-2">
                                             {isCurrentlyActive && (
                                               <Badge variant="default" className="text-xs bg-red-100 text-red-800">
                                                 Active
@@ -981,7 +1328,8 @@ const RecordingDetail: React.FC = () => {
                                         </CardContent>
                                       </Card>
                                     );
-                                  })}
+                                  })
+                                )}
                                 </div>
                               ) : (
                                 <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
@@ -1024,6 +1372,7 @@ const RecordingDetail: React.FC = () => {
                                   value={questionsSearch}
                                   onChange={(e) => setQuestionsSearch(e.target.value)}
                                   className="w-full"
+                                  disabled={dataSource !== 'api'}
                                 />
                               </div>
                             </div>
@@ -1035,14 +1384,14 @@ const RecordingDetail: React.FC = () => {
                                   <Badge variant="default" className="bg-yellow-100 text-yellow-800">
                                     {isAudioPlaying ? '' : 'PAUSED |'} Audio Filter: {Math.floor(Math.floor(currentAudioTime / 300) * 300 / 60)}:00 - {Math.floor((Math.floor(currentAudioTime / 300) * 300 + 300) / 60)}:00
                                   </Badge>
-                                  <span className="text-yellow-600">({filteredQuestions.length} items)</span>
+                                  <span className="text-yellow-600">({filteredQuestions?.length || 0} items)</span>
                                 </div>
                               </div>
                             )}
                             
                             {questionsSearch && currentAudioTime === 0 && (
                               <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <span>Showing {filteredQuestions.length} of {detailedIntelligence?.questions.length || 0} questions</span>
+                                <span>Showing {filteredQuestions?.length || 0} of {detailedIntelligence?.questions?.length || 0} questions</span>
                                 <Button
                                   size="sm"
                                   variant="ghost"
@@ -1056,27 +1405,39 @@ const RecordingDetail: React.FC = () => {
                             <div className="space-y-3">
                               <div className="flex items-center gap-3 mb-4">
                                 <h3 className="text-lg font-semibold text-gray-900">Questions</h3>
-                                <Badge variant="outline">{filteredQuestions.length}</Badge>
-                                {filteredQuestions.length !== (detailedIntelligence?.questions.length || 0) && (
+                                {
+                                  dataSource === 'api' ? (
+                                    <Badge variant="outline">{filteredQuestions?.length || 0}</Badge>
+                                  ) : (
+                                    <SkeletonBar width="30px" height="12px" />
+                                  )
+                                }
+                                {(filteredQuestions?.length || 0) !== (detailedIntelligence?.questions?.length || 0) && (
                                   <Badge variant="secondary" className="text-xs">
                                     of {detailedIntelligence?.questions.length || 0} total
                                   </Badge>
                                 )}
                               </div>
-                              {filteredQuestions.length ? (
+                              {(filteredQuestions?.length || 0) > 0 ? (
                                 <div className="space-y-3 max-h-96 overflow-y-auto">
-                                  {filteredQuestions.map((question, index) => {
-                                    const isCurrentlyActive = currentActiveItems.questions.some(activeQuestion => 
-                                      activeQuestion.timestamp_start === question.timestamp_start && 
-                                      activeQuestion.timestamp_end === question.timestamp_end
-                                    );
-                                    return (
-                                      <Card key={index} className={`border-l-4 ${
-                                        isCurrentlyActive 
-                                          ? 'border-l-yellow-500 bg-yellow-50 shadow-md' 
-                                          : 'border-l-yellow-500'
-                                      }`}>
-                                        <CardContent className="p-4">
+                                  {dataSource === 'sample' ? (
+                                    // Show skeleton loading for sample data
+                                    Array.from({ length: 3 }).map((_, index) => (
+                                      <IntelligenceItemSkeleton key={index} />
+                                    ))
+                                  ) : (
+                                    filteredQuestions.map((question, index) => {
+                                      const isCurrentlyActive = currentActiveItems.questions.some(activeQuestion => 
+                                        activeQuestion.timestamp_start === question.timestamp_start && 
+                                        activeQuestion.timestamp_end === question.timestamp_end
+                                      );
+                                      return (
+                                        <Card key={index} className={`border-l-4 ${
+                                          isCurrentlyActive 
+                                            ? 'border-l-yellow-500 bg-yellow-50 shadow-md' 
+                                            : 'border-l-yellow-500'
+                                        }`}>
+                                          <CardContent className="p-4">
                                           <div className="flex items-start justify-between mb-2">
                                             {isCurrentlyActive && (
                                               <Badge variant="default" className="text-xs bg-yellow-100 text-yellow-800">
@@ -1110,7 +1471,8 @@ const RecordingDetail: React.FC = () => {
                                         </CardContent>
                                       </Card>
                                     );
-                                  })}
+                                  })
+                                )}
                                 </div>
                               ) : (
                                 <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
@@ -1221,23 +1583,37 @@ const RecordingDetail: React.FC = () => {
                   </div>
                   <div className="mb-6">
                     <CardTitle className="text-lg mb-4">Executive Summary</CardTitle>
-                    <p className="text-gray-700 mb-4">
-                      {detailedIntelligence?.executive_summary || 'No summary available.'}
-                    </p>
+                    {dataSource === 'api' ? (
+                      <p className="text-gray-700 mb-4">
+                        {dataAPI?.intelligence?.summary || 'No summary available.'}
+                      </p>
+                    ) : (
+                      <TextSkeleton lines={3} />
+                    )}
                   </div>
                   <div className="mb-6">
                     <CardTitle className="text-lg mb-4">Key Topics</CardTitle>
-                    <div className="flex flex-wrap gap-2">
-                      {(detailedIntelligence?.key_topics || []).map((topic: string, index: number) => (
-                        <Badge key={index} variant="secondary">{topic}</Badge>
-                      ))}
-                    </div>
+                    {dataSource === 'api' ? (
+                      <div className="flex flex-wrap gap-2">
+                        {(dataAPI?.intelligence?.topics || []).map((topic: string, index: number) => (
+                          <Badge key={index} variant="secondary">{topic}</Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <BadgesSkeleton count={4} />
+                    )}
                   </div>
                   <div className="mb-6">
                     <CardTitle className="text-lg mb-2">Notes</CardTitle>
-                    <p className="text-amber-700 bg-amber-50 p-3 text-xs rounded-lg">
-                      {detailedIntelligence?.confidence_note}
-                    </p>
+                    {dataSource === 'api' ? (
+                      <p className="text-amber-700 bg-amber-50 p-3 text-xs rounded-lg">
+                        {dataAPI?.intelligence?.notes || 'No additional notes available.'}
+                      </p>
+                    ) : (
+                      <div className="bg-amber-50 p-3 rounded-lg">
+                        <TextSkeleton lines={2} />
+                      </div>
+                    )}
                   </div>
                   <div className="mb-6">
                     <div className="flex items-center justify-between mb-4">
@@ -1274,7 +1650,9 @@ const RecordingDetail: React.FC = () => {
                                     size="sm" 
                                     variant="outline" 
                                     className="text-xs"
-                                    disabled={isFreeTrial}
+                                    disabled={
+                                      dataSource === 'api' ? isFreeTrial : true
+                                    }
                                     onClick={() => exportTranscriptData('full-segments', format.toLowerCase() as 'pdf' | 'json' | 'csv' | 'txt')}
                                   >
                                     {format}
@@ -1320,7 +1698,7 @@ const RecordingDetail: React.FC = () => {
                                         size="sm" 
                                         variant="outline" 
                                         className="text-xs"
-                                        disabled={isFreeTrial}
+                                        disabled={dataSource === 'api' ? isFreeTrial : true}
                                         onClick={() => exportTranscriptData('full-only', format.toLowerCase() as 'pdf' | 'json' | 'txt')}
                                       >
                                         {format}
@@ -1346,7 +1724,7 @@ const RecordingDetail: React.FC = () => {
                                         size="sm" 
                                         variant="outline" 
                                         className="text-xs"
-                                        disabled={isFreeTrial}
+                                        disabled={dataSource === 'api' ? isFreeTrial : true}
                                         onClick={() => exportTranscriptData('segments-only', format.toLowerCase() as 'pdf' | 'json' | 'txt' | 'csv')}
                                       >
                                         {format}
@@ -1380,7 +1758,7 @@ const RecordingDetail: React.FC = () => {
                                     size="sm" 
                                     variant="outline" 
                                     className="text-xs"
-                                    disabled={isFreeTrial}
+                                    disabled={dataSource === 'api' ? isFreeTrial : true}
                                     onClick={() => exportIntelligenceData('all', format.toLowerCase() as 'pdf' | 'json' | 'txt' | 'csv')}
                                   >
                                     {format}
@@ -1417,9 +1795,15 @@ const RecordingDetail: React.FC = () => {
                                 <div className="font-medium text-sm">Action Items</div>
                                 <div className="text-xs text-gray-600">Tasks and assignments identified</div>
                               </div>
-                              <Badge variant="outline" className="text-xs">
-                                {detailedIntelligence?.action_items?.length || 0}
-                              </Badge>
+                              {
+                                dataSource === 'api' ? (
+                                  <Badge variant="outline" className="text-xs">
+                                    {detailedIntelligence?.action_items?.length || 0}
+                                  </Badge>
+                                ) : (
+                                  <SkeletonBar width="30px" height="12px" />
+                                )
+                              }
                             </div>
                             <div className="flex gap-2 mt-2">
                               {
@@ -1429,7 +1813,7 @@ const RecordingDetail: React.FC = () => {
                                     size="sm" 
                                     variant="outline" 
                                     className="text-xs"
-                                    disabled={isFreeTrial}
+                                    disabled={dataSource === 'api' ? isFreeTrial : true}
                                     onClick={() => exportIntelligenceData('action-items', format.toLowerCase() as 'pdf' | 'json' | 'txt' | 'csv')}
                                   >
                                     {format}
@@ -1446,9 +1830,15 @@ const RecordingDetail: React.FC = () => {
                                 <div className="font-medium text-sm">Decisions</div>
                                 <div className="text-xs text-gray-600">Key decisions made during discussion</div>
                               </div>
-                              <Badge variant="outline" className="text-xs">
-                                {detailedIntelligence?.decisions?.length || 0}
-                              </Badge>
+                              {
+                                dataSource === 'api' ? (
+                                  <Badge variant="outline" className="text-xs">
+                                    {detailedIntelligence?.decisions?.length || 0}
+                                  </Badge>
+                                ) : (
+                                  <SkeletonBar width="30px" height="12px" />
+                                )
+                              }
                             </div>
                             <div className="flex gap-2 mt-2">
                               {
@@ -1458,7 +1848,7 @@ const RecordingDetail: React.FC = () => {
                                     size="sm" 
                                     variant="outline" 
                                     className="text-xs"
-                                    disabled={isFreeTrial}
+                                    disabled={dataSource === 'api' ? isFreeTrial : true}
                                     onClick={() => exportIntelligenceData('decisions', format.toLowerCase() as 'pdf' | 'json' | 'txt' | 'csv')}
                                   >
                                     {format}
@@ -1475,9 +1865,15 @@ const RecordingDetail: React.FC = () => {
                                 <div className="font-medium text-sm">Issues</div>
                                 <div className="text-xs text-gray-600">Problems and concerns raised</div>
                               </div>
-                              <Badge variant="outline" className="text-xs">
-                                {detailedIntelligence?.issues?.length || 0}
-                              </Badge>
+                              {
+                                dataSource === 'api' ? (
+                                  <Badge variant="outline" className="text-xs">
+                                    {detailedIntelligence?.issues?.length || 0}
+                                  </Badge>
+                                ) : (
+                                  <SkeletonBar width="30px" height="12px" />
+                                )
+                              }
                             </div>
                             <div className="flex gap-2 mt-2">
                               {
@@ -1487,7 +1883,7 @@ const RecordingDetail: React.FC = () => {
                                     size="sm" 
                                     variant="outline" 
                                     className="text-xs"
-                                    disabled={isFreeTrial}
+                                    disabled={dataSource === 'api' ? isFreeTrial : true}
                                     onClick={() => exportIntelligenceData('issues', format.toLowerCase() as 'pdf' | 'json' | 'txt' | 'csv')}
                                   >
                                     {format}
@@ -1504,19 +1900,25 @@ const RecordingDetail: React.FC = () => {
                                 <div className="font-medium text-sm">Questions</div>
                                 <div className="text-xs text-gray-600">Unresolved questions and inquiries</div>
                               </div>
-                              <Badge variant="outline" className="text-xs">
-                                {detailedIntelligence?.questions?.length || 0}
-                              </Badge>
+                              {
+                                dataSource === 'api' ? (
+                                  <Badge variant="outline" className="text-xs">
+                                    {detailedIntelligence?.questions?.length || 0}
+                                  </Badge>
+                                ) : (
+                                  <SkeletonBar width="30px" height="12px" />
+                                )
+                              }
                             </div>
                             <div className="flex gap-2 mt-2">
                               {
-                                questionsButtons.map((format) => (
+                                questionsButtons.map((format) => (  
                                   <Button 
                                     key={format}
                                     size="sm" 
                                     variant="outline" 
                                     className="text-xs"
-                                    disabled={isFreeTrial}
+                                    disabled={dataSource === 'api' ? isFreeTrial : true}
                                     onClick={() => exportIntelligenceData('questions', format.toLowerCase() as 'pdf' | 'json' | 'txt' | 'csv')}
                                   >
                                     {format}

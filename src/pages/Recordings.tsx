@@ -140,14 +140,14 @@ const Recordings: React.FC = () => {
             <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
             </svg>
-            <h1 className="text-3xl font-semibold text-gray-900">Recordings</h1>
+            <h1 className="text-3xl font-semibold text-gray-900 dark:text-white">Recordings</h1>
             {isFreeTrial && (
               <Badge variant="secondary" className="bg-blue-100 text-blue-800">
                 Free Trial ({recordings.length}/{MAX_FREE_TRIAL_RECORDINGS})
               </Badge>
             )}
           </div>
-          <p className="text-gray-600 mt-2">Manage and organize your audio recordings</p>
+          <p className="text-gray-600 dark:text-gray-300 mt-2">Manage and organize your audio recordings</p>
         </div>
         {
           recordings.length > 0 && (
@@ -419,8 +419,8 @@ const Recordings: React.FC = () => {
       ) : (
         <Card>
           <CardContent className="text-center py-12">
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">No recordings yet</h3>
-            <p className="text-gray-600 mb-6">
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No recordings yet</h3>
+            <p className="text-gray-600 dark:text-gray-300 mb-6">
               Upload your first audio or video file to get started with smart transcription and analysis.
             </p>
             <div className="flex flex-col items-center gap-3">
