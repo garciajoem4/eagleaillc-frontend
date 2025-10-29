@@ -1,0 +1,65 @@
+{
+    "recording": {
+        "id": "fc5f8e8a-cb01-4953-8551-396ecba3be1a",
+        "file_name": "harvard.wav",
+        "duration_seconds": 10,
+        "created_at": "2025-10-22T21:21:17.357925+00:00",
+        "completed_at": "2025-10-22T21:21:42.595862+00:00",
+        "processing_time_seconds": 25.237937
+    },
+    "transcript": {
+        "segments": [
+            {
+                "segment_idx": 0,
+                "start_sec": 1.2,
+                "end_sec": 3.7600000000000002,
+                "text": "The stale smell of old beer lingers.",
+                "speaker_label": null
+            },
+            {
+                "segment_idx": 1,
+                "start_sec": 4.32,
+                "end_sec": 6.5600000000000005,
+                "text": "It takes heat to bring out the odor.",
+                "speaker_label": null
+            },
+            {
+                "segment_idx": 2,
+                "start_sec": 6.88,
+                "end_sec": 9.6,
+                "text": "A cold dip restores health and zest.",
+                "speaker_label": null
+            },
+            {
+                "segment_idx": 3,
+                "start_sec": 9.92,
+                "end_sec": 12.16,
+                "text": "A salt pickle tastes fine with ham.",
+                "speaker_label": null
+            },
+            {
+                "segment_idx": 4,
+                "start_sec": 12.48,
+                "end_sec": 14.64,
+                "text": "Tacos al pasteur are my favorite.",
+                "speaker_label": null
+            },
+            {
+                "segment_idx": 5,
+                "start_sec": 14.96,
+                "end_sec": 17.76,
+                "text": "A zestful food is the hot cross bun.",
+                "speaker_label": null
+            }
+        ],
+        "total_segments": 6
+    },
+    "intelligence": {
+        "summary": "",
+        "actions": [],
+        "decisions": [],
+        "issues": [],
+        "questions": [],
+        "topics": []
+    }
+}

@@ -3,7 +3,13 @@ import { useParams } from 'react-router-dom';
 import { useUser } from '@clerk/clerk-react';
 import { DetailedIntelligence } from '../types';
 import { sampleIntelligence } from '../data/sampleIntelligence';
+import { sampleTranscriptData } from '../data/sampleTranscript';
+import { fetchAndStoreApiResults } from '../redux/slices/recordingsSlice';
 import { audioStorageService } from '../services/audioStorageService';
+import { useAppSelector } from '../redux/hooks';
+
+import { ApiResponse } from '../types/api';
+import { WorkflowHelpers } from '../endpoints';
 
 interface TranscriptData {
   full_transcription?: string;
@@ -23,12 +29,183 @@ interface FreeTrialOptions {
   freeTrialTimeLimitSeconds: number;
 }
 
+interface RecordingDetailDependencies {
+  dispatch: any;
+  getToken: () => Promise<string | null>;
+}
+
+const getDataFromAPI = async ({ recordingId, getToken }: { recordingId: string; getToken: () => Promise<string | null> }) => {
+  try {
+    const data = await WorkflowHelpers.fetchResults(recordingId, getToken);
+    
+    if (data) {
+      // Transform the API data to match our Recording interface
+      const apiResults = {
+        recordingId,
+        transcript: data.full_transcription || data.transcript,
+        intelligence: data.intelligence || data.detailed_intelligence || {
+          action_items: data.action_items || [],
+          decisions: data.decisions || [],
+          issues: data.issues || [],
+          questions: data.questions || [],
+          executive_summary: data.executive_summary,
+          key_topics: data.key_topics || []
+        }
+      };
+      
+      return apiResults;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Failed to fetch API results:', error);
+    throw error;
+  }
+}
+
+// Helper function to normalize data structure
+const normalizeTranscriptData = (data: ApiResponse | TranscriptData | null): {
+  recording: { id: string; file_name: string; duration_seconds: number; created_at?: string };
+  transcript: { segments?: Array<{ start_sec?: number; end_sec?: number; start?: number; end?: number; text: string; speaker_label?: string | null; speaker?: string; segment_idx?: number; segments_id?: number }>; full_transcription?: string; total_segments?: number; duration_seconds: number };
+  intelligence?: any;
+} => {
+  // Handle null/undefined data
+  if (!data) {
+    return {
+      recording: {
+        id: `temp-${Date.now()}`,
+        file_name: 'loading.wav',
+        duration_seconds: 0
+      },
+      transcript: {
+        segments: [],
+        full_transcription: '',
+        total_segments: 0,
+        duration_seconds: 0
+      },
+      intelligence: {
+        summary: "",
+        actions: [],
+        decisions: [],
+        issues: [],
+        questions: [],
+        topics: []
+      }
+    };
+  }
+
+  // Check if it's already in API format
+  if ('recording' in data && 'transcript' in data) {
+    return data as ApiResponse;
+  }
+  
+  // Convert legacy format to API format
+  const legacyData = data as TranscriptData;
+  return {
+    recording: {
+      id: `legacy-${Date.now()}`,
+      file_name: legacyData.file_name || 'unknown.wav',
+      duration_seconds: legacyData.duration_seconds || 0,
+      created_at: legacyData.date_uploaded
+    },
+    transcript: {
+      segments: legacyData.segments?.map((segment, index) => ({
+        segment_idx: index,
+        start_sec: segment.start,
+        end_sec: segment.end,
+        text: segment.text,
+        speaker_label: segment.speaker || null
+      })),
+      full_transcription: legacyData.full_transcription,
+      total_segments: legacyData.segments?.length || 0,
+      duration_seconds: legacyData.duration_seconds || 0,
+    },
+    intelligence: {
+      summary: "",
+      actions: [],
+      decisions: [],
+      issues: [],
+      questions: [],
+      topics: []
+    }
+  };
+};
+
 export const useRecordingDetail = (
-  sampleTranscriptData: TranscriptData,
-  freeTrialOptions?: FreeTrialOptions
+  freeTrialOptions?: FreeTrialOptions,
+  dependencies?: RecordingDetailDependencies
 ) => {
-  const { id } = useParams<{ id: string }>();
   const { user } = useUser();
+
+  // Extract dependencies
+  const { dispatch, getToken } = dependencies || {};
+
+  // State for data management
+  const [activeTranscriptData, setActiveTranscriptData] = useState<ApiResponse | TranscriptData | null>(null);
+  const [dataSource, setDataSource] = useState<'redux' | 'api' | 'sample' | 'loading'>('loading');
+  const [isFetchingResults, setIsFetchingResults] = useState(false);
+  const [resultsError, setResultsError] = useState<string | null>(null);
+  const [dataAPI, setDataAPI] = useState<ApiResponse | TranscriptData | null>(null);
+
+  // Normalize the data to consistent format
+  const normalizedData = useMemo(() => {
+    if (!activeTranscriptData) {
+      // Return default structure when transcriptData is null
+      return {
+        recording: {
+          id: `temp-${Date.now()}`,
+          file_name: 'loading.wav',
+          duration_seconds: 0
+        },
+        transcript: {
+          segments: [],
+          full_transcription: '',
+          total_segments: 0
+        },
+        intelligence: {
+          summary: "",
+          actions: [],
+          decisions: [],
+          issues: [],
+          questions: [],
+          topics: []
+        }
+      };
+    }
+    return normalizeTranscriptData(activeTranscriptData);
+  }, [activeTranscriptData]);
+
+  const normalizedDataAPI = useMemo(() => {
+    if (!dataAPI) {
+      // Return default structure when transcriptData is null
+      return {
+        recording: {
+          id: `temp-${Date.now()}`,
+          file_name: 'loading.wav',
+          duration_seconds: 0
+        },
+        transcript: {
+          segments: [],
+          full_transcription: '',
+          total_segments: 0,
+          duration_seconds: 0
+        },
+        intelligence: {
+          summary: "",
+          actions: [],
+          decisions: [],
+          issues: [],
+          questions: [],
+          topics: [],
+          content_type: '',
+          segments_processed: 0,
+          notes: '',
+          processed_at: ''
+        }
+      };
+    }
+    return normalizeTranscriptData(dataAPI);
+  }, [dataAPI]);
 
   // Free trial configuration
   const isFreeTrial = freeTrialOptions?.isFreeTrial || false;
@@ -49,8 +226,21 @@ export const useRecordingDetail = (
 
   // State variables
   const { id: recordingId } = useParams<{ id: string }>();
+  
+  // Redux selector for recording data
+  const reduxRecording = useAppSelector(state => {
+    if (!recordingId || recordingId.startsWith('recording-')) {
+      return null; // Skip Redux lookup for mock/local recordings
+    }
+
+    const recording = state.recordings.recordings.find(r => r.id === recordingId);
+
+    return recording;
+  });
+  
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isLoadingAudio, setIsLoadingAudio] = useState(true);
+  void isLoadingAudio; // Used by setIsLoadingAudio
 
   const [detailedIntelligence, setDetailedIntelligence] = useState<DetailedIntelligence | null>(null);
   const [transcriptView, setTranscriptView] = useState<'full' | 'segments'>('segments');
@@ -95,8 +285,8 @@ export const useRecordingDetail = (
         }
   
         try {
-          console.log('Loading audio from localStorage for recording:', recordingId);
-          console.log('User is free trial:', actualIsFreeTrial);
+          // console.log('Loading audio from localStorage for recording:', recordingId);
+          // console.log('User is free trial:', actualIsFreeTrial);
           
           // Use the new getAudioForUser method to get the appropriate version
           const storedAudio = await audioStorageService.getAudioForUser(recordingId, actualIsFreeTrial);
@@ -105,12 +295,12 @@ export const useRecordingDetail = (
             // Create blob URL from stored audio
             const blobUrl = URL.createObjectURL(storedAudio.blob);
             setAudioUrl(blobUrl);
-            console.log('Successfully loaded audio from localStorage:', {
-              recordingId,
-              isFreeTrial: actualIsFreeTrial,
-              isTrimmed: storedAudio.metadata?.isTrimmed,
-              blobUrl
-            });
+            // console.log('Successfully loaded audio from localStorage:', {
+            //   recordingId,
+            //   isFreeTrial: actualIsFreeTrial,
+            //   isTrimmed: storedAudio.metadata?.isTrimmed,
+            //   blobUrl
+            // });
           } else {
             console.log('No audio found in localStorage, using fallback');
             // Fallback to default audio or show message
@@ -135,12 +325,153 @@ export const useRecordingDetail = (
       };
     }, [recordingId, audioUrl, actualIsFreeTrial]);
 
-  // Load sample intelligence data for demonstration
+  // Load intelligence data - use real data if available, fallback to sample for demonstration
   useEffect(() => {
-    if (sampleTranscriptData) {
+    if (normalizedData) {
+      // Check if we have real intelligence data from API/Redux
+      if (normalizedData.intelligence && 
+          (normalizedData.intelligence.action_items?.length > 0 || 
+          normalizedData.intelligence.decisions?.length > 0 || 
+          normalizedData.intelligence.executive_summary)) {
+        // Use real intelligence data
+        setDetailedIntelligence(normalizedData.intelligence);
+      } else {
+        // Fallback to sample data for demonstration
+        setDetailedIntelligence(sampleIntelligence);
+      }
+    } else if (!activeTranscriptData) {
+      // When activeTranscriptData is null, use sample data temporarily
       setDetailedIntelligence(sampleIntelligence);
     }
-  }, [id, sampleTranscriptData]);
+  }, [recordingId, normalizedData, activeTranscriptData]);
+
+  // Redux data handling useEffect
+  useEffect(() => {
+    if (reduxRecording?.transcript) {
+      // Transform Redux recording to expected ApiResponse format
+      // Check if transcript is already in the correct format or needs transformation
+      let transcriptData;
+      if (typeof reduxRecording.transcript === 'string') {
+        // If transcript is a string, create a basic structure
+        transcriptData = {
+          segments: [],
+          total_segments: 0,
+          full_transcription: reduxRecording.transcript,
+          duration_seconds: 0
+        };
+      } else {
+        // If transcript is already an object, use it as is
+        const transcriptObj = reduxRecording.transcript as any;
+        transcriptData = {
+          segments: transcriptObj.segments || [],
+          total_segments: transcriptObj.segments?.length || 0,
+          full_transcription: transcriptObj.full_transcription || transcriptObj,
+          duration_seconds: transcriptObj.duration_seconds || 0,
+        };
+      }
+
+      const reduxData: ApiResponse = {
+        recording: {
+          id: reduxRecording.id,
+          file_name: reduxRecording.name || 'recording.wav',
+          duration_seconds: (reduxRecording.duration || 0) * 60, // Convert minutes to seconds
+          created_at: reduxRecording.dateUploaded
+        },
+        transcript: transcriptData,
+        intelligence: reduxRecording.intelligence || {
+          summary: "",
+          actions: [],
+          decisions: [],
+          issues: [],
+          questions: [],
+          topics: []
+        }
+      };
+      setActiveTranscriptData(reduxData);
+      setDataSource('redux');
+    }
+  }, [reduxRecording]);
+
+  // API fetching and fallback useEffect
+  useEffect(() => {
+    if (!recordingId || recordingId.startsWith('recording-')) {
+      // Use sample data for mock/local recordings
+      setActiveTranscriptData(sampleTranscriptData);
+      setDataSource('sample');
+      return;
+    }
+
+    if (reduxRecording?.transcript || reduxRecording?.intelligence) {
+      // Data already available in Redux - this is handled by the previous useEffect
+      setIsFetchingResults(false);
+      setResultsError(null);
+    } else if (dispatch && getToken) {
+      // Data not in Redux, attempt to fetch and store it
+      setIsFetchingResults(true);
+      setResultsError(null);
+      
+      const fetchAndStoreResults = async () => {
+        try {
+          const result = await dispatch(fetchAndStoreApiResults({ 
+            recordingId, 
+            getToken
+          })).unwrap();
+
+          
+          setActiveTranscriptData(result);
+          
+          const dataSourceAPI = await getDataFromAPI({recordingId, getToken});
+
+          console.log('Data Source API', dataSourceAPI);
+          const tempDataSource = {
+            recording: {
+              id: recordingId,
+              file_name: dataSourceAPI?.transcript?.file_name || '',
+              duration_seconds: dataSourceAPI?.transcript?.duration_seconds || 0,
+              created_at: new Date().toISOString(),
+            },
+            transcript: {
+              segments: dataSourceAPI?.transcript?.segments || [],
+              full_transcription: dataSourceAPI?.transcript?.full_transcription || '',
+              total_segments: dataSourceAPI?.transcript?.total_segments || 0,
+              duration_seconds: dataSourceAPI?.transcript?.duration_seconds || 0,
+            },
+            intelligence: {
+              summary: dataSourceAPI?.intelligence?.executive_summary || "",
+              actions: dataSourceAPI?.intelligence?.action_items || [],
+              decisions: dataSourceAPI?.intelligence?.decisions || [],
+              issues: dataSourceAPI?.intelligence?.issues || [],
+              questions: dataSourceAPI?.intelligence?.questions || [],
+              topics: dataSourceAPI?.intelligence?.key_topics || [],
+              content_type: dataSourceAPI?.intelligence?.content_type || "",
+              segments_processed: dataSourceAPI?.intelligence?.total_segments_processed || 0,
+              notes: dataSourceAPI?.intelligence?.confidence_note || "",
+              processed_at: dataSourceAPI?.intelligence?.processed_at || ""
+            }
+          };
+
+          setDataAPI(tempDataSource);
+          
+          setDataSource('api');
+        } catch (error: any) {
+          console.error('❌ Failed to fetch recording results:', error);
+          
+          // Fallback to sample data for demonstration
+          setActiveTranscriptData(sampleTranscriptData);
+          setDataSource('sample');
+          
+          // Only show error for non-404 cases (404 is expected for new recordings)
+          if (!error.message?.includes('404')) {
+            setResultsError(`API Error: ${error.message || 'Failed to fetch results'} - Using sample data for demonstration`);
+          }
+        } finally {
+          setIsFetchingResults(false);
+        }
+      };
+
+      fetchAndStoreResults();
+    }
+  }, [recordingId, reduxRecording, dispatch, getToken]);
 
   // Audio event handlers
   useEffect(() => {
@@ -256,7 +587,7 @@ export const useRecordingDetail = (
 
   // Generate time range options based on recording duration
   const timeRangeOptions = useMemo(() => {
-    const totalMinutes = Math.ceil(sampleTranscriptData.duration_seconds / 60);
+    const totalMinutes = Math.ceil(normalizedData.recording.duration_seconds / 60);
     const ranges = [];
 
     // Add "All Time" at the end
@@ -272,7 +603,7 @@ export const useRecordingDetail = (
     }
     
     return ranges;
-  }, [sampleTranscriptData.duration_seconds]);
+  }, [normalizedData.recording.duration_seconds]);
 
   // Generate free trial time range options (only 0-5 minutes)
   const freeTrialTimeRangeOptions = useMemo(() => {
@@ -290,8 +621,8 @@ export const useRecordingDetail = (
   // Check if content exceeds free trial limit
   const hasExceededFreeTrialLimit = useMemo(() => {
     if (!isFreeTrial) return false;
-    return sampleTranscriptData.duration_seconds > freeTrialTimeLimit;
-  }, [isFreeTrial, sampleTranscriptData.duration_seconds, freeTrialTimeLimit]);
+    return normalizedData.recording.duration_seconds > freeTrialTimeLimit;
+  }, [isFreeTrial, normalizedData.recording.duration_seconds, freeTrialTimeLimit]);
 
   // Utility functions for timestamp handling
   const parseTimestampToSeconds = useCallback((timestamp: string): number => {
@@ -313,16 +644,17 @@ export const useRecordingDetail = (
 
   // Filter segments based on search, time range, and audio playback
   const filteredSegments = useMemo(() => {
-    if (!sampleTranscriptData.segments) return [];
+    if (!normalizedDataAPI?.transcript?.segments) return [];
     
-    return sampleTranscriptData.segments.filter(segment => {
+    return normalizedDataAPI.transcript.segments.filter(segment => {
       const matchesSearch = searchQuery === '' || 
         segment.text.toLowerCase().includes(searchQuery.toLowerCase());
       
       let matchesTimeRange = true;
+      const segmentStart = segment.start_sec ?? segment.start ?? 0;
       
       // Free trial restriction: only show segments within the time limit
-      if (isFreeTrial && segment.start >= freeTrialTimeLimit) {
+      if (isFreeTrial && segmentStart >= freeTrialTimeLimit) {
         return false;
       }
       
@@ -337,30 +669,41 @@ export const useRecordingDetail = (
           return false;
         }
         
-        matchesTimeRange = segment.start >= chunkStart && segment.start < chunkEnd;
+        matchesTimeRange = segmentStart >= chunkStart && segmentStart < chunkEnd;
       } else if (selectedTimeRange !== 'all') {
         // Use dropdown time range when audio hasn't been played yet
         const [startMin, endMin] = selectedTimeRange.split('-').map(Number);
-        const segmentStartMin = Math.floor(segment.start / 60);
+        const segmentStartMin = Math.floor(segmentStart / 60);
         matchesTimeRange = segmentStartMin >= startMin && segmentStartMin < endMin;
       }
       
       return matchesSearch && matchesTimeRange;
     });
-  }, [searchQuery, selectedTimeRange, currentAudioTime, sampleTranscriptData.segments, isFreeTrial, freeTrialTimeLimit]);
+  }, [searchQuery, selectedTimeRange, currentAudioTime, normalizedDataAPI?.transcript?.segments, isFreeTrial, freeTrialTimeLimit]);
 
   // Get currently active segment based on audio time
   const currentActiveSegment = useMemo(() => {
-    if (!sampleTranscriptData.segments || !isAudioPlaying) return null;
-    return sampleTranscriptData.segments.find(segment => 
-      currentAudioTime >= segment.start && currentAudioTime <= segment.end
-    );
-  }, [currentAudioTime, isAudioPlaying, sampleTranscriptData.segments]);
+    if (!normalizedDataAPI?.transcript?.segments || !isAudioPlaying) return null;
+    return normalizedDataAPI.transcript.segments.find(segment => {
+      const start = segment.start_sec ?? segment.start ?? 0;
+      const end = segment.end_sec ?? segment.end ?? 0;
+      return currentAudioTime >= start && currentAudioTime <= end;
+    });
+  }, [currentAudioTime, isAudioPlaying, normalizedDataAPI?.transcript?.segments]);
+
+  interface FilteredActionItem {
+    task?: string;
+    confidence?: string;
+    assigned_to?: string;
+    timestamp_start: string;
+    timestamp_end: string;
+    deadline?: string;
+  }
 
   // Filter intelligence data based on search and type with audio synchronization
   const filteredActionItems = useMemo(() => {
-    if (!detailedIntelligence?.action_items) return [];
-    return detailedIntelligence.action_items.filter(item => {
+    if (!normalizedDataAPI?.intelligence?.actions) return [];
+    return normalizedDataAPI.intelligence.actions.filter((item: FilteredActionItem) => {
       const searchText = actionItemsSearch.toLowerCase();
       const matchesSearch = searchText === '' || 
         item.task?.toLowerCase().includes(searchText) ||
@@ -395,11 +738,19 @@ export const useRecordingDetail = (
 
       return matchesSearch;
     });
-  }, [actionItemsSearch, detailedIntelligence, currentAudioTime, parseTimestampToSeconds, isFreeTrial, freeTrialTimeLimit]);
+  }, [actionItemsSearch, normalizedDataAPI?.intelligence?.actions, currentAudioTime, parseTimestampToSeconds, isFreeTrial, freeTrialTimeLimit]);
+
+  interface FilteredDecisionItem {
+    reason?: string;
+    confidence?: string;
+    decision?: string;
+    timestamp_start: string;
+    timestamp_end: string;
+  }
 
   const filteredDecisions = useMemo(() => {
-    if (!detailedIntelligence?.decisions) return [];
-    return detailedIntelligence.decisions.filter(decision => {
+    if (!normalizedDataAPI?.intelligence?.decisions) return [];
+    return normalizedDataAPI.intelligence.decisions.filter((decision: FilteredDecisionItem) => {
       const searchText = decisionsSearch.toLowerCase();
       const matchesSearch = searchText === '' || 
         decision.decision?.toLowerCase().includes(searchText);
@@ -433,11 +784,17 @@ export const useRecordingDetail = (
 
       return matchesSearch;
     });
-  }, [decisionsSearch, detailedIntelligence, currentAudioTime, parseTimestampToSeconds, isFreeTrial, freeTrialTimeLimit]);
+  }, [decisionsSearch, normalizedDataAPI?.intelligence?.decisions, currentAudioTime, parseTimestampToSeconds, isFreeTrial, freeTrialTimeLimit]);
 
+  interface FilteredIssueItem {
+    issue?: string;
+    timestamp_start: string;
+    timestamp_end: string;
+  }
+  
   const filteredIssues = useMemo(() => {
-    if (!detailedIntelligence?.issues) return [];
-    return detailedIntelligence.issues.filter(issue => {
+    if (!normalizedDataAPI?.intelligence?.issues) return [];
+    return normalizedDataAPI.intelligence.issues.filter((issue: FilteredIssueItem) => {
       const searchText = issuesSearch.toLowerCase();
       const matchesSearch = searchText === '' || 
         issue.issue?.toLowerCase().includes(searchText);
@@ -471,11 +828,17 @@ export const useRecordingDetail = (
 
       return matchesSearch;
     });
-  }, [issuesSearch, detailedIntelligence, currentAudioTime, parseTimestampToSeconds, isFreeTrial, freeTrialTimeLimit]);
+  }, [issuesSearch, normalizedDataAPI?.intelligence?.issues, currentAudioTime, parseTimestampToSeconds, isFreeTrial, freeTrialTimeLimit]);
 
+  interface FilteredQuestionItem {
+    question?: string;
+    timestamp_start: string;
+    timestamp_end: string;
+  }
+  
   const filteredQuestions = useMemo(() => {
-    if (!detailedIntelligence?.questions) return [];
-    return detailedIntelligence.questions.filter(question => {
+    if (!normalizedDataAPI?.intelligence?.questions) return [];
+    return normalizedDataAPI?.intelligence?.questions.filter((question: FilteredQuestionItem) => {
       const searchText = questionsSearch.toLowerCase();
       const matchesSearch = searchText === '' || 
         question.question?.toLowerCase().includes(searchText);
@@ -509,7 +872,7 @@ export const useRecordingDetail = (
 
       return matchesSearch;
     });
-  }, [questionsSearch, detailedIntelligence, currentAudioTime, parseTimestampToSeconds, isFreeTrial, freeTrialTimeLimit]);
+  }, [questionsSearch, normalizedDataAPI?.intelligence?.questions, currentAudioTime, parseTimestampToSeconds, isFreeTrial, freeTrialTimeLimit]);
 
   // Get currently active intelligence items based on audio time
   const currentActiveItems = useMemo(() => {
@@ -572,22 +935,22 @@ export const useRecordingDetail = (
       
       if (type === 'full-segments') {
         data = {
-          full_transcription: sampleTranscriptData.full_transcription,
-          segments: sampleTranscriptData.segments,
-          duration_seconds: sampleTranscriptData.duration_seconds,
-          file_name: sampleTranscriptData.file_name
+          full_transcription: normalizedData?.transcript?.full_transcription,
+          segments: normalizedData?.transcript?.segments,
+          duration_seconds: normalizedData?.recording?.duration_seconds,
+          file_name: normalizedData?.recording?.file_name
         };
       } else if (type === 'full-only') {
         data = {
-          full_transcription: sampleTranscriptData.full_transcription,
-          duration_seconds: sampleTranscriptData.duration_seconds,
-          file_name: sampleTranscriptData.file_name
+          full_transcription: normalizedData?.transcript?.full_transcription,
+          duration_seconds: normalizedData?.recording?.duration_seconds,
+          file_name: normalizedData?.recording?.file_name
         };
       } else if (type === 'segments-only') {
         data = {
-          segments: sampleTranscriptData.segments,
-          duration_seconds: sampleTranscriptData.duration_seconds,
-          file_name: sampleTranscriptData.file_name
+          segments: normalizedData?.transcript?.segments,
+          duration_seconds: normalizedData?.recording?.duration_seconds,
+          file_name: normalizedData?.recording?.file_name
         };
       }
       
@@ -597,37 +960,52 @@ export const useRecordingDetail = (
     } else if (format === 'csv') {
       if (type === 'segments-only' || type === 'full-segments') {
         content = 'Start Time,End Time,Speaker,Text\n';
-        sampleTranscriptData.segments?.forEach(segment => {
-          const startTime = formatTimestamp(segment.start);
-          const endTime = formatTimestamp(segment.end);
+        normalizedData?.transcript?.segments?.forEach(segment => {
+          const start = segment.start_sec ?? segment.start ?? 0;
+          const end = segment.end_sec ?? segment.end ?? 0;
+          const startTime = formatTimestamp(start);
+          const endTime = formatTimestamp(end);
           const text = segment.text.replace(/"/g, '""'); // Escape quotes
-          content += `"${startTime}","${endTime}","${segment.speaker || 'Unknown'}","${text}"\n`;
+          const speaker = segment.speaker_label ?? segment.speaker ?? 'Unknown';
+          content += `"${startTime}","${endTime}","${speaker}","${text}"\n`;
         });
       } else {
         content = 'Content\n';
-        content += `"${sampleTranscriptData.full_transcription?.replace(/"/g, '""') || 'No transcript available'}"`;
+        content += `"${normalizedData?.transcript?.full_transcription?.replace(/"/g, '""') || 'No transcript available'}"`;
       }
       fileName += '.csv';
       mimeType = 'text/csv';
     } else if (format === 'txt') {
       if (type === 'full-segments') {
-        content = `Transcript: ${sampleTranscriptData.file_name}\n`;
-        content += `Duration: ${Math.floor(sampleTranscriptData.duration_seconds / 60)}m ${Math.floor(sampleTranscriptData.duration_seconds % 60)}s\n\n`;
+        const fileName = normalizedData?.recording?.file_name || 'transcript';
+        const duration = normalizedData?.recording?.duration_seconds || 0;
+        content = `Transcript: ${fileName}\n`;
+        content += `Duration: ${Math.floor(duration / 60)}m ${Math.floor(duration % 60)}s\n\n`;
         content += '=== FULL TRANSCRIPTION ===\n\n';
-        content += sampleTranscriptData.full_transcription || 'No transcript available';
+        content += normalizedData?.transcript?.full_transcription || 'No transcript available';
         content += '\n\n=== SEGMENTS ===\n\n';
-        sampleTranscriptData.segments?.forEach(segment => {
-          content += `[${formatTimestamp(segment.start)} - ${formatTimestamp(segment.end)}] ${segment.speaker || 'Unknown'}: ${segment.text}\n\n`;
+        normalizedData?.transcript?.segments?.forEach(segment => {
+          const start = segment.start_sec ?? segment.start ?? 0;
+          const end = segment.end_sec ?? segment.end ?? 0;
+          const speaker = segment.speaker_label ?? segment.speaker ?? 'Unknown';
+          content += `[${formatTimestamp(start)} - ${formatTimestamp(end)}] ${speaker}: ${segment.text}\n\n`;
         });
       } else if (type === 'full-only') {
-        content = `Transcript: ${sampleTranscriptData.file_name}\n`;
-        content += `Duration: ${Math.floor(sampleTranscriptData.duration_seconds / 60)}m ${Math.floor(sampleTranscriptData.duration_seconds % 60)}s\n\n`;
-        content += sampleTranscriptData.full_transcription || 'No transcript available';
+        const fileName = normalizedData?.recording?.file_name || 'transcript';
+        const duration = normalizedData?.recording?.duration_seconds || 0;
+        content = `Transcript: ${fileName}\n`;
+        content += `Duration: ${Math.floor(duration / 60)}m ${Math.floor(duration % 60)}s\n\n`;
+        content += normalizedData?.transcript?.full_transcription || 'No transcript available';
       } else if (type === 'segments-only') {
-        content = `Transcript Segments: ${sampleTranscriptData.file_name}\n`;
-        content += `Duration: ${Math.floor(sampleTranscriptData.duration_seconds / 60)}m ${Math.floor(sampleTranscriptData.duration_seconds % 60)}s\n\n`;
-        sampleTranscriptData.segments?.forEach(segment => {
-          content += `[${formatTimestamp(segment.start)} - ${formatTimestamp(segment.end)}] ${segment.speaker || 'Unknown'}: ${segment.text}\n\n`;
+        const fileName = normalizedData?.recording?.file_name || 'transcript';
+        const duration = normalizedData?.recording?.duration_seconds || 0;
+        content = `Transcript Segments: ${fileName}\n`;
+        content += `Duration: ${Math.floor(duration / 60)}m ${Math.floor(duration % 60)}s\n\n`;
+        normalizedData?.transcript?.segments?.forEach(segment => {
+          const start = segment.start_sec ?? segment.start ?? 0;
+          const end = segment.end_sec ?? segment.end ?? 0;
+          const speaker = segment.speaker_label ?? segment.speaker ?? 'Unknown';
+          content += `[${formatTimestamp(start)} - ${formatTimestamp(end)}] ${speaker}: ${segment.text}\n\n`;
         });
       }
       fileName += '.txt';
@@ -648,31 +1026,37 @@ export const useRecordingDetail = (
 </head>
 <body>
   <div class="header">
-    <h1>Transcript: ${sampleTranscriptData.file_name}</h1>
-    <p>Duration: ${Math.floor(sampleTranscriptData.duration_seconds / 60)}m ${Math.floor(sampleTranscriptData.duration_seconds % 60)}s</p>
+    <h1>Transcript: ${normalizedData?.recording?.file_name || 'transcript'}</h1>
+    <p>Duration: ${Math.floor((normalizedData?.recording?.duration_seconds || 0) / 60)}m ${Math.floor((normalizedData?.recording?.duration_seconds || 0) % 60)}s</p>
     <p>Generated: ${new Date().toLocaleDateString()}</p>
   </div>`;
 
       if (type === 'full-segments') {
         htmlContent += '<h2>Full Transcription</h2>';
-        htmlContent += `<p>${sampleTranscriptData.full_transcription || 'No transcript available'}</p>`;
+        htmlContent += `<p>${normalizedData?.transcript?.full_transcription || 'No transcript available'}</p>`;
         htmlContent += '<h2>Segments</h2>';
-        sampleTranscriptData.segments?.forEach(segment => {
+        normalizedData?.transcript?.segments?.forEach(segment => {
+          const start = segment.start_sec ?? segment.start ?? 0;
+          const end = segment.end_sec ?? segment.end ?? 0;
+          const speaker = segment.speaker_label ?? segment.speaker ?? 'Unknown';
           htmlContent += `<div class="segment">
-            <span class="timestamp">[${formatTimestamp(segment.start)} - ${formatTimestamp(segment.end)}]</span>
-            <span class="speaker">${segment.speaker || 'Unknown'}:</span>
+            <span class="timestamp">[${formatTimestamp(start)} - ${formatTimestamp(end)}]</span>
+            <span class="speaker">${speaker}:</span>
             ${segment.text}
           </div>`;
         });
       } else if (type === 'full-only') {
         htmlContent += '<h2>Full Transcription</h2>';
-        htmlContent += `<p>${sampleTranscriptData.full_transcription || 'No transcript available'}</p>`;
+        htmlContent += `<p>${normalizedData?.transcript?.full_transcription || 'No transcript available'}</p>`;
       } else if (type === 'segments-only') {
         htmlContent += '<h2>Segments</h2>';
-        sampleTranscriptData.segments?.forEach(segment => {
+        normalizedData?.transcript?.segments?.forEach(segment => {
+          const start = segment.start_sec ?? segment.start ?? 0;
+          const end = segment.end_sec ?? segment.end ?? 0;
+          const speaker = segment.speaker_label ?? segment.speaker ?? 'Unknown';
           htmlContent += `<div class="segment">
-            <span class="timestamp">[${formatTimestamp(segment.start)} - ${formatTimestamp(segment.end)}]</span>
-            <span class="speaker">${segment.speaker || 'Unknown'}:</span>
+            <span class="timestamp">[${formatTimestamp(start)} - ${formatTimestamp(end)}]</span>
+            <span class="speaker">${speaker}:</span>
             ${segment.text}
           </div>`;
         });
@@ -685,7 +1069,7 @@ export const useRecordingDetail = (
     }
 
     downloadFile(content, fileName, mimeType);
-  }, [downloadFile, formatTimestamp, sampleTranscriptData]);
+  }, [downloadFile, formatTimestamp, normalizedData?.recording?.duration_seconds, normalizedData?.recording?.file_name, normalizedData?.transcript?.full_transcription, normalizedData?.transcript?.segments]);
 
   // Export functions for intelligence analysis
   const exportIntelligenceData = useCallback((type: 'all' | 'action-items' | 'decisions' | 'issues' | 'questions', format: 'pdf' | 'json' | 'csv' | 'txt') => {
@@ -906,7 +1290,7 @@ export const useRecordingDetail = (
       case 'medium': return 'secondary';
       case 'low': return 'outline';
       default: return 'secondary';
-    }
+    } 
   };
 
   const formatDate = (date: Date): string => {
@@ -980,6 +1364,14 @@ export const useRecordingDetail = (
     audioDuration,
     setAudioDuration,
     audioRef,
+
+    // New data management state
+    dataAPI: normalizedDataAPI,
+    reduxRecording,
+    activeTranscriptData: normalizedData,
+    dataSource,
+    isFetchingResults,
+    resultsError,
 
     // Audio visualization state
     audioContext,
