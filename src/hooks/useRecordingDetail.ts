@@ -691,10 +691,19 @@ export const useRecordingDetail = (
     });
   }, [currentAudioTime, isAudioPlaying, normalizedDataAPI?.transcript?.segments]);
 
+  interface FilteredActionItem {
+    task?: string;
+    confidence?: string;
+    assigned_to?: string;
+    timestamp_start: string;
+    timestamp_end: string;
+    deadline?: string;
+  }
+
   // Filter intelligence data based on search and type with audio synchronization
   const filteredActionItems = useMemo(() => {
-    if (!detailedIntelligence?.action_items) return [];
-    return detailedIntelligence.action_items.filter(item => {
+    if (!normalizedDataAPI?.intelligence?.actions) return [];
+    return normalizedDataAPI.intelligence.actions.filter((item: FilteredActionItem) => {
       const searchText = actionItemsSearch.toLowerCase();
       const matchesSearch = searchText === '' || 
         item.task?.toLowerCase().includes(searchText) ||
@@ -729,11 +738,19 @@ export const useRecordingDetail = (
 
       return matchesSearch;
     });
-  }, [actionItemsSearch, detailedIntelligence, currentAudioTime, parseTimestampToSeconds, isFreeTrial, freeTrialTimeLimit]);
+  }, [actionItemsSearch, normalizedDataAPI?.intelligence?.actions, currentAudioTime, parseTimestampToSeconds, isFreeTrial, freeTrialTimeLimit]);
+
+  interface FilteredDecisionItem {
+    reason?: string;
+    confidence?: string;
+    decision?: string;
+    timestamp_start: string;
+    timestamp_end: string;
+  }
 
   const filteredDecisions = useMemo(() => {
-    if (!detailedIntelligence?.decisions) return [];
-    return detailedIntelligence.decisions.filter(decision => {
+    if (!normalizedDataAPI?.intelligence?.decisions) return [];
+    return normalizedDataAPI.intelligence.decisions.filter((decision: FilteredDecisionItem) => {
       const searchText = decisionsSearch.toLowerCase();
       const matchesSearch = searchText === '' || 
         decision.decision?.toLowerCase().includes(searchText);
@@ -767,11 +784,17 @@ export const useRecordingDetail = (
 
       return matchesSearch;
     });
-  }, [decisionsSearch, detailedIntelligence, currentAudioTime, parseTimestampToSeconds, isFreeTrial, freeTrialTimeLimit]);
+  }, [decisionsSearch, normalizedDataAPI?.intelligence?.decisions, currentAudioTime, parseTimestampToSeconds, isFreeTrial, freeTrialTimeLimit]);
 
+  interface FilteredIssueItem {
+    issue?: string;
+    timestamp_start: string;
+    timestamp_end: string;
+  }
+  
   const filteredIssues = useMemo(() => {
-    if (!detailedIntelligence?.issues) return [];
-    return detailedIntelligence.issues.filter(issue => {
+    if (!normalizedDataAPI?.intelligence?.issues) return [];
+    return normalizedDataAPI.intelligence.issues.filter((issue: FilteredIssueItem) => {
       const searchText = issuesSearch.toLowerCase();
       const matchesSearch = searchText === '' || 
         issue.issue?.toLowerCase().includes(searchText);
@@ -805,11 +828,17 @@ export const useRecordingDetail = (
 
       return matchesSearch;
     });
-  }, [issuesSearch, detailedIntelligence, currentAudioTime, parseTimestampToSeconds, isFreeTrial, freeTrialTimeLimit]);
+  }, [issuesSearch, normalizedDataAPI?.intelligence?.issues, currentAudioTime, parseTimestampToSeconds, isFreeTrial, freeTrialTimeLimit]);
 
+  interface FilteredQuestionItem {
+    question?: string;
+    timestamp_start: string;
+    timestamp_end: string;
+  }
+  
   const filteredQuestions = useMemo(() => {
-    if (!detailedIntelligence?.questions) return [];
-    return detailedIntelligence.questions.filter(question => {
+    if (!normalizedDataAPI?.intelligence?.questions) return [];
+    return normalizedDataAPI?.intelligence?.questions.filter((question: FilteredQuestionItem) => {
       const searchText = questionsSearch.toLowerCase();
       const matchesSearch = searchText === '' || 
         question.question?.toLowerCase().includes(searchText);
@@ -843,7 +872,7 @@ export const useRecordingDetail = (
 
       return matchesSearch;
     });
-  }, [questionsSearch, detailedIntelligence, currentAudioTime, parseTimestampToSeconds, isFreeTrial, freeTrialTimeLimit]);
+  }, [questionsSearch, normalizedDataAPI?.intelligence?.questions, currentAudioTime, parseTimestampToSeconds, isFreeTrial, freeTrialTimeLimit]);
 
   // Get currently active intelligence items based on audio time
   const currentActiveItems = useMemo(() => {
