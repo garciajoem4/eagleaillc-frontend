@@ -205,7 +205,7 @@ const RecordingDetail: React.FC = () => {
     // Export functions
     getSeverityVariant,
     formatDate,
-    formatTimestampFromString,
+    formatTimestampFromString,  
     formatSegmentTime,
     renderHighlightedText,
     exportTranscriptData,

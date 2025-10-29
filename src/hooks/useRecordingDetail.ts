@@ -422,7 +422,6 @@ export const useRecordingDetail = (
           
           const dataSourceAPI = await getDataFromAPI({recordingId, getToken});
 
-          console.log('Data Source API', dataSourceAPI);
           const tempDataSource = {
             recording: {
               id: recordingId,
@@ -587,7 +586,8 @@ export const useRecordingDetail = (
 
   // Generate time range options based on recording duration
   const timeRangeOptions = useMemo(() => {
-    const totalMinutes = Math.ceil(normalizedData.recording.duration_seconds / 60);
+
+    const totalMinutes = Math.ceil(normalizedDataAPI.recording.duration_seconds / 60);
     const ranges = [];
 
     // Add "All Time" at the end
@@ -603,7 +603,7 @@ export const useRecordingDetail = (
     }
     
     return ranges;
-  }, [normalizedData.recording.duration_seconds]);
+  }, [normalizedDataAPI.recording.duration_seconds]);
 
   // Generate free trial time range options (only 0-5 minutes)
   const freeTrialTimeRangeOptions = useMemo(() => {
