@@ -25,7 +25,7 @@ if (!clerkPubKey) {
 const AppContent: React.FC = () => {
   const { user, isLoading } = useAuth();
 
-  console.log('Auth state:', { user, isLoading });
+  // console.log('Auth state:', { user, isLoading });
 
   // Show loading spinner while Clerk is initializing
   if (isLoading) {

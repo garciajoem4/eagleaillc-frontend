@@ -511,7 +511,7 @@ const RecordingDetail: React.FC = () => {
                     dataSource === 'api' ? (
                       <>
                         <span className="text-sm text-gray-600">Action Items:</span>
-                        <Badge variant="outline">{dataAPI?.intelligence?.action_items?.length || 0}</Badge>
+                        <Badge variant="outline">{dataAPI?.intelligence?.actions?.length || 0}</Badge>
                       </>
                     ) : (
                       <>
@@ -752,7 +752,7 @@ const RecordingDetail: React.FC = () => {
                         {transcriptView === 'full' ? (
                           <div className="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
                             {dataSource === 'api' ? (
-                              <p className="text-gray-700 whitespace-pre-wrap">
+                              <p className="text-xs text-gray-700 whitespace-pre-wrap">
                                 {dataAPI.transcript?.full_transcription ? (
                                   renderHighlightedText(dataAPI.transcript.full_transcription, fullTranscriptSearchQuery)
                                 ) : (
@@ -918,7 +918,7 @@ const RecordingDetail: React.FC = () => {
                             
                             {actionItemsSearch && currentAudioTime === 0 && (
                               <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <span>Showing {filteredActionItems?.length || 0} of {detailedIntelligence?.action_items?.length || 0} action items</span>
+                                <span>Showing {filteredActionItems?.length || 0} of {dataAPI?.intelligence?.actions?.length || 0} action items</span>
                                 <Button
                                   size="sm"
                                   variant="ghost"
@@ -939,21 +939,21 @@ const RecordingDetail: React.FC = () => {
                                     <SkeletonBar width="30px" height="12px" />
                                   )
                                 }
-                                {(filteredActionItems?.length || 0) !== (detailedIntelligence?.action_items?.length || 0) && (
+                                {(filteredActionItems?.length || 0) !== (dataAPI?.intelligence?.actions?.length || 0) && (
                                   <Badge variant="secondary" className="text-xs">
-                                    of {detailedIntelligence?.action_items?.length || 0} total
+                                    of {dataAPI?.intelligence?.actions?.length || 0} total
                                   </Badge>
                                 )}
                               </div>
                               {(filteredActionItems?.length || 0) > 0 ? (
                                 <div className="space-y-3 max-h-96 overflow-y-auto">
-                                  {dataSource === 'sample' ? (
+                                  {dataSource !== 'api' ? (
                                     // Show skeleton loading for sample data
                                     Array.from({ length: 5 }).map((_, index) => (
                                       <IntelligenceItemSkeleton key={index} />
                                     ))
                                   ) : (
-                                    filteredActionItems.map((item, index) => {
+                                    filteredActionItems.map((item: {task?: string; assigned_to?:string; timestamp_start?: string | null; deadline?: string; timestamp_end?: string; confidence?: string}, index: number) => {
                                       const isCurrentlyActive = currentActiveItems.actionItems.some(activeItem => 
                                         activeItem.timestamp_start === item.timestamp_start && 
                                         activeItem.timestamp_end === item.timestamp_end
@@ -968,7 +968,7 @@ const RecordingDetail: React.FC = () => {
                                           <div className="flex items-start justify-between mb-2">
                                             <div className="flex items-center text-xs gap-2">
                                               Confidence:
-                                              <Badge variant="outline" className="text-xs bg-gray-200">
+                                              <Badge variant={item.confidence ? getSeverityVariant(item.confidence) : 'default'} className="text-xs">
                                                 {item.confidence}
                                               </Badge>
                                               {isCurrentlyActive && (
@@ -981,7 +981,7 @@ const RecordingDetail: React.FC = () => {
                                               isCurrentlyActive ? 'text-blue-600 font-bold' : 'text-gray-500'
                                             }`}>
                                               {/* {formatTimestamp(item.timestamp_start)} - {formatTimestamp(item.timestamp_end)} */}
-                                              {formatTimestampFromString(item.timestamp_start)}
+                                              {item.timestamp_start && formatTimestampFromString(item.timestamp_start)}
                                             </div>
                                           </div>
                                           <p className={`text-sm mb-2 ${
@@ -1023,7 +1023,7 @@ const RecordingDetail: React.FC = () => {
                                           {item.deadline && (
                                             <p className={`text-sm ${
                                               isCurrentlyActive ? 'text-blue-700' : 'text-gray-600'
-                                            }`}>Due: {new Date(item.deadline).toLocaleDateString()}</p>
+                                            }`}>Due: {item.deadline && new Date(item.deadline).toLocaleDateString()}</p>
                                           )}
                                         </CardContent>
                                       </Card>
@@ -1091,7 +1091,7 @@ const RecordingDetail: React.FC = () => {
                             
                             {decisionsSearch && currentAudioTime === 0 && (
                               <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <span>Showing {filteredDecisions?.length || 0} of {detailedIntelligence?.decisions?.length || 0} decisions</span>
+                                <span>Showing {filteredDecisions?.length || 0} of {dataAPI?.intelligence?.decisions?.length || 0} decisions</span>
                                 <Button
                                   size="sm"
                                   variant="ghost"
@@ -1112,9 +1112,9 @@ const RecordingDetail: React.FC = () => {
                                     <SkeletonBar width="30px" height="12px" />
                                   )
                                 }
-                                {(filteredDecisions?.length || 0) !== (detailedIntelligence?.decisions?.length || 0) && (
+                                {(filteredDecisions?.length || 0) !== (dataAPI?.intelligence?.decisions?.length || 0) && (
                                   <Badge variant="secondary" className="text-xs">
-                                    of {detailedIntelligence?.decisions.length || 0} total
+                                    of {dataAPI?.intelligence?.decisions.length || 0} total
                                   </Badge>
                                 )}
                               </div>
@@ -1126,7 +1126,7 @@ const RecordingDetail: React.FC = () => {
                                       <IntelligenceItemSkeleton key={index} />
                                     ))
                                   ) : (
-                                    filteredDecisions.map((decision, index) => {
+                                    filteredDecisions.map((decision: {decision?: string; confidence?: string; reason?: string; timestamp_start?: string | null; timestamp_end?: string; assigned_to?: string}, index: number) => {
                                       const isCurrentlyActive = currentActiveItems.decisions.some(activeDecision => 
                                         activeDecision.timestamp_start === decision.timestamp_start && 
                                         activeDecision.timestamp_end === decision.timestamp_end
@@ -1140,7 +1140,7 @@ const RecordingDetail: React.FC = () => {
                                           <CardContent className="p-4">
                                             <div className="flex items-start justify-between mb-2">
                                             <div className="flex items-center gap-2">
-                                              <Badge variant={getSeverityVariant(decision.confidence)} className="text-xs">
+                                              <Badge variant={decision?.confidence ? getSeverityVariant(decision?.confidence) : 'default'} className="text-xs">
                                                 {decision.confidence}
                                               </Badge>
                                               {isCurrentlyActive && (
@@ -1153,7 +1153,7 @@ const RecordingDetail: React.FC = () => {
                                               isCurrentlyActive ? 'text-green-600 font-bold' : 'text-gray-500'
                                             }`}>
                                               {/* {formatTimestamp(decision.timestamp_start)} - {formatTimestamp(decision.timestamp_end)} */}
-                                              {formatTimestampFromString(decision.timestamp_start)}
+                                              {decision.timestamp_start && formatTimestampFromString(decision.timestamp_start)}
                                             </div>
                                           </div>
                                           <p className={`text-sm mb-2 ${
@@ -1248,7 +1248,7 @@ const RecordingDetail: React.FC = () => {
                             
                             {issuesSearch && currentAudioTime === 0 && (
                               <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <span>Showing {filteredIssues?.length || 0} of {detailedIntelligence?.issues?.length || 0} issues</span>
+                                <span>Showing {filteredIssues?.length || 0} of {dataAPI?.intelligence?.issues?.length || 0} issues</span>
                                 <Button
                                   size="sm"
                                   variant="ghost"
@@ -1269,9 +1269,9 @@ const RecordingDetail: React.FC = () => {
                                     <SkeletonBar width="30px" height="12px" />
                                   )
                                 }
-                                {(filteredIssues?.length || 0) !== (detailedIntelligence?.issues?.length || 0) && (
+                                {(filteredIssues?.length || 0) !== (dataAPI?.intelligence?.issues?.length || 0) && (
                                   <Badge variant="secondary" className="text-xs">
-                                    of {detailedIntelligence?.issues.length || 0} total
+                                    of {dataAPI?.intelligence?.issues.length || 0} total
                                   </Badge>
                                 )}
                               </div>
@@ -1283,7 +1283,7 @@ const RecordingDetail: React.FC = () => {
                                       <IntelligenceItemSkeleton key={index} />
                                     ))
                                   ) : (
-                                    filteredIssues.map((issue, index) => {
+                                    filteredIssues.map((issue: { issue: string; timestamp_start: string; timestamp_end: string }, index: number) => {
                                       const isCurrentlyActive = currentActiveItems.issues.some(activeIssue => 
                                         activeIssue.timestamp_start === issue.timestamp_start && 
                                         activeIssue.timestamp_end === issue.timestamp_end
@@ -1391,7 +1391,7 @@ const RecordingDetail: React.FC = () => {
                             
                             {questionsSearch && currentAudioTime === 0 && (
                               <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <span>Showing {filteredQuestions?.length || 0} of {detailedIntelligence?.questions?.length || 0} questions</span>
+                                <span>Showing {filteredQuestions?.length || 0} of {dataAPI?.intelligence?.questions?.length || 0} questions</span>
                                 <Button
                                   size="sm"
                                   variant="ghost"
@@ -1412,9 +1412,9 @@ const RecordingDetail: React.FC = () => {
                                     <SkeletonBar width="30px" height="12px" />
                                   )
                                 }
-                                {(filteredQuestions?.length || 0) !== (detailedIntelligence?.questions?.length || 0) && (
+                                {(filteredQuestions?.length || 0) !== (dataAPI?.intelligence?.questions?.length || 0) && (
                                   <Badge variant="secondary" className="text-xs">
-                                    of {detailedIntelligence?.questions.length || 0} total
+                                    of {dataAPI?.intelligence?.questions.length || 0} total
                                   </Badge>
                                 )}
                               </div>
@@ -1426,7 +1426,7 @@ const RecordingDetail: React.FC = () => {
                                       <IntelligenceItemSkeleton key={index} />
                                     ))
                                   ) : (
-                                    filteredQuestions.map((question, index) => {
+                                    filteredQuestions.map((question: { question: string; timestamp_start: string; timestamp_end: string }, index: number) => {
                                       const isCurrentlyActive = currentActiveItems.questions.some(activeQuestion => 
                                         activeQuestion.timestamp_start === question.timestamp_start && 
                                         activeQuestion.timestamp_end === question.timestamp_end
