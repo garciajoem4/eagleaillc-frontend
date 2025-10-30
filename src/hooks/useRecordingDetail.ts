@@ -935,22 +935,22 @@ export const useRecordingDetail = (
       
       if (type === 'full-segments') {
         data = {
-          full_transcription: normalizedData?.transcript?.full_transcription,
-          segments: normalizedData?.transcript?.segments,
-          duration_seconds: normalizedData?.recording?.duration_seconds,
-          file_name: normalizedData?.recording?.file_name
+          full_transcription: normalizedDataAPI?.transcript?.full_transcription,
+          segments: normalizedDataAPI?.transcript?.segments,
+          duration_seconds: normalizedDataAPI?.recording?.duration_seconds,
+          file_name: normalizedDataAPI?.recording?.file_name
         };
       } else if (type === 'full-only') {
         data = {
-          full_transcription: normalizedData?.transcript?.full_transcription,
-          duration_seconds: normalizedData?.recording?.duration_seconds,
-          file_name: normalizedData?.recording?.file_name
+          full_transcription: normalizedDataAPI?.transcript?.full_transcription,
+          duration_seconds: normalizedDataAPI?.recording?.duration_seconds,
+          file_name: normalizedDataAPI?.recording?.file_name
         };
       } else if (type === 'segments-only') {
         data = {
-          segments: normalizedData?.transcript?.segments,
-          duration_seconds: normalizedData?.recording?.duration_seconds,
-          file_name: normalizedData?.recording?.file_name
+          segments: normalizedDataAPI?.transcript?.segments,
+          duration_seconds: normalizedDataAPI?.recording?.duration_seconds,
+          file_name: normalizedDataAPI?.recording?.file_name
         };
       }
       
@@ -960,7 +960,7 @@ export const useRecordingDetail = (
     } else if (format === 'csv') {
       if (type === 'segments-only' || type === 'full-segments') {
         content = 'Start Time,End Time,Speaker,Text\n';
-        normalizedData?.transcript?.segments?.forEach(segment => {
+        normalizedDataAPI?.transcript?.segments?.forEach(segment => {
           const start = segment.start_sec ?? segment.start ?? 0;
           const end = segment.end_sec ?? segment.end ?? 0;
           const startTime = formatTimestamp(start);
@@ -971,37 +971,37 @@ export const useRecordingDetail = (
         });
       } else {
         content = 'Content\n';
-        content += `"${normalizedData?.transcript?.full_transcription?.replace(/"/g, '""') || 'No transcript available'}"`;
+        content += `"${normalizedDataAPI?.transcript?.full_transcription?.replace(/"/g, '""') || 'No transcript available'}"`;
       }
       fileName += '.csv';
       mimeType = 'text/csv';
     } else if (format === 'txt') {
       if (type === 'full-segments') {
-        const fileName = normalizedData?.recording?.file_name || 'transcript';
-        const duration = normalizedData?.recording?.duration_seconds || 0;
+        const fileName = normalizedDataAPI?.recording?.file_name || 'transcript';
+        const duration = normalizedDataAPI?.recording?.duration_seconds || 0;
         content = `Transcript: ${fileName}\n`;
         content += `Duration: ${Math.floor(duration / 60)}m ${Math.floor(duration % 60)}s\n\n`;
         content += '=== FULL TRANSCRIPTION ===\n\n';
-        content += normalizedData?.transcript?.full_transcription || 'No transcript available';
+        content += normalizedDataAPI?.transcript?.full_transcription || 'No transcript available';
         content += '\n\n=== SEGMENTS ===\n\n';
-        normalizedData?.transcript?.segments?.forEach(segment => {
+        normalizedDataAPI?.transcript?.segments?.forEach(segment => {
           const start = segment.start_sec ?? segment.start ?? 0;
           const end = segment.end_sec ?? segment.end ?? 0;
           const speaker = segment.speaker_label ?? segment.speaker ?? 'Unknown';
           content += `[${formatTimestamp(start)} - ${formatTimestamp(end)}] ${speaker}: ${segment.text}\n\n`;
         });
       } else if (type === 'full-only') {
-        const fileName = normalizedData?.recording?.file_name || 'transcript';
-        const duration = normalizedData?.recording?.duration_seconds || 0;
+        const fileName = normalizedDataAPI?.recording?.file_name || 'transcript';
+        const duration = normalizedDataAPI?.recording?.duration_seconds || 0;
         content = `Transcript: ${fileName}\n`;
         content += `Duration: ${Math.floor(duration / 60)}m ${Math.floor(duration % 60)}s\n\n`;
-        content += normalizedData?.transcript?.full_transcription || 'No transcript available';
+        content += normalizedDataAPI?.transcript?.full_transcription || 'No transcript available';
       } else if (type === 'segments-only') {
-        const fileName = normalizedData?.recording?.file_name || 'transcript';
-        const duration = normalizedData?.recording?.duration_seconds || 0;
+        const fileName = normalizedDataAPI?.recording?.file_name || 'transcript';
+        const duration = normalizedDataAPI?.recording?.duration_seconds || 0;
         content = `Transcript Segments: ${fileName}\n`;
         content += `Duration: ${Math.floor(duration / 60)}m ${Math.floor(duration % 60)}s\n\n`;
-        normalizedData?.transcript?.segments?.forEach(segment => {
+        normalizedDataAPI?.transcript?.segments?.forEach(segment => {
           const start = segment.start_sec ?? segment.start ?? 0;
           const end = segment.end_sec ?? segment.end ?? 0;
           const speaker = segment.speaker_label ?? segment.speaker ?? 'Unknown';
@@ -1026,16 +1026,16 @@ export const useRecordingDetail = (
 </head>
 <body>
   <div class="header">
-    <h1>Transcript: ${normalizedData?.recording?.file_name || 'transcript'}</h1>
-    <p>Duration: ${Math.floor((normalizedData?.recording?.duration_seconds || 0) / 60)}m ${Math.floor((normalizedData?.recording?.duration_seconds || 0) % 60)}s</p>
+    <h1>Transcript: ${normalizedDataAPI?.recording?.file_name || 'transcript'}</h1>
+    <p>Duration: ${Math.floor((normalizedDataAPI?.recording?.duration_seconds || 0) / 60)}m ${Math.floor((normalizedDataAPI?.recording?.duration_seconds || 0) % 60)}s</p>
     <p>Generated: ${new Date().toLocaleDateString()}</p>
   </div>`;
 
       if (type === 'full-segments') {
         htmlContent += '<h2>Full Transcription</h2>';
-        htmlContent += `<p>${normalizedData?.transcript?.full_transcription || 'No transcript available'}</p>`;
+        htmlContent += `<p>${normalizedDataAPI?.transcript?.full_transcription || 'No transcript available'}</p>`;
         htmlContent += '<h2>Segments</h2>';
-        normalizedData?.transcript?.segments?.forEach(segment => {
+        normalizedDataAPI?.transcript?.segments?.forEach(segment => {
           const start = segment.start_sec ?? segment.start ?? 0;
           const end = segment.end_sec ?? segment.end ?? 0;
           const speaker = segment.speaker_label ?? segment.speaker ?? 'Unknown';
@@ -1047,10 +1047,10 @@ export const useRecordingDetail = (
         });
       } else if (type === 'full-only') {
         htmlContent += '<h2>Full Transcription</h2>';
-        htmlContent += `<p>${normalizedData?.transcript?.full_transcription || 'No transcript available'}</p>`;
+        htmlContent += `<p>${normalizedDataAPI?.transcript?.full_transcription || 'No transcript available'}</p>`;
       } else if (type === 'segments-only') {
         htmlContent += '<h2>Segments</h2>';
-        normalizedData?.transcript?.segments?.forEach(segment => {
+        normalizedDataAPI?.transcript?.segments?.forEach(segment => {
           const start = segment.start_sec ?? segment.start ?? 0;
           const end = segment.end_sec ?? segment.end ?? 0;
           const speaker = segment.speaker_label ?? segment.speaker ?? 'Unknown';
@@ -1069,7 +1069,7 @@ export const useRecordingDetail = (
     }
 
     downloadFile(content, fileName, mimeType);
-  }, [downloadFile, formatTimestamp, normalizedData?.recording?.duration_seconds, normalizedData?.recording?.file_name, normalizedData?.transcript?.full_transcription, normalizedData?.transcript?.segments]);
+  }, [downloadFile, formatTimestamp, normalizedDataAPI?.recording?.duration_seconds, normalizedDataAPI?.recording?.file_name, normalizedDataAPI?.transcript?.full_transcription, normalizedDataAPI?.transcript?.segments]);
 
   // Export functions for intelligence analysis
   const exportIntelligenceData = useCallback((type: 'all' | 'action-items' | 'decisions' | 'issues' | 'questions', format: 'pdf' | 'json' | 'csv' | 'txt') => {
@@ -1082,21 +1082,21 @@ export const useRecordingDetail = (
       switch (type) {
         case 'all':
           return {
-            action_items: detailedIntelligence?.action_items || [],
-            decisions: detailedIntelligence?.decisions || [],
-            issues: detailedIntelligence?.issues || [],
-            questions: detailedIntelligence?.questions || [],
-            executive_summary: detailedIntelligence?.executive_summary,
-            key_topics: detailedIntelligence?.key_topics || []
+            action_items: normalizedDataAPI?.intelligence?.actions || [],
+            decisions: normalizedDataAPI?.intelligence?.decisions || [],
+            issues: normalizedDataAPI?.intelligence?.issues || [],
+            questions: normalizedDataAPI?.intelligence?.questions || [],
+            executive_summary: normalizedDataAPI?.intelligence?.summary,
+            key_topics: normalizedDataAPI?.intelligence?.topics || []
           };
         case 'action-items':
-          return detailedIntelligence?.action_items || [];
+          return normalizedDataAPI?.intelligence?.actions || [];
         case 'decisions':
-          return detailedIntelligence?.decisions || [];
+          return normalizedDataAPI?.intelligence?.decisions || [];
         case 'issues':
-          return detailedIntelligence?.issues || [];
+          return normalizedDataAPI?.intelligence?.issues || [];
         case 'questions':
-          return detailedIntelligence?.questions || [];
+          return normalizedDataAPI?.intelligence?.questions || [];
         default:
           return [];
       }
@@ -1277,7 +1277,7 @@ export const useRecordingDetail = (
     }
 
     downloadFile(content, fileName, mimeType);
-  }, [downloadFile, detailedIntelligence]);
+  }, [downloadFile, normalizedDataAPI?.intelligence]);
 
   const getSeverityVariant = (value: number | string): "default" | "secondary" | "destructive" | "outline" => {
     if (typeof value === 'number') {
