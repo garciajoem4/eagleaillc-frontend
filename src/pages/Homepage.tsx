@@ -840,6 +840,7 @@ const Homepage: React.FC = () => {
     plan: null,
   });
   const [freeTrialModal, setFreeTrialModal] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Cycle through transcription examples
   useEffect(() => {
@@ -888,43 +889,89 @@ const Homepage: React.FC = () => {
   return (
     <div className="min-h-screen bg-white">
       {/* Navigation Header */}
-      <nav className="absolute w-full top-[8px] px-[50px] z-50 transition-all duration-300">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <nav className="absolute w-full top-[8px] px-4 sm:px-6 lg:px-[50px] z-50 transition-all duration-300">
+        <div className="max-w-7xl mx-auto">
           <div className="flex justify-between items-center h-16">
-            {/* Left - Hamburger Menu */}
-            <div className="absolute left-1/2 transform -translate-x-[calc(100%+200px)] flex items-center justify-end space-x-8 py-2">
-              <a href="#pricing" className="text-white font-normal px-3 py-2 text-sm font-medium transition-colors duration-200">
+            {/* Mobile Menu Button */}
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="absolute right-5 lg:hidden p-2 text-white bg-white/10 border-[1px] border-white rounded-md transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+
+            {/* Desktop Left Navigation */}
+            <div className="hidden lg:flex absolute left-1/2 transform -translate-x-[calc(100%+200px)] items-center justify-end space-x-8 py-2">
+              <a href="#pricing" className="text-white font-normal px-3 py-2 text-sm font-medium transition-colors duration-200 hover:text-gray-200">
                 Pricing
               </a>
-              <a href="#resources" className="text-white font-normal px-3 py-2 text-sm font-medium transition-colors duration-200">
+              <a href="#resources" className="text-white font-normal px-3 py-2 text-sm font-medium transition-colors duration-200 hover:text-gray-200">
                 Resources
               </a>
             </div>
 
             {/* Center - Logo */}
-            <div className="flex-1 flex justify-center">
-              <div className="bg-white rounded-b-3xl pt-10 pb-7 px-16">
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-[#4e69fd] to-[#7c3aed] bg-clip-text text-transparent">
+            <div className="flex-1 flex justify-center lg:flex-none lg:absolute lg:left-1/2 lg:transform lg:-translate-x-1/2">
+              <div className="bg-white rounded-b-3xl pt-6 sm:pt-8 lg:pt-10 pb-4 sm:pb-5 lg:pb-7 px-8 sm:px-12 lg:px-16">
+                <h1 className="text-lg sm:text-xl lg:text-2xl font-bold bg-gradient-to-r from-[#4e69fd] to-[#7c3aed] bg-clip-text text-transparent">
                   SynaptiVoice
                 </h1>
               </div>
             </div>
 
-            {/* Right - User Icon and CTA */}
-            <div className="absolute left-1/2 transform translate-x-[200px] flex items-center space-x-4">
-              <Link to="/login" className="text-white font-normal px-3 py-2 text-sm font-medium transition-colors duration-200">
+            {/* Desktop Right Navigation */}
+            <div className="hidden lg:flex absolute left-1/2 transform translate-x-[200px] items-center space-x-4">
+              <Link to="/login" className="text-white font-normal px-3 py-2 text-sm font-medium transition-colors duration-200 hover:text-gray-200">
                 Log In
               </Link>
               <Button className="bg-white text-gray-900 font-normal hover:text-white hover:bg-[#3d54e6] transition-all duration-200" onClick={openFreeTrialModal}>
                 Get Started Free
               </Button>
             </div>
+
+            {/* Mobile CTA Button */}
+            {/* <div className="lg:hidden">
+              <Button className="bg-white text-gray-900 font-normal hover:text-white hover:bg-[#3d54e6] transition-all duration-200 text-sm px-3 py-2" onClick={openFreeTrialModal}>
+                Get Started
+              </Button>
+            </div> */}
           </div>
+
+          {/* Mobile Menu */}
+          {isMobileMenuOpen && (
+            <div className="lg:hidden mx-[10px] mt-4 p-4 border-t border-white/20 rounded-[15px] bg-white">
+              <div className="flex flex-col space-y-4">
+                <a
+                  href="#pricing"
+                  className="font-normal px-3 py-2 text-sm font-medium transition-colors duration-200 hover:text-gray-200"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  Pricing
+                </a>
+                <a
+                  href="#resources"
+                  className="font-normal px-3 py-2 text-sm font-medium transition-colors duration-200 hover:text-gray-200"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  Resources
+                </a>
+                <Link
+                  to="/login"
+                  className="font-normal px-3 py-2 text-sm font-medium transition-colors duration-200 hover:text-gray-200"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  Log In
+                </Link>
+              </div>
+            </div>
+          )}
         </div>
       </nav>
 
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-br border-[10px] border-white rounded-[50px] from-[#4e69fd] via-[#6366f1] to-[#7c3aed] py-20 !pt-[150px] overflow-hidden">
+      <section className="relative bg-gradient-to-br border-[10px] border-white rounded-[30px] md:rounded-[50px] from-[#4e69fd] via-[#6366f1] to-[#7c3aed] py-20 !pt-[150px] overflow-hidden">
         {/* Animated Background Elements */}
         <div className="absolute inset-0">
           {/* Moving gradient orbs */}
