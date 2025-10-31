@@ -251,6 +251,7 @@ export const useRecordingDetail = (
   const [decisionsSearch, setDecisionsSearch] = useState<string>('');
   const [issuesSearch, setIssuesSearch] = useState<string>('');
   const [questionsSearch, setQuestionsSearch] = useState<string>('');
+  const [audioFileName, setAudioFileName] = useState<string>('');
   
   // Export functionality state
   const [activeAutomationTab, setActiveAutomationTab] = useState<string>('transcript');
@@ -290,11 +291,12 @@ export const useRecordingDetail = (
           
           // Use the new getAudioForUser method to get the appropriate version
           const storedAudio = await audioStorageService.getAudioForUser(recordingId, actualIsFreeTrial);
-          
+
           if (storedAudio) {
             // Create blob URL from stored audio
             const blobUrl = URL.createObjectURL(storedAudio.blob);
             setAudioUrl(blobUrl);
+            setAudioFileName(storedAudio?.fileName || '');
             // console.log('Successfully loaded audio from localStorage:', {
             //   recordingId,
             //   isFreeTrial: actualIsFreeTrial,
@@ -304,12 +306,12 @@ export const useRecordingDetail = (
           } else {
             console.log('No audio found in localStorage, using fallback');
             // Fallback to default audio or show message
-            setAudioUrl('/july_12_2022_audio.mp3'); // Fallback to sample audio
+            setAudioUrl('/loading.mp3'); // Fallback to sample audio
           }
         } catch (error) {
           console.error('Error loading audio from localStorage:', error);
           // Fallback to default audio
-          setAudioUrl('/july_12_2022_audio.mp3');
+          setAudioUrl('/loading.mp3');
         } finally {
           setIsLoadingAudio(false);
         }
@@ -1334,6 +1336,7 @@ export const useRecordingDetail = (
     // State variables
     recordingId,
     audioUrl,
+    audioFileName,
     setIsLoadingAudio,
     detailedIntelligence,
     setDetailedIntelligence,

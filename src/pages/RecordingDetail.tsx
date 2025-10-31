@@ -137,6 +137,7 @@ const RecordingDetail: React.FC = () => {
   const {
     // State variables
     audioUrl,
+    audioFileName,
     setIsLoadingAudio,
     detailedIntelligence,
     transcriptView,
@@ -295,7 +296,7 @@ const RecordingDetail: React.FC = () => {
             <h1 className="text-xl font-bold text-gray-900 dark:text-white">
               {
                 dataSource === 'api' ? 
-                  dataAPI?.recording?.file_name?.split('.')[0] || 'Unknown File' :
+                  audioFileName?.split('.')[0] || dataAPI?.recording?.file_name?.split('.')[0] || 'Unknown File' :
                   <SkeletonBar width="200px" height="24px" />
               }
             </h1>
@@ -380,7 +381,7 @@ const RecordingDetail: React.FC = () => {
                       <>
                         <label className="text-sm font-medium text-gray-500">Name</label>
                         <p className="text-gray-900">
-                          {dataAPI?.recording?.file_name?.split('.')[0] || activeTranscriptData.recording?.file_name?.split('.')[0] || 'Unknown File'}
+                          {audioFileName?.split('.')[0] || dataAPI?.recording?.file_name?.split('.')[0] || activeTranscriptData.recording?.file_name?.split('.')[0] || 'Unknown File'}
                         </p>
                       </>
                     ) : (
@@ -443,7 +444,7 @@ const RecordingDetail: React.FC = () => {
                         </div>
                         <div>
                           <span className="text-sm font-medium text-gray-500">Segments Processed: </span>
-                          <span className="text-gray-900">{dataAPI?.intelligence?.segments_processed}</span>
+                          <span className="text-gray-900">{dataAPI?.transcript?.segments?.length || 0}</span>
                         </div>
                         <div>
                           <span className="text-sm font-medium text-gray-500">Processed At: </span>
