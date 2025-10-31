@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { Recording, RecordingFilters, TableSort } from '../../types';
+import { Recording, RecordingItem, RecordingFilters, TableSort } from '../../types';
 import { recordingService, ProcessFileOptions, ProcessFileResult } from '../../services/recordingService';
 import { audioStorageService } from '../../services/audioStorageService';
 import { WorkflowHelpers } from '../../endpoints';
@@ -58,34 +58,49 @@ export const fetchRecordings = createAsyncThunk(
   'recordings/fetchRecordings',
   async (params: { filters?: RecordingFilters; sort?: TableSort; page?: number } = {}) => {
     await mockApiDelay(800); // Simulate API call
-    
+
+    // Audio Datas from clients local storage
+    const storedAudios = await audioStorageService.getAllAudioMetadata();
+
+    // Filter to exclude items with "recording-" in the id
+    const filteredAudios = storedAudios.filter(audio => !audio.id.includes('recording-'));
+
+    const mockRecordings: Recording[] = filteredAudios.map(audio => ({
+      id: audio.id,
+      name: audio.fileName,
+      dateUploaded: new Date(audio.uploadDate).toISOString(),
+      duration: 0,
+      overview: '',
+      exports: []
+    })) || [];
+
     // Mock API response - replace with actual API call
-    const mockRecordings: Recording[] = [
-      {
-        id: '1',
-        name: 'Weekly Team Meeting',
-        dateUploaded: new Date('2024-01-15').toISOString(),
-        duration: 45,
-        overview: 'Discussion about project progress and upcoming deadlines.',
-        exports: ['pdf', 'json']
-      },
-      {
-        id: '2',
-        name: 'Client Presentation',
-        dateUploaded: new Date('2024-01-12').toISOString(),
-        duration: 30,
-        overview: 'Product demo and feature walkthrough for new client.',
-        exports: ['pdf']
-      },
-      {
-        id: '3',
-        name: 'Sales Call - Prospect Alpha',
-        dateUploaded: new Date('2024-01-10').toISOString(),
-        duration: 25,
-        overview: 'Initial discovery call with potential enterprise customer.',
-        exports: []
-      }
-    ];
+    // const mockRecordings: Recording[] = [
+    //   {
+    //     id: '1',
+    //     name: 'Weekly Team Meeting',
+    //     dateUploaded: new Date('2024-01-15').toISOString(),
+    //     duration: 45,
+    //     overview: 'Discussion about project progress and upcoming deadlines.',
+    //     exports: ['pdf', 'json']
+    //   },
+    //   {
+    //     id: '2',
+    //     name: 'Client Presentation',
+    //     dateUploaded: new Date('2024-01-12').toISOString(),
+    //     duration: 30,
+    //     overview: 'Product demo and feature walkthrough for new client.',
+    //     exports: ['pdf']
+    //   },
+    //   {
+    //     id: '3',
+    //     name: 'Sales Call - Prospect Alpha',
+    //     dateUploaded: new Date('2024-01-10').toISOString(),
+    //     duration: 25,
+    //     overview: 'Initial discovery call with potential enterprise customer.',
+    //     exports: []
+    //   }
+    // ];
     
     return {
       recordings: mockRecordings,

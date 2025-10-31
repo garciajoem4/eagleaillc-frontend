@@ -311,7 +311,7 @@ const Recordings: React.FC = () => {
                         }`}
                         onClick={() => handleSort('dateUploaded')}
                       >
-                        Date Uploaded
+                        Uploaded On
                         <span className="ml-2">
                           {sort.field === 'dateUploaded' ? (sort.direction === 'asc' ? '↑' : '↓') : '↕'}
                         </span>
@@ -336,7 +336,7 @@ const Recordings: React.FC = () => {
                     {displayRecordings.map((recording) => (
                       <tr key={recording.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="font-medium text-gray-900">{recording.name}</div>
+                          <div className="font-medium text-gray-900">{recording.name.split('.')[0]}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-gray-500">
                           {formatDate(recording.dateUploaded)}

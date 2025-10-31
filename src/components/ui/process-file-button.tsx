@@ -149,14 +149,14 @@
               },
             };
 
-            console.log('Uploading with user metadata:', {
-              user_id: userMetadata.user_id,
-              tenant_id: userMetadata.tenant_id,
-              filename: uploadFile.name,
-              file_size: uploadFile.size,
-              is_free_trial: isFreeTrial,
-              is_trimmed: isTrimmed,
-            });
+            // console.log('Uploading with user metadata:', {
+            //   user_id: userMetadata.user_id,
+            //   tenant_id: userMetadata.tenant_id,
+            //   filename: uploadFile.name,
+            //   file_size: uploadFile.size,
+            //   is_free_trial: isFreeTrial,
+            //   is_trimmed: isTrimmed,
+            // });
 
             // Use the new WorkflowHelpers for API integration with user context
             const recordingId = await WorkflowHelpers.uploadAndProcess(
@@ -201,9 +201,8 @@
                   }
                 }
               })).unwrap();
-              console.log('Successfully stored API results in Redux:', recordingId);
             } catch (error) {
-              console.warn('Failed to fetch and store API results, continuing with local storage only:', error);
+              // console.warn('Failed to fetch and store API results, continuing with local storage only:', error);
               // Continue with the process even if API results fetch fails
             }
 
@@ -213,14 +212,14 @@
 
             // Store file(s) in localStorage using audioStorageService
             try {
-              console.log('Starting localStorage operation...', {
-                recordingId,
-                fileName: file.name,
-                fileSize: file.size,
-                fileType: file.type,
-                isFreeTrial,
-                isTrimmed
-              });
+              // console.log('Starting localStorage operation...', {
+              //   recordingId,
+              //   fileName: file.name,
+              //   fileSize: file.size,
+              //   fileType: file.type,
+              //   isFreeTrial,
+              //   isTrimmed
+              // });
 
               const metadata = {
                 duration: isFreeTrial && isTrimmed ? FREE_TRIAL_TIME_LIMIT_SECONDS : 0,

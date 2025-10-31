@@ -9,6 +9,13 @@ export interface Recording {
   exports?: string[];
 }
 
+export interface RecordingItem {
+  id: string;
+  name: string;
+  uploadDate: string; // ISO date string
+  duration: number; // in minutes
+}
+
 export interface User {
   username: string;
   isAuthenticated: boolean;
