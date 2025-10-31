@@ -311,7 +311,7 @@ const Recordings: React.FC = () => {
                         }`}
                         onClick={() => handleSort('dateUploaded')}
                       >
-                        Date Uploaded
+                        Uploaded On
                         <span className="ml-2">
                           {sort.field === 'dateUploaded' ? (sort.direction === 'asc' ? '↑' : '↓') : '↕'}
                         </span>

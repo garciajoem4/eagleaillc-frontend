@@ -59,6 +59,7 @@ export const fetchRecordings = createAsyncThunk(
   async (params: { filters?: RecordingFilters; sort?: TableSort; page?: number } = {}) => {
     await mockApiDelay(800); // Simulate API call
 
+    // Audio Datas from clients local storage
     const storedAudios = await audioStorageService.getAllAudioMetadata();
 
     // Filter to exclude items with "recording-" in the id
@@ -71,7 +72,7 @@ export const fetchRecordings = createAsyncThunk(
       duration: 0,
       overview: '',
       exports: []
-    }));
+    })) || [];
 
     // Mock API response - replace with actual API call
     // const mockRecordings: Recording[] = [
