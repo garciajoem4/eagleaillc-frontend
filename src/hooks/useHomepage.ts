@@ -61,7 +61,7 @@ export const plans: SubscriptionPlan[] = [
 export const featuresData: FeatureData[] = [
   {
     iconPath: "M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z",
-    title: "AI Transcription",
+    title: "Transcription",
     description: "Accurate, real-time transcription with speaker identification and timestamp precision",
     items: [
       "99%+ accuracy rate",
@@ -72,7 +72,7 @@ export const featuresData: FeatureData[] = [
   },
   {
     iconPath: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z",
-    title: "Smart Intelligence Analysis",
+    title: "Intelligence Analysis",
     description: "Automatically extract action items, decisions, issues, and questions from conversations",
     items: [
       "Action item detection",
@@ -192,6 +192,7 @@ export const useHomepage = () => {
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
   const [currentTranscriptionIndex, setCurrentTranscriptionIndex] = useState(0);
   const [currentFeatureIndex, setCurrentFeatureIndex] = useState(0);
+  const [isCarouselPaused, setIsCarouselPaused] = useState(false);
   const [subscriptionModal, setSubscriptionModal] = useState<{
     isOpen: boolean;
     plan: SubscriptionPlan | null;
@@ -213,20 +214,62 @@ export const useHomepage = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Auto-play carousel (infinite loop)
+  useEffect(() => {
+    if (isCarouselPaused) return;
+
+    const interval = setInterval(() => {
+      setCurrentFeatureIndex((prevIndex) => 
+        (prevIndex + 1) % featuresData.length
+      );
+    }, 5000); // Change every 5 seconds
+
+    return () => clearInterval(interval);
+  }, [isCarouselPaused]);
+
+  // Keyboard navigation for carousel
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') {
+        goToPrevFeature(featuresData.length);
+        setIsCarouselPaused(true);
+        // Resume auto-play after 10 seconds
+        setTimeout(() => setIsCarouselPaused(false), 10000);
+      } else if (e.key === 'ArrowRight') {
+        goToNextFeature(featuresData.length);
+        setIsCarouselPaused(true);
+        // Resume auto-play after 10 seconds
+        setTimeout(() => setIsCarouselPaused(false), 10000);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const goToFeature = (index: number) => {
     setCurrentFeatureIndex(index);
+    setIsCarouselPaused(true);
+    // Resume auto-play after 10 seconds
+    setTimeout(() => setIsCarouselPaused(false), 10000);
   };
 
   const goToPrevFeature = (featuresLength: number) => {
     setCurrentFeatureIndex((prevIndex) => 
       prevIndex === 0 ? featuresLength - 1 : prevIndex - 1
     );
+    setIsCarouselPaused(true);
+    // Resume auto-play after 10 seconds
+    setTimeout(() => setIsCarouselPaused(false), 10000);
   };
 
   const goToNextFeature = (featuresLength: number) => {
     setCurrentFeatureIndex((prevIndex) => 
       (prevIndex + 1) % featuresLength
     );
+    setIsCarouselPaused(true);
+    // Resume auto-play after 10 seconds
+    setTimeout(() => setIsCarouselPaused(false), 10000);
   };
 
   const toggleFAQ = (index: number) => {
@@ -270,6 +313,10 @@ export const useHomepage = () => {
     setIsMobileMenuOpen(false);
   };
 
+  const toggleCarouselPause = () => {
+    setIsCarouselPaused(!isCarouselPaused);
+  };
+
   return {
     // State
     openFAQ,
@@ -278,6 +325,7 @@ export const useHomepage = () => {
     subscriptionModal,
     freeTrialModal,
     isMobileMenuOpen,
+    isCarouselPaused,
     
     // Functions
     goToFeature,
@@ -291,6 +339,7 @@ export const useHomepage = () => {
     formatPrice,
     toggleMobileMenu,
     closeMobileMenu,
+    toggleCarouselPause,
   };
 };
 
