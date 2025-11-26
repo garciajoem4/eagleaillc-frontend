@@ -30,9 +30,6 @@ const Settings: React.FC = () => {
     defaultExportFormat: 'pdf',
     storageRetention: 365,
     
-    // Theme settings
-    theme: 'system' as 'light' | 'dark' | 'system',
-    
     // Timezone settings
     timezone: 'CDT',
     
@@ -54,53 +51,6 @@ const Settings: React.FC = () => {
     }
   }, [user]);
 
-  // Theme management
-  useEffect(() => {
-    // Load theme from localStorage or default to system
-    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | 'system' || 'system';
-    setFormData(prev => ({ ...prev, theme: savedTheme }));
-    applyTheme(savedTheme);
-
-    // Listen for system theme changes
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleSystemThemeChange = () => {
-      if (savedTheme === 'system') {
-        applyTheme('system');
-      }
-    };
-
-    mediaQuery.addEventListener('change', handleSystemThemeChange);
-    
-    // Cleanup listener on unmount
-    return () => {
-      mediaQuery.removeEventListener('change', handleSystemThemeChange);
-    };
-  }, []);
-
-  const applyTheme = (theme: 'light' | 'dark' | 'system') => {
-    const root = document.documentElement;
-    
-    if (theme === 'system') {
-      // Use system preference
-      const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      if (systemDark) {
-        root.classList.add('dark');
-      } else {
-        root.classList.remove('dark');
-      }
-    } else if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
-  };
-
-  const handleThemeChange = (theme: 'light' | 'dark' | 'system') => {
-    setFormData(prev => ({ ...prev, theme }));
-    localStorage.setItem('theme', theme);
-    applyTheme(theme);
-  };
-
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({
       ...prev,
@@ -115,12 +65,12 @@ const Settings: React.FC = () => {
 
   const renderContent = () => {
     return (
-      <div className="mx-auto max-w-[1200px] space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Settings</h1>
-            <p className="text-gray-600 dark:text-gray-300 mt-2">Manage your account preferences and configuration</p>
-          </div>
+        <div className="mx-auto max-w-[1200px] space-y-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
+              <p className="text-gray-600 mt-2">Manage your account preferences and configuration</p>
+            </div>
           <Button onClick={handleSave}>
             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12" />
@@ -222,7 +172,7 @@ const Settings: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>Email Notifications</Label>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Receive email notifications for important updates</p>
+                    <p className="text-sm text-gray-600">Receive email notifications for important updates</p>
                   </div>
                   <input
                     type="checkbox"
@@ -234,7 +184,7 @@ const Settings: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>Recording Complete</Label>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Notify when recording processing is complete</p>
+                    <p className="text-sm text-gray-600">Notify when recording processing is complete</p>
                   </div>
                   <input
                     type="checkbox"
@@ -246,7 +196,7 @@ const Settings: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>Weekly Reports</Label>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Receive weekly summary reports</p>
+                    <p className="text-sm text-gray-600">Receive weekly summary reports</p>
                   </div>
                   <input
                     type="checkbox"
@@ -281,7 +231,7 @@ const Settings: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>AI Intelligence</Label>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Generate AI-powered insights and analysis</p>
+                    <p className="text-sm text-gray-600">Generate AI-powered insights and analysis</p>
                   </div>
                   <input
                     type="checkbox"
@@ -291,54 +241,9 @@ const Settings: React.FC = () => {
                   />
                 </div>
                 
-                <div className="space-y-3">
-                  <div>
-                    <Label>Interface theme</Label>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Select a theme or sync to your system preferences</p>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="radio"
-                        id="theme-light"
-                        name="theme"
-                        value="light"
-                        checked={formData.theme === 'light'}
-                        onChange={() => handleThemeChange('light')}
-                        className="w-4 h-4"
-                      />
-                      <Label htmlFor="theme-light" className="cursor-pointer">Light</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="radio"
-                        id="theme-dark"
-                        name="theme"
-                        value="dark"
-                        checked={formData.theme === 'dark'}
-                        onChange={() => handleThemeChange('dark')}
-                        className="w-4 h-4"
-                      />
-                      <Label htmlFor="theme-dark" className="cursor-pointer">Dark</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="radio"
-                        id="theme-system"
-                        name="theme"
-                        value="system"
-                        checked={formData.theme === 'system'}
-                        onChange={() => handleThemeChange('system')}
-                        className="w-4 h-4"
-                      />
-                      <Label htmlFor="theme-system" className="cursor-pointer">System</Label>
-                    </div>
-                  </div>
-                </div>
-                
                 <div className="space-y-2">
                   <Label htmlFor="timezone">Timezone</Label>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Select your local timezone</p>
+                  <p className="text-sm text-gray-600">Select your local timezone</p>
                   <select
                     id="timezone"
                     value={formData.timezone}
@@ -383,7 +288,7 @@ const Settings: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>Two-Factor Authentication</Label>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Add an extra layer of security to your account</p>
+                    <p className="text-sm text-gray-600">Add an extra layer of security to your account</p>
                   </div>
                   <input
                     type="checkbox"

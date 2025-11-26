@@ -2,7 +2,7 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { Recording, RecordingItem, RecordingFilters, TableSort } from '../../types';
 import { recordingService, ProcessFileOptions, ProcessFileResult } from '../../services/recordingService';
 import { audioStorageService } from '../../services/audioStorageService';
-import { WorkflowHelpers } from '../../endpoints';
+import { WorkflowHelpers, RECORDING_ENDPOINTS, buildUrl } from '../../endpoints';
 
 // Extended state interface for recordings management
 interface RecordingState {
@@ -19,6 +19,7 @@ interface RecordingState {
   pagination: {
     page: number;
     limit: number;
+    offset: number;
     totalCount: number;
     hasMore: boolean;
   };
@@ -48,65 +49,140 @@ interface RecordingState {
     availableSpace: number;
     utilizationPercentage: number;
   } | null;
+  
+  // API integration state
+  useAPI: boolean;
+  apiFilters: {
+    status: string;
+    search: string;
+    order_by: string;
+    order_dir: 'ASC' | 'DESC';
+  };
 }
 
-// API mock functions - replace with actual API calls
+// API mock functions - fallback for when API is unavailable
 const mockApiDelay = (ms: number = 1000) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Fetch recordings from local storage (fallback)
+const fetchRecordingsFromLocalStorage = async () => {
+  await mockApiDelay(800);
+  const storedAudios = await audioStorageService.getAllAudioMetadata();
+  const filteredAudios = storedAudios.filter(audio => !audio.id.includes('recording-'));
+
+  const mockRecordings: Recording[] = filteredAudios.map(audio => ({
+    id: audio.id,
+    name: audio.fileName,
+    dateUploaded: new Date(audio.uploadDate).toISOString(),
+    duration: 0,
+    overview: '',
+    exports: []
+  })) || [];
+
+  return {
+    recordings: mockRecordings,
+    totalCount: mockRecordings.length,
+    hasMore: false,
+    offset: 0
+  };
+};
 
 // Async thunks for API operations
 export const fetchRecordings = createAsyncThunk(
   'recordings/fetchRecordings',
-  async (params: { filters?: RecordingFilters; sort?: TableSort; page?: number } = {}) => {
-    await mockApiDelay(800); // Simulate API call
+  async (params: { 
+    filters?: RecordingFilters; 
+    sort?: TableSort; 
+    page?: number;
+    limit?: number;
+    offset?: number;
+    getToken?: () => Promise<string | null>;
+    status?: string;
+    search?: string;
+    order_by?: string;
+    order_dir?: 'ASC' | 'DESC';
+  } = {}, { rejectWithValue }) => {
+    const { 
+      limit = 10, 
+      offset = 0,
+      getToken,
+      status = '',
+      search = '',
+      order_by = 'created_at',
+      order_dir = 'DESC'
+    } = params;
 
-    // Audio Datas from clients local storage
-    const storedAudios = await audioStorageService.getAllAudioMetadata();
+    // Try API first if getToken is provided
+    if (getToken) {
+      try {
+        const token = await getToken();
+        if (!token) {
+          console.warn('No token available, falling back to local storage');
+          return await fetchRecordingsFromLocalStorage();
+        }
 
-    // Filter to exclude items with "recording-" in the id
-    const filteredAudios = storedAudios.filter(audio => !audio.id.includes('recording-'));
+        // Build query parameters
+        const queryParams = new URLSearchParams({
+          limit: limit.toString(),
+          offset: offset.toString(),
+          order_by,
+          order_dir,
+        });
 
-    const mockRecordings: Recording[] = filteredAudios.map(audio => ({
-      id: audio.id,
-      name: audio.fileName,
-      dateUploaded: new Date(audio.uploadDate).toISOString(),
-      duration: 0,
-      overview: '',
-      exports: []
-    })) || [];
+        if (status) queryParams.append('status', status);
+        if (search) queryParams.append('search', search);
 
-    // Mock API response - replace with actual API call
-    // const mockRecordings: Recording[] = [
-    //   {
-    //     id: '1',
-    //     name: 'Weekly Team Meeting',
-    //     dateUploaded: new Date('2024-01-15').toISOString(),
-    //     duration: 45,
-    //     overview: 'Discussion about project progress and upcoming deadlines.',
-    //     exports: ['pdf', 'json']
-    //   },
-    //   {
-    //     id: '2',
-    //     name: 'Client Presentation',
-    //     dateUploaded: new Date('2024-01-12').toISOString(),
-    //     duration: 30,
-    //     overview: 'Product demo and feature walkthrough for new client.',
-    //     exports: ['pdf']
-    //   },
-    //   {
-    //     id: '3',
-    //     name: 'Sales Call - Prospect Alpha',
-    //     dateUploaded: new Date('2024-01-10').toISOString(),
-    //     duration: 25,
-    //     overview: 'Initial discovery call with potential enterprise customer.',
-    //     exports: []
-    //   }
-    // ];
-    
-    return {
-      recordings: mockRecordings,
-      totalCount: mockRecordings.length,
-      hasMore: false
-    };
+        const url = `${buildUrl(RECORDING_ENDPOINTS.LIST)}?${queryParams.toString()}`;
+        
+        const response = await fetch(url, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          if (response.status === 401 || response.status === 403) {
+            console.warn('Authentication failed, falling back to local storage');
+            return await fetchRecordingsFromLocalStorage();
+          }
+          throw new Error(`API returned ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        // Transform API response to match our Recording interface
+        const recordings: Recording[] = (data.recordings || []).map((rec: any) => ({
+          id: rec.id,
+          name: rec.file_name || rec.name,
+          dateUploaded: rec.created_at,
+          duration: rec.duration_seconds ? Math.ceil(rec.duration_seconds / 60) : 0,
+          overview: rec.transcript_preview || '',
+          transcript: rec.full_transcription,
+          intelligence: rec.intelligence,
+          exports: rec.exports || [],
+          // API-specific fields
+          status: rec.status,
+          processing_time_seconds: rec.processing_time_seconds,
+          action_count: rec.action_count,
+          decision_count: rec.decision_count,
+          issue_count: rec.issue_count,
+        }));
+
+        return {
+          recordings,
+          totalCount: data.pagination?.total || recordings.length,
+          hasMore: data.pagination?.has_more || false,
+          offset: data.pagination?.offset || offset,
+        };
+      } catch (error: any) {
+        console.error('API fetch failed, falling back to local storage:', error);
+        // Fall back to local storage on any error
+        return await fetchRecordingsFromLocalStorage();
+      }
+    }
+
+    // Fallback to local storage if no token provided
+    return await fetchRecordingsFromLocalStorage();
   }
 );
 
@@ -281,7 +357,8 @@ const initialState: RecordingState = {
   
   pagination: {
     page: 1,
-    limit: 20,
+    limit: 10,
+    offset: 0,
     totalCount: 0,
     hasMore: false,
   },
@@ -298,6 +375,14 @@ const initialState: RecordingState = {
   
   localAudioStatus: {},
   localStorageStats: null,
+  
+  useAPI: true,
+  apiFilters: {
+    status: '',
+    search: '',
+    order_by: 'created_at',
+    order_dir: 'DESC',
+  },
 };
 
 // Recordings slice
@@ -383,11 +468,35 @@ const recordingsSlice = createSlice({
     // Pagination actions
     setPage: (state, action: PayloadAction<number>) => {
       state.pagination.page = action.payload;
+      state.pagination.offset = (action.payload - 1) * state.pagination.limit;
     },
     
     setPageSize: (state, action: PayloadAction<number>) => {
       state.pagination.limit = action.payload;
       state.pagination.page = 1; // Reset to first page when changing page size
+      state.pagination.offset = 0;
+    },
+    
+    setOffset: (state, action: PayloadAction<number>) => {
+      state.pagination.offset = action.payload;
+      state.pagination.page = Math.floor(action.payload / state.pagination.limit) + 1;
+    },
+    
+    // API filters
+    setApiFilters: (state, action: PayloadAction<Partial<typeof initialState.apiFilters>>) => {
+      state.apiFilters = { ...state.apiFilters, ...action.payload };
+      state.pagination.offset = 0;
+      state.pagination.page = 1;
+    },
+    
+    clearApiFilters: (state) => {
+      state.apiFilters = initialState.apiFilters;
+      state.pagination.offset = 0;
+      state.pagination.page = 1;
+    },
+    
+    toggleAPIMode: (state, action: PayloadAction<boolean>) => {
+      state.useAPI = action.payload;
     },
     
     // Error handling
@@ -411,6 +520,7 @@ const recordingsSlice = createSlice({
         state.recordings = action.payload.recordings;
         state.pagination.totalCount = action.payload.totalCount;
         state.pagination.hasMore = action.payload.hasMore;
+        state.pagination.offset = action.payload.offset || 0;
         state.lastFetched = new Date().toISOString();
       })
       .addCase(fetchRecordings.rejected, (state, action) => {
@@ -582,6 +692,10 @@ export const {
   setCurrentRecording,
   setPage,
   setPageSize,
+  setOffset,
+  setApiFilters,
+  clearApiFilters,
+  toggleAPIMode,
   clearError,
   resetRecordings,
 } = recordingsSlice.actions;

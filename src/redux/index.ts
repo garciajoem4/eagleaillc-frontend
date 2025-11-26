@@ -36,6 +36,10 @@ export {
   setCurrentRecording,
   setPage,
   setPageSize,
+  setOffset,
+  setApiFilters,
+  clearApiFilters,
+  toggleAPIMode,
   clearError,
   resetRecordings,
   // Async thunks

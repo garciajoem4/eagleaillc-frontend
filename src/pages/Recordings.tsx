@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useUser } from '@clerk/clerk-react';
+import { useUser, useAuth } from '@clerk/clerk-react';
 import { Recording } from '../types';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -18,6 +18,9 @@ import {
   closeUploadModal,
   selectSortedRecordings,
   deleteRecording,
+  setApiFilters,
+  clearApiFilters,
+  setOffset,
 } from '../redux';
 
 // Constants for free trial limitations
@@ -29,6 +32,7 @@ const Recordings: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { user: clerkUser } = useUser();
+  const { getToken } = useAuth();
   
   // Redux state selectors
   const { 
@@ -37,7 +41,10 @@ const Recordings: React.FC = () => {
     sort, 
     loading, 
     error, 
-    isUploadModalOpen
+    isUploadModalOpen,
+    pagination,
+    apiFilters,
+    useAPI,
   } = useAppSelector((state) => state.recordings);
   
   const filteredAndSortedRecordings = useAppSelector(selectSortedRecordings);
@@ -70,17 +77,23 @@ const Recordings: React.FC = () => {
     return isFreeTrial && filteredAndSortedRecordings.length > MAX_FREE_TRIAL_RECORDINGS;
   }, [isFreeTrial, filteredAndSortedRecordings.length]);
 
-  // Fetch recordings on component mount
-  useEffect(() => {
-    dispatch(fetchRecordings({}));
-  }, [dispatch]);
+  // Fetch recordings with API integration
+  const fetchRecordingsData = useCallback(() => {
+    dispatch(fetchRecordings({
+      getToken,
+      limit: pagination.limit,
+      offset: pagination.offset,
+      status: apiFilters.status,
+      search: apiFilters.search,
+      order_by: apiFilters.order_by,
+      order_dir: apiFilters.order_dir,
+    }));
+  }, [dispatch, getToken, pagination.limit, pagination.offset, apiFilters]);
 
-  // Auto-show upload modal if user has no recordings (first time user)
+  // Fetch recordings on component mount and when filters/pagination changes
   useEffect(() => {
-    if (recordings.length === 0 && !loading && !error) {
-      dispatch(openUploadModal());
-    }
-  }, [recordings.length, loading, error, dispatch]);
+    fetchRecordingsData();
+  }, [fetchRecordingsData]);
 
   const handleSort = (field: keyof Recording) => {
     dispatch(toggleSort(field));
@@ -118,13 +131,42 @@ const Recordings: React.FC = () => {
 
   const handleUploadComplete = (newRecordings: Recording[]) => {
     // Fetch recordings to get updated list
-    dispatch(fetchRecordings({}));
+    fetchRecordingsData();
     dispatch(closeUploadModal());
     
     // Redirect to the first uploaded recording's details page
     if (newRecordings.length > 0) {
       navigate(`/app/recordings/${newRecordings[0].id}`);
     }
+  };
+
+  const handlePageChange = (newOffset: number) => {
+    dispatch(setOffset(newOffset));
+  };
+
+  const handleFilterChange = (key: string, value: string) => {
+    dispatch(setApiFilters({ [key]: value }));
+  };
+
+  const applyFilters = () => {
+    dispatch(setOffset(0));
+    fetchRecordingsData();
+  };
+
+  const getStatusBadgeColor = (status?: string) => {
+    if (!status) return 'secondary';
+    const colors: Record<string, string> = {
+      completed: 'default',
+      processing_asr: 'secondary',
+      processing_intel: 'secondary',
+      pending_asr: 'outline',
+      pending_upload: 'outline',
+      failed_asr: 'destructive',
+      failed_intel: 'destructive',
+      cancelled: 'outline',
+      expired: 'outline',
+    };
+    return colors[status] || 'secondary';
   };
 
   const handleSubscribe = () => {
@@ -208,78 +250,91 @@ const Recordings: React.FC = () => {
       )}
 
       {/* Filters */}
-      {recordings.length > 0 && (
+      {(recordings.length > 0 || apiFilters.status || apiFilters.search) && (
         <Card>
           <CardContent className='pt-6'>
-            {/* {isFreeTrial && (
-              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-sm text-blue-800">
-                  <strong>Free Trial:</strong> Search filters are available with paid plans. 
-                  <Button
-                    variant="link"
-                    onClick={handleSubscribe}
-                    className="text-sm text-blue-600 hover:text-blue-800 p-0 h-auto ml-1"
-                  >
-                    Subscribe to unlock
-                  </Button>
-                </p>
-              </div>
-            )} */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="nameFilter">Recording Name</Label>
+                <Label htmlFor="searchFilter">Search Filename</Label>
                 <Input
-                  id="nameFilter"
+                  id="searchFilter"
                   type="text"
-                  placeholder="Search by name..."
-                  value={filters.name}
-                  onChange={(e) => dispatch(setFilters({ ...filters, name: e.target.value }))}
+                  placeholder="Search by filename..."
+                  value={apiFilters.search}
+                  onChange={(e) => handleFilterChange('search', e.target.value)}
                   disabled={isFreeTrial}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="dateFromFilter">From Date</Label>
-                <Input
-                  id="dateFromFilter"
-                  type="date"
-                  value={filters.dateFrom ? new Date(filters.dateFrom).toISOString().split('T')[0] : ''}
-                  onChange={(e) =>
-                    dispatch(setFilters({
-                      ...filters,
-                      dateFrom: e.target.value ? new Date(e.target.value).toISOString() : undefined,
-                    }))
-                  }
+                <Label htmlFor="statusFilter">Status</Label>
+                <select
+                  id="statusFilter"
+                  value={apiFilters.status}
+                  onChange={(e) => handleFilterChange('status', e.target.value)}
                   disabled={isFreeTrial}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="dateToFilter">To Date</Label>
-                <Input
-                  id="dateToFilter"
-                  type="date"
-                  value={filters.dateTo ? new Date(filters.dateTo).toISOString().split('T')[0] : ''}
-                  onChange={(e) =>
-                    dispatch(setFilters({
-                      ...filters,
-                      dateTo: e.target.value ? new Date(e.target.value).toISOString() : undefined,
-                    }))
-                  }
-                  disabled={isFreeTrial}
-                />
-              </div>
-
-              <div className="flex items-end">
-                <Button
-                  variant="outline"
-                  onClick={() => dispatch(clearFilters())}
-                  className="w-full"
-                  disabled={isFreeTrial}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Clear Filters
-                </Button>
+                  <option value="">All</option>
+                  <option value="completed">Completed</option>
+                  <option value="processing_asr">Processing ASR</option>
+                  <option value="processing_intel">Processing Intelligence</option>
+                  <option value="pending_asr">Pending ASR</option>
+                  <option value="pending_upload">Pending Upload</option>
+                  <option value="failed_asr">Failed ASR</option>
+                  <option value="failed_intel">Failed Intel</option>
+                </select>
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="sortFilter">Sort By</Label>
+                <select
+                  id="sortFilter"
+                  value={apiFilters.order_by}
+                  onChange={(e) => handleFilterChange('order_by', e.target.value)}
+                  disabled={isFreeTrial}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="created_at">Created Date</option>
+                  <option value="completed_at">Completed Date</option>
+                  <option value="duration_seconds">Duration</option>
+                  <option value="file_name">Filename</option>
+                  <option value="status">Status</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="directionFilter">Direction</Label>
+                <select
+                  id="directionFilter"
+                  value={apiFilters.order_dir}
+                  onChange={(e) => handleFilterChange('order_dir', e.target.value)}
+                  disabled={isFreeTrial}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="DESC">Descending</option>
+                  <option value="ASC">Ascending</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="mt-4 flex justify-end gap-2">
+              <Button
+                onClick={applyFilters}
+                disabled={loading}
+              >
+                {loading ? 'Loading...' : 'Apply Filters'}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  dispatch(clearApiFilters());
+                  dispatch(clearFilters());
+                }}
+                disabled={isFreeTrial}
+              >
+                Clear Filters
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -294,38 +349,20 @@ const Recordings: React.FC = () => {
                 <table className="w-full">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th 
-                        className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 ${
-                          sort.field === 'name' ? 'bg-gray-100' : ''
-                        }`}
-                        onClick={() => handleSort('name')}
-                      >
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Name
-                        <span className="ml-2">
-                          {sort.field === 'name' ? (sort.direction === 'asc' ? '↑' : '↓') : '↕'}
-                        </span>
                       </th>
-                      <th 
-                        className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 ${
-                          sort.field === 'dateUploaded' ? 'bg-gray-100' : ''
-                        }`}
-                        onClick={() => handleSort('dateUploaded')}
-                      >
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Uploaded On
-                        <span className="ml-2">
-                          {sort.field === 'dateUploaded' ? (sort.direction === 'asc' ? '↑' : '↓') : '↕'}
-                        </span>
                       </th>
-                      <th 
-                        className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 ${
-                          sort.field === 'duration' ? 'bg-gray-100' : ''
-                        }`}
-                        onClick={() => handleSort('duration')}
-                      >
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Duration
-                        <span className="ml-2">
-                          {sort.field === 'duration' ? (sort.direction === 'asc' ? '↑' : '↓') : '↕'}
-                        </span>
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Insights
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Actions
@@ -333,16 +370,43 @@ const Recordings: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {displayRecordings.map((recording) => (
+                    {displayRecordings.map((recording: any) => (
                       <tr key={recording.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-6 py-4">
                           <div className="font-medium text-gray-900">{recording.name.split('.')[0]}</div>
+                          {recording.overview && (
+                            <div className="text-xs text-gray-500 mt-1 truncate max-w-xs">
+                              {recording.overview.substring(0, 60)}...
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {recording.status ? (
+                            <Badge variant={getStatusBadgeColor(recording.status) as any}>
+                              {recording.status.replace(/_/g, ' ').toUpperCase()}
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline">Local</Badge>
+                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-gray-500">
                           {formatDate(recording.dateUploaded)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <Badge variant="secondary">{formatDuration(recording.duration)}</Badge>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-xs space-y-1">
+                            {recording.action_count > 0 && (
+                              <div className="text-green-600">✓ {recording.action_count} actions</div>
+                            )}
+                            {recording.decision_count > 0 && (
+                              <div className="text-blue-600">✓ {recording.decision_count} decisions</div>
+                            )}
+                            {recording.issue_count > 0 && (
+                              <div className="text-orange-600">⚠ {recording.issue_count} issues</div>
+                            )}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex space-x-2">
@@ -401,20 +465,61 @@ const Recordings: React.FC = () => {
             </CardContent>
           </Card>
 
-          <div className="text-sm text-gray-500">
-            {isFreeTrial ? (
-              <>
-                Showing {displayRecordings.length} of {Math.min(recordings.length, MAX_FREE_TRIAL_RECORDINGS)} recordings 
-                {recordings.length > MAX_FREE_TRIAL_RECORDINGS && (
-                  <span className="text-blue-600">
-                    {` (${recordings.length - MAX_FREE_TRIAL_RECORDINGS} more with paid plan)`}
-                  </span>
+          {/* Pagination Controls */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex justify-between items-center">
+                <div className="text-sm text-gray-500">
+                  {isFreeTrial ? (
+                    <>
+                      Showing {displayRecordings.length} of {Math.min(recordings.length, MAX_FREE_TRIAL_RECORDINGS)} recordings 
+                      {recordings.length > MAX_FREE_TRIAL_RECORDINGS && (
+                        <span className="text-blue-600">
+                          {` (${recordings.length - MAX_FREE_TRIAL_RECORDINGS} more with paid plan)`}
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      Showing {pagination.offset + 1} - {Math.min(pagination.offset + pagination.limit, pagination.totalCount)} of {pagination.totalCount} recordings
+                    </>
+                  )}
+                </div>
+                
+                {!isFreeTrial && useAPI && (
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(Math.max(0, pagination.offset - pagination.limit))}
+                      disabled={pagination.offset === 0 || loading}
+                    >
+                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                      </svg>
+                      Previous
+                    </Button>
+                    
+                    <div className="flex items-center px-3 text-sm text-gray-600">
+                      Page {pagination.page}
+                    </div>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(pagination.offset + pagination.limit)}
+                      disabled={!pagination.hasMore || loading}
+                    >
+                      Next
+                      <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </Button>
+                  </div>
                 )}
-              </>
-            ) : (
-              `Showing ${filteredAndSortedRecordings.length} of ${recordings.length} recordings`
-            )}
-          </div>
+              </div>
+            </CardContent>
+          </Card>
         </>
       ) : (
         <Card>
