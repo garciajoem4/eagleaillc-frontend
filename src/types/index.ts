@@ -7,6 +7,12 @@ export interface Recording {
   transcript?: string;
   intelligence?: any;
   exports?: string[];
+  // API-specific fields
+  status?: string;
+  processing_time_seconds?: number;
+  action_count?: number;
+  decision_count?: number;
+  issue_count?: number;
 }
 
 export interface RecordingItem {

@@ -832,6 +832,7 @@ const SubscriptionModal: React.FC<{
 const Homepage: React.FC = () => {
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
   const [currentTranscriptionIndex, setCurrentTranscriptionIndex] = useState(0);
+  const [currentFeatureIndex, setCurrentFeatureIndex] = useState(0);
   const [subscriptionModal, setSubscriptionModal] = useState<{
     isOpen: boolean;
     plan: SubscriptionPlan | null;
@@ -852,6 +853,127 @@ const Homepage: React.FC = () => {
 
     return () => clearInterval(interval);
   }, []);
+
+  // Define features for carousel
+  const features = [
+    {
+      icon: (
+        <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+        </svg>
+      ),
+      title: "AI Transcription",
+      description: "Accurate, real-time transcription with speaker identification and timestamp precision",
+      items: [
+        "99%+ accuracy rate",
+        "Multi-language support",
+        "Speaker identification",
+        "Real-time processing"
+      ]
+    },
+    {
+      icon: (
+        <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+        </svg>
+      ),
+      title: "Smart Intelligence Analysis",
+      description: "Automatically extract action items, decisions, issues, and questions from conversations",
+      items: [
+        "Action item detection",
+        "Decision tracking",
+        "Issue identification",
+        "Question extraction"
+      ]
+    },
+    {
+      icon: (
+        <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+      ),
+      title: "Advanced Search & Filter",
+      description: "Find any moment in your recordings with powerful search and time-based filtering",
+      items: [
+        "Full-text search",
+        "Time range filtering",
+        "Content categorization",
+        "Instant results"
+      ]
+    },
+    {
+      icon: (
+        <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1.586a1 1 0 01.707.293l2.414 2.414a1 1 0 00.707.293H15M9 10V9a1 1 0 011-1h1m4 1h1a1 1 0 011 1v1m-4 3v1a1 1 0 01-1 1H9.586a1 1 0 01-.707-.293L6.465 13.293A1 1 0 016 12.586V11a1 1 0 011-1h1" />
+        </svg>
+      ),
+      title: "Integrated Audio Playback",
+      description: "Listen to original recordings with synchronized transcript highlighting",
+      items: [
+        "High-quality playback",
+        "Sync with transcript",
+        "Speed controls",
+        "Bookmark moments"
+      ]
+    },
+    {
+      icon: (
+        <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+      ),
+      title: "Flexible Export Options",
+      description: "Export your data in multiple formats for seamless integration with your workflow",
+      items: [
+        "PDF reports",
+        "Word documents",
+        "JSON data",
+        "Plain text"
+      ]
+    },
+    {
+      icon: (
+        <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+        </svg>
+      ),
+      title: "Enterprise Security",
+      description: "Bank-level security with end-to-end encryption and compliance certifications",
+      items: [
+        "End-to-end encryption",
+        "SOC 2 compliance",
+        "GDPR compliant",
+        "Private cloud options"
+      ]
+    }
+  ];
+
+  // Auto-advance carousel
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentFeatureIndex((prevIndex) => 
+        (prevIndex + 1) % features.length
+      );
+    }, 5000); // Change every 5 seconds
+
+    return () => clearInterval(interval);
+  }, [features.length]);
+
+  const goToFeature = (index: number) => {
+    setCurrentFeatureIndex(index);
+  };
+
+  const goToPrevFeature = () => {
+    setCurrentFeatureIndex((prevIndex) => 
+      prevIndex === 0 ? features.length - 1 : prevIndex - 1
+    );
+  };
+
+  const goToNextFeature = () => {
+    setCurrentFeatureIndex((prevIndex) => 
+      (prevIndex + 1) % features.length
+    );
+  };
 
   const toggleFAQ = (index: number) => {
     setOpenFAQ(openFAQ === index ? null : index);
@@ -1122,7 +1244,7 @@ const Homepage: React.FC = () => {
         </div>
       </section>
 
-      {/* Features Section */}
+      {/* Features Section - Carousel */}
       <section id="features" className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
@@ -1134,144 +1256,92 @@ const Homepage: React.FC = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* AI Transcription */}
-            <Card className="border-2 hover:border-[#4e69fd]/30 transition-all duration-300 p-6 hover:shadow-lg hover:shadow-[#4e69fd]/10">
-              <div className="flex items-start space-x-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-[#4e69fd] to-[#7c3aed] rounded-xl flex items-center justify-center flex-shrink-0">
-                  <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                  </svg>
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Transcription</h3>
-                  <p className="text-gray-600 mb-4">
-                    Accurate, real-time transcription with speaker identification and timestamp precision
-                  </p>
-                  <ul className="space-y-2 text-sm text-gray-600">
-                    <li>• 99%+ accuracy rate</li>
-                    <li>• Multi-language support</li>
-                    <li>• Speaker identification</li>
-                    <li>• Real-time processing</li>
-                  </ul>
-                </div>
+          {/* Carousel Container */}
+          <div className="relative max-w-[1000px] mx-auto">
+            {/* Main Carousel Card */}
+            <div className="overflow-hidden">
+              <div 
+                className="pb-[10px] md:pb-[40px] flex transition-transform duration-500 ease-in-out"
+                style={{ transform: `translateX(-${currentFeatureIndex * 100}%)` }}
+              >
+                {features.map((feature, index) => (
+                  <div key={index} className="w-full flex-shrink-0 px-2">
+                    <Card className="border-2 border-[#4e69fd]/20 p-8 md:p-12 bg-gradient-to-br from-white to-blue-50/30 shadow-xl max-w-4xl mx-auto">
+                      <div className="flex flex-col md:flex-row items-center md:items-start space-y-6 md:space-y-0 md:space-x-8">
+                        {/* Icon */}
+                        <div className="w-20 h-20 md:w-24 md:h-24 bg-gradient-to-br from-[#4e69fd] to-[#7c3aed] rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg">
+                          {feature.icon}
+                        </div>
+                        
+                        {/* Content */}
+                        <div className="flex-1 text-center md:text-left">
+                          <h3 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">
+                            {feature.title}
+                          </h3>
+                          <p className="text-lg text-gray-600 mb-6">
+                            {feature.description}
+                          </p>
+                          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {feature.items.map((item, idx) => (
+                              <li key={idx} className="flex items-center text-gray-700">
+                                <svg className="w-5 h-5 text-green-500 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                                <span>{item}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </Card>
+                  </div>
+                ))}
               </div>
-            </Card>
+            </div>
 
-            {/* Smart Intelligence */}
-            <Card className="border-2 hover:border-[#4e69fd]/30 transition-all duration-300 p-6 hover:shadow-lg hover:shadow-[#4e69fd]/10">
-              <div className="flex items-start space-x-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-[#4e69fd] to-[#7c3aed] rounded-xl flex items-center justify-center flex-shrink-0">
-                  <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                  </svg>
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Intelligence Analysis</h3>
-                  <p className="text-gray-600 mb-4">
-                    Automatically extract action items, decisions, issues, and questions from conversations
-                  </p>
-                  <ul className="space-y-2 text-sm text-gray-600">
-                    <li>• Action item detection</li>
-                    <li>• Decision tracking</li>
-                    <li>• Issue identification</li>
-                    <li>• Question extraction</li>
-                  </ul>
-                </div>
-              </div>
-            </Card>
+            {/* Navigation Arrows */}
+            <button
+              onClick={goToPrevFeature}
+              className="absolute left-0 top-1/3 -translate-y-1/2 -translate-x-4 md:-translate-x-12 bg-white hover:bg-gray-50 text-gray-800 rounded-full p-3 shadow-lg border-2 border-gray-200 transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-[#4e69fd]/50"
+              aria-label="Previous feature"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            
+            <button
+              onClick={goToNextFeature}
+              className="absolute right-0 top-1/3 -translate-y-1/2 translate-x-4 md:translate-x-12 bg-white hover:bg-gray-50 text-gray-800 rounded-full p-3 shadow-lg border-2 border-gray-200 transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-[#4e69fd]/50"
+              aria-label="Next feature"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
 
-            {/* Advanced Search */}
-            <Card className="border-2 hover:border-[#4e69fd]/30 transition-all duration-300 p-6 hover:shadow-lg hover:shadow-[#4e69fd]/10">
-              <div className="flex items-start space-x-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-[#4e69fd] to-[#7c3aed] rounded-xl flex items-center justify-center flex-shrink-0">
-                  <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Advanced Search & Filter</h3>
-                  <p className="text-gray-600 mb-4">
-                    Find any moment in your recordings with powerful search and time-based filtering
-                  </p>
-                  <ul className="space-y-2 text-sm text-gray-600">
-                    <li>• Full-text search</li>
-                    <li>• Time range filtering</li>
-                    <li>• Content categorization</li>
-                    <li>• Instant results</li>
-                  </ul>
-                </div>
-              </div>
-            </Card>
+            {/* Dot Indicators */}
+            <div className="flex justify-center mt-8 space-x-2">
+              {features.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => goToFeature(index)}
+                  className={`transition-all duration-300 rounded-full focus:outline-none focus:ring-2 focus:ring-[#4e69fd]/50 ${
+                    index === currentFeatureIndex
+                      ? 'w-12 h-3 bg-gradient-to-r from-[#4e69fd] to-[#7c3aed]'
+                      : 'w-3 h-3 bg-gray-300 hover:bg-gray-400'
+                  }`}
+                  aria-label={`Go to feature ${index + 1}`}
+                />
+              ))}
+            </div>
 
-            {/* Audio Playback */}
-            <Card className="border-2 hover:border-[#4e69fd]/30 transition-all duration-300 p-6 hover:shadow-lg hover:shadow-[#4e69fd]/10">
-              <div className="flex items-start space-x-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-[#4e69fd] to-[#7c3aed] rounded-xl flex items-center justify-center flex-shrink-0">
-                  <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1.586a1 1 0 01.707.293l2.414 2.414a1 1 0 00.707.293H15M9 10V9a1 1 0 011-1h1m4 1h1a1 1 0 011 1v1m-4 3v1a1 1 0 01-1 1H9.586a1 1 0 01-.707-.293L6.465 13.293A1 1 0 016 12.586V11a1 1 0 011-1h1" />
-                  </svg>
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Integrated Audio Playback</h3>
-                  <p className="text-gray-600 mb-4">
-                    Listen to original recordings with synchronized transcript highlighting
-                  </p>
-                  <ul className="space-y-2 text-sm text-gray-600">
-                    <li>• High-quality playback</li>
-                    <li>• Sync with transcript</li>
-                    <li>• Speed controls</li>
-                    <li>• Bookmark moments</li>
-                  </ul>
-                </div>
-              </div>
-            </Card>
-
-            {/* Export Options */}
-            <Card className="border-2 hover:border-[#4e69fd]/30 transition-all duration-300 p-6 hover:shadow-lg hover:shadow-[#4e69fd]/10">
-              <div className="flex items-start space-x-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-[#4e69fd] to-[#7c3aed] rounded-xl flex items-center justify-center flex-shrink-0">
-                  <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Flexible Export Options</h3>
-                  <p className="text-gray-600 mb-4">
-                    Export your data in multiple formats for seamless integration with your workflow
-                  </p>
-                  <ul className="space-y-2 text-sm text-gray-600">
-                    <li>• PDF reports</li>
-                    <li>• Word documents</li>
-                    <li>• JSON data</li>
-                    <li>• Plain text</li>
-                  </ul>
-                </div>
-              </div>
-            </Card>
-
-            {/* Security & Privacy */}
-            <Card className="border-2 hover:border-[#4e69fd]/30 transition-all duration-300 p-6 hover:shadow-lg hover:shadow-[#4e69fd]/10">
-              <div className="flex items-start space-x-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-[#4e69fd] to-[#7c3aed] rounded-xl flex items-center justify-center flex-shrink-0">
-                  <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                  </svg>
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Enterprise Security</h3>
-                  <p className="text-gray-600 mb-4">
-                    Bank-level security with end-to-end encryption and compliance certifications
-                  </p>
-                  <ul className="space-y-2 text-sm text-gray-600">
-                    <li>• End-to-end encryption</li>
-                    <li>• SOC 2 compliance</li>
-                    <li>• GDPR compliant</li>
-                    <li>• Private cloud options</li>
-                  </ul>
-                </div>
-              </div>
-            </Card>
+            {/* Feature Counter */}
+            {/* <div className="text-center mt-4">
+              <span className="text-sm text-gray-500">
+                Feature {currentFeatureIndex + 1} of {features.length}
+              </span>
+            </div> */}
           </div>
         </div>
       </section>
