@@ -17,6 +17,7 @@ const Homepage: React.FC = () => {
     subscriptionModal,
     freeTrialModal,
     isMobileMenuOpen,
+    isCarouselPaused,
     
     // Functions
     goToFeature,
@@ -30,6 +31,7 @@ const Homepage: React.FC = () => {
     formatPrice,
     toggleMobileMenu,
     closeMobileMenu,
+    toggleCarouselPause,
   } = useHomepage();
 
   // Build features with JSX icons from featuresData
@@ -41,6 +43,35 @@ const Homepage: React.FC = () => {
       </svg>
     )
   }));
+
+  // Touch handling for mobile swipe
+  const [touchStart, setTouchStart] = React.useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = React.useState<number | null>(null);
+
+  const minSwipeDistance = 50;
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+    
+    if (isLeftSwipe) {
+      goToNextFeature(features.length);
+    } else if (isRightSwipe) {
+      goToPrevFeature(features.length);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-white">
@@ -290,35 +321,181 @@ const Homepage: React.FC = () => {
             </p>
           </div>
 
-          {/* Carousel Container */}
-          <div className="relative max-w-[1000px] mx-auto">
-            {/* Main Carousel Card */}
-            <div className="overflow-hidden">
-              <div 
-                className="pb-[10px] md:pb-[40px] flex transition-transform duration-500 ease-in-out"
-                style={{ transform: `translateX(-${currentFeatureIndex * 100}%)` }}
-              >
-                {features.map((feature, index) => (
-                  <div key={index} className="w-full flex-shrink-0 px-2">
-                    <Card className="border-2 border-[#4e69fd]/20 p-8 md:p-12 bg-gradient-to-br from-white to-blue-50/30 shadow-xl max-w-4xl mx-auto">
-                      <div className="flex flex-col md:flex-row items-center md:items-start space-y-6 md:space-y-0 md:space-x-8">
+          {/* Carousel Container - Card Stack Style */}
+          <div className="relative group md:pt-[170px] md:pb-[130px]">
+            {/* Play/Pause Button - Shows on hover */}
+            {/* <button
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleCarouselPause();
+              }}
+              className="absolute top-4 right-4 z-50 bg-white/90 hover:bg-white text-gray-800 rounded-full p-2.5 shadow-lg border border-gray-200 transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-[#4e69fd]/50 opacity-0 group-hover:opacity-100"
+              aria-label={isCarouselPaused ? 'Play carousel' : 'Pause carousel'}
+              title={isCarouselPaused ? 'Play carousel' : 'Pause carousel'}
+            >
+              {isCarouselPaused ? (
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+                </svg>
+              )}
+            </button> */}
+
+            {/* Auto-play indicator */}
+            {/* {!isCarouselPaused && (
+              <div className="absolute top-4 left-4 z-50 bg-[#4e69fd]/10 text-[#4e69fd] px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm border border-[#4e69fd]/20 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                <div className="w-2 h-2 bg-[#4e69fd] rounded-full animate-pulse"></div>
+                Auto-playing
+              </div>
+            )} */}
+
+            {/* Desktop: Multiple Cards Visible - Infinite Loop */}
+            <div className="hidden lg:flex justify-center items-center gap-6 perspective-1000">
+              {features.map((feature, index) => {
+                // Calculate position relative to current with infinite wrap
+                let offset = index - currentFeatureIndex;
+                const totalFeatures = features.length;
+                
+                // Normalize offset for infinite loop
+                // Handle wrapping: if offset is more than half the length, wrap it around
+                if (offset > totalFeatures / 2) {
+                  offset -= totalFeatures;
+                } else if (offset < -totalFeatures / 2) {
+                  offset += totalFeatures;
+                }
+
+                const isCenter = offset === 0;
+                const isLeft = offset === -1;
+                const isRight = offset === 1;
+                const isFarLeft = offset === -2;
+                const isFarRight = offset === 2;
+                const isVisible = Math.abs(offset) <= 2;
+
+                return (
+                  <div
+                    key={index}
+                    className={`transition-all duration-700 ease-out cursor-pointer ${
+                      isVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                    }`}
+                    style={{
+                      transform: isCenter 
+                        ? 'scale(1) translateX(0) rotateY(0deg)' 
+                        : isLeft
+                        ? 'scale(0.85) translateX(-60%) rotateY(15deg)'
+                        : isRight
+                        ? 'scale(0.85) translateX(60%) rotateY(-15deg)'
+                        : isFarLeft
+                        ? 'scale(0.7) translateX(-120%) rotateY(20deg)'
+                        : isFarRight
+                        ? 'scale(0.7) translateX(120%) rotateY(-20deg)'
+                        : 'scale(0.5)',
+                      zIndex: isCenter ? 30 : isLeft || isRight ? 20 : 10,
+                      position: 'absolute',
+                      left: '50%',
+                      marginLeft: '-200px',
+                      width: '400px'
+                    }}
+                    onClick={() => goToFeature(index)}
+                  >
+                    {/* Card */}
+                    <Card className={`border-2 p-6 bg-white shadow-2xl transition-all duration-300 ${
+                      isCenter 
+                        ? 'border-[#4e69fd]/40 shadow-[0_20px_60px_rgba(78,105,253,0.3)]' 
+                        : 'border-gray-200'
+                    }`}>
+                      <div className="flex flex-col items-center text-center space-y-4">
                         {/* Icon */}
-                        <div className="w-20 h-20 md:w-24 md:h-24 bg-gradient-to-br from-[#4e69fd] to-[#7c3aed] rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg">
+                        <div className={`w-16 h-16 bg-gradient-to-br from-[#4e69fd] to-[#7c3aed] rounded-xl flex items-center justify-center shadow-lg transition-all duration-300 ${
+                          isCenter ? 'scale-110' : 'scale-100'
+                        }`}>
                           {feature.icon}
                         </div>
+
+                        {/* Title */}
+                        <h3 className="text-lg font-semibold text-gray-900">{feature.title}</h3>
                         
-                        {/* Content */}
-                        <div className="flex-1 text-center md:text-left">
-                          <h3 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">
-                            {feature.title}
-                          </h3>
-                          <p className="text-lg text-gray-600 mb-6">
+                        {/* Image Placeholder */}
+                        {/* <div className="w-full h-48 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg overflow-hidden">
+                          <div className="w-full h-full flex items-center justify-center text-gray-400">
+                            <svg className="w-16 h-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                          </div>
+                        </div> */}
+                        
+                        {/* Description */}
+                        <p className="text-sm text-gray-600 line-clamp-2">
+                          {feature.description}
+                        </p>
+
+                        <ul className="grid grid-cols-1 gap-3">
+                          {feature.items.map((item, idx) => (
+                            <li key={idx} className="flex items-start text-gray-700">
+                              <svg className="w-5 h-5 text-green-500 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              <span>{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </Card>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Mobile/Tablet: Single Card */}
+            <div className="lg:hidden">
+              <div 
+                className="overflow-hidden"
+                onTouchStart={onTouchStart}
+                onTouchMove={onTouchMove}
+                onTouchEnd={onTouchEnd}
+              >
+                <div 
+                  className="flex transition-transform duration-500 ease-in-out"
+                  style={{ transform: `translateX(-${currentFeatureIndex * 100}%)` }}
+                >
+                  {features.map((feature, index) => (
+                    <div key={index} className="w-full flex-shrink-0 px-2">
+                      {/* Label at top */}
+                      {/* <div className="mb-2 text-center">
+                        <div className="inline-block bg-black text-white px-4 py-1.5 rounded-t-lg text-sm font-medium">
+                          {feature.title}
+                        </div>
+                      </div> */}
+                      
+                      <Card className="border-2 border-[#4e69fd]/20 p-6 bg-white shadow-xl">
+                        <div className="flex flex-col items-center text-center space-y-4">
+                          {/* Icon */}
+                          <div className="w-16 h-16 bg-gradient-to-br from-[#4e69fd] to-[#7c3aed] rounded-xl flex items-center justify-center shadow-lg">
+                            {feature.icon}
+                          </div>
+                          
+                          {/* Image Placeholder */}
+                          {/* <div className="w-full h-48 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg overflow-hidden">
+                            <div className="w-full h-full flex items-center justify-center text-gray-400">
+                              <svg className="w-16 h-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                            </div>
+                          </div> */}
+
+                          <h3 className="text-md font-semibold text-gray-900 mb-2">{feature.title}</h3>
+                          
+                          <p className="text-sm text-gray-600">
                             {feature.description}
                           </p>
-                          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+                          {/* Feature Items */}
+                          <ul className="space-y-2 text-left">
                             {feature.items.map((item, idx) => (
-                              <li key={idx} className="flex items-center text-gray-700">
-                                <svg className="w-5 h-5 text-green-500 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <li key={idx} className="flex items-center text-sm text-gray-700">
+                                <svg className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                 </svg>
                                 <span>{item}</span>
@@ -326,17 +503,17 @@ const Homepage: React.FC = () => {
                             ))}
                           </ul>
                         </div>
-                      </div>
-                    </Card>
-                  </div>
-                ))}
+                      </Card>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
             {/* Navigation Arrows */}
-            <button
+            {/* <button
               onClick={() => goToPrevFeature(features.length)}
-              className="absolute left-0 top-1/3 -translate-y-1/2 -translate-x-4 md:-translate-x-12 bg-white hover:bg-gray-50 text-gray-800 rounded-full p-3 shadow-lg border-2 border-gray-200 transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-[#4e69fd]/50"
+              className="absolute left-0 lg:left-4 top-1/2 -translate-y-1/2 z-40 bg-white hover:bg-gray-50 text-gray-800 rounded-full p-3 shadow-lg border-2 border-gray-200 transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-[#4e69fd]/50"
               aria-label="Previous feature"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -346,13 +523,13 @@ const Homepage: React.FC = () => {
             
             <button
               onClick={() => goToNextFeature(features.length)}
-              className="absolute right-0 top-1/3 -translate-y-1/2 translate-x-4 md:translate-x-12 bg-white hover:bg-gray-50 text-gray-800 rounded-full p-3 shadow-lg border-2 border-gray-200 transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-[#4e69fd]/50"
+              className="absolute right-0 lg:right-4 top-1/2 -translate-y-1/2 z-40 bg-white hover:bg-gray-50 text-gray-800 rounded-full p-3 shadow-lg border-2 border-gray-200 transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-[#4e69fd]/50"
               aria-label="Next feature"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
-            </button>
+            </button> */}
 
             {/* Dot Indicators */}
             <div className="flex justify-center mt-8 space-x-2">
@@ -369,13 +546,6 @@ const Homepage: React.FC = () => {
                 />
               ))}
             </div>
-
-            {/* Feature Counter */}
-            {/* <div className="text-center mt-4">
-              <span className="text-sm text-gray-500">
-                Feature {currentFeatureIndex + 1} of {features.length}
-              </span>
-            </div> */}
           </div>
         </div>
       </section>
