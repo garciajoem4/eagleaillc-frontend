@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -12,8 +12,9 @@ import { useBilling } from '../hooks/useBilling';
 const Billings: React.FC = () => {
   const { user } = useUser();
   
-  // Redux billing hook
+  // Get everything from the useBilling hook (with auto-refresh every 5 minutes)
   const {
+    // State
     subscription,
     currentPlan,
     defaultPaymentMethod,
@@ -22,69 +23,31 @@ const Billings: React.FC = () => {
     isLoading,
     error,
     paymentFailures,
+    apiError,
+    isRefreshing,
+    
+    // Functions
     formatCurrency,
+    formatDate,
     openPaymentMethodModal,
     clearError,
+    clearApiError,
     dismissUsageWarning,
-    refreshBillingHistory,
-  } = useBilling({ autoFetch: true });
-
-  // Auto-refresh billing data periodically
-  useEffect(() => {
-    const interval = setInterval(() => {
-      refreshBillingHistory();
-    }, 60000); // Refresh every minute
-
-    return () => clearInterval(interval);
-  }, [refreshBillingHistory]);
-
-  const formatDate = (date: string | Date): string => {
-    // Handle both ISO string dates and Date objects
-    const dateObj = typeof date === 'string' ? new Date(date) : date;
-    return dateObj.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
-  // Calculate billing totals
-  const totalPaid = billingRecords
-    .filter(record => record.status === 'paid')
-    .reduce((sum, record) => sum + (record.amount || record.total || 0), 0);
-
-  const totalPending = billingRecords
-    .filter(record => record.status === 'pending' || record.status === 'overdue')
-    .reduce((sum, record) => sum + (record.amount || record.total || 0), 0);
-
-  const getStatusVariant = (status: string) => {
-    switch (status) {
-      case 'paid':
-        return 'default';
-      case 'pending':
-        return 'secondary';
-      case 'overdue':
-      case 'failed':
-        return 'destructive';
-      default:
-        return 'secondary';
-    }
-  };
-
-  // Helper functions for new Redux-powered features
-  const openUpgradePlanModal = () => {
-    openPaymentMethodModal(); // Use existing modal function for now
-  };
-
-  const downloadInvoice = (recordId: string) => {
-    // TODO: Implement invoice download
-    console.log('Downloading invoice for record:', recordId);
-  };
-
-  const retryPayment = (recordId: string) => {
-    // TODO: Implement payment retry
-    console.log('Retrying payment for record:', recordId);
-  };
+    handleRefreshSubscription,
+    
+    // Computed values
+    totalPaid,
+    totalPending,
+    getStatusVariant,
+    
+    // Helper functions
+    openUpgradePlanModal,
+    downloadInvoice,
+    retryPayment,
+  } = useBilling({ 
+    autoFetch: true,
+    refreshInterval: 300000 // Auto-refresh every 5 minutes
+  });
 
 
 
@@ -98,12 +61,30 @@ const Billings: React.FC = () => {
               Manage your subscription and payment history for {user?.firstName || 'User'}
             </p>
           </div>
-          <Button className="flex items-center gap-2">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            Download Invoice
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              className="flex items-center gap-2"
+              onClick={handleRefreshSubscription}
+              disabled={isRefreshing}
+            >
+              <svg 
+                className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              {isRefreshing ? 'Refreshing...' : 'Refresh'}
+            </Button>
+            <Button className="flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Download Invoice
+            </Button>
+          </div>
         </div>
 
         <Tabs defaultValue="overview" className="w-full">
@@ -114,13 +95,50 @@ const Billings: React.FC = () => {
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
+            {/* Loading State */}
+            {isRefreshing && (
+              <Card className="border-blue-200 bg-blue-50">
+                <CardContent className="p-4">
+                  <div className="flex items-center space-x-2">
+                    <svg className="w-5 h-5 text-blue-600 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <span className="text-blue-800">Loading subscription data...</span>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* API Error Display */}
+            {apiError && (
+              <Card className="border-yellow-200 bg-yellow-50">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      <div>
+                        <span className="text-yellow-800 font-medium">API Connection Issue: </span>
+                        <span className="text-yellow-700">{apiError}</span>
+                        <p className="text-yellow-600 text-sm mt-1">Displaying cached or fallback data</p>
+                      </div>
+                    </div>
+                    <Button onClick={clearApiError} size="sm" variant="outline">
+                      Dismiss
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Error Display */}
             {error && (
               <Card className="border-red-200 bg-red-50">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
-                      <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
                       </svg>
                       <span className="text-red-800">{error}</span>
@@ -208,6 +226,87 @@ const Billings: React.FC = () => {
               </Card>
             </div>
 
+            {/* Usage Statistics from Backend API */}
+            {subscription?.usage && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Usage & Limits</CardTitle>
+                  <CardDescription>Current billing period usage from backend</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Files Usage */}
+                  <div>
+                    <div className="flex justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">Files Uploaded</span>
+                      <span className="text-sm text-gray-600">
+                        {subscription.usage.files_uploaded || 0} / {subscription.usage.files_limit_text || subscription.usage.files_limit || 'Unlimited'}
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2.5">
+                      <div 
+                        className={`h-2.5 rounded-full ${
+                          ((subscription.usage.files_uploaded || 0) / (subscription.usage.files_limit || 1)) > 0.8 
+                            ? 'bg-red-600' 
+                            : 'bg-blue-600'
+                        }`}
+                        style={{ 
+                          width: `${Math.min(100, ((subscription.usage.files_uploaded || 0) / (subscription.usage.files_limit || 1)) * 100)}%` 
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Storage Usage */}
+                  <div>
+                    <div className="flex justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">Storage Used</span>
+                      <span className="text-sm text-gray-600">
+                        {subscription.usage.storage_used_gb?.toFixed(2) || 0} GB / {subscription.usage.storage_limit_gb || 'Unlimited'} GB
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2.5">
+                      <div 
+                        className={`h-2.5 rounded-full ${
+                          ((subscription.usage.storage_used_gb || 0) / (subscription.usage.storage_limit_gb || 1)) > 0.8 
+                            ? 'bg-red-600' 
+                            : 'bg-green-600'
+                        }`}
+                        style={{ 
+                          width: `${Math.min(100, ((subscription.usage.storage_used_gb || 0) / (subscription.usage.storage_limit_gb || 1)) * 100)}%` 
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Billing Period */}
+                  {subscription.usage.billing_period_start && subscription.usage.billing_period_end && (
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <p className="text-xs text-gray-500">
+                        Billing Period: {new Date(subscription.usage.billing_period_start).toLocaleDateString()} - {new Date(subscription.usage.billing_period_end).toLocaleDateString()}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Plan Limits */}
+                  {subscription.limits && (
+                    <div className="mt-4 pt-4 border-t border-gray-200 space-y-2">
+                      <h4 className="text-sm font-medium text-gray-700">Plan Limits</h4>
+                      {subscription.limits.max_file_duration_text && (
+                        <p className="text-xs text-gray-600">
+                          • Max File Duration: {subscription.limits.max_file_duration_text}
+                        </p>
+                      )}
+                      {subscription.limits.priority_text && (
+                        <p className="text-xs text-gray-600">
+                          • Processing Priority: {subscription.limits.priority_text}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Current Plan */}
               <Card>
@@ -219,16 +318,23 @@ const Billings: React.FC = () => {
                   {currentPlan ? (
                     <>
                       <div>
-                        <h3 className="text-xl font-semibold">{currentPlan.name}</h3>
+                        <h3 className="text-xl font-semibold">
+                          {subscription?.tierDisplayName || currentPlan.name}
+                        </h3>
                         <p className="text-2xl font-bold text-blue-600">
-                          {formatCurrency(currentPlan.price)}/{currentPlan.interval}
+                          {formatCurrency(currentPlan.price)}/{subscription?.billingCycle || currentPlan.interval}
                         </p>
                         <p className="text-sm text-gray-600 mt-1">
-                          Status: {subscription?.status}
+                          Status: <span className="capitalize">{subscription?.status}</span>
                           {subscription?.currentPeriodEnd && 
                             ` • Next billing: ${new Date(subscription.currentPeriodEnd).toLocaleDateString()}`
                           }
                         </p>
+                        {subscription?.trialEndsAt && (
+                          <p className="text-sm text-blue-600 mt-1">
+                            Trial ends: {new Date(subscription.trialEndsAt).toLocaleDateString()}
+                          </p>
+                        )}
                       </div>
                       
                       <div>
@@ -356,6 +462,26 @@ const Billings: React.FC = () => {
 
           <TabsContent value="subscription" className="space-y-6">
             <SubscriptionPayment />
+            
+            {/* Debug Section - Show raw subscription data */}
+            {process.env.NODE_ENV === 'development' && subscription && (
+              <Card className="mt-6">
+                <CardHeader>
+                  <CardTitle className="text-sm">Debug: Raw Subscription Data</CardTitle>
+                  <CardDescription>Backend API response (Development Only)</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <details className="cursor-pointer">
+                    <summary className="font-medium text-sm text-gray-700 mb-2">
+                      View Raw JSON Data
+                    </summary>
+                    <pre className="text-xs bg-gray-50 p-4 rounded overflow-auto max-h-96 border border-gray-200">
+                      {JSON.stringify(subscription, null, 2)}
+                    </pre>
+                  </details>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="history" className="space-y-6">

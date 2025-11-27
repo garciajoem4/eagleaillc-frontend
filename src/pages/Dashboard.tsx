@@ -40,6 +40,11 @@ const Dashboard: React.FC = () => {
     isUploadModalOpen,
     usingFallback,
     recentActivity,
+    subscriptionLoading,
+    
+    // Subscription data
+    subscription,
+    usagePercentages,
     
     // Computed values
     stats,
@@ -112,15 +117,16 @@ const Dashboard: React.FC = () => {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      {/* Three Column Grid for More Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* Recent Activity */}
-        <Card>
+        <Card className="hover:shadow-lg transition-shadow duration-200">
           <CardHeader>
             <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Latest updates and changes to your recordings</CardDescription>
+            <CardDescription>Latest updates</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
+            <div className="space-y-3">
               {recentActivity.map((activity, index) => {
                 const getActivityIcon = (icon: string) => {
                   switch (icon) {
@@ -152,13 +158,13 @@ const Dashboard: React.FC = () => {
                 };
                 
                 return (
-                  <div key={index} className="flex items-center space-x-4 border-b border-gray-100 dark:border-gray-700 pb-4 last:border-b-0 last:pb-0">
+                  <div key={index} className="flex items-center space-x-3 border-b border-gray-100 dark:border-gray-700 pb-3 last:border-b-0 last:pb-0">
                     <div className="flex-shrink-0">
                       {getActivityIcon(activity.icon)}
                     </div>
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-900 dark:text-white">{activity.action}</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">{activity.time}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{activity.action}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{activity.time}</p>
                     </div>
                   </div>
                 );
@@ -168,19 +174,20 @@ const Dashboard: React.FC = () => {
         </Card>
 
         {/* Quick Actions */}
-        <Card>
+        <Card className="hover:shadow-lg transition-shadow duration-200">
           <CardHeader>
             <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>Common tasks and shortcuts</CardDescription>
+            <CardDescription>Common tasks</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
+            <div className="space-y-2">
               <Button 
                 className="w-full justify-start" 
                 variant="default"
+                size="sm"
                 onClick={handleOpenUploadModal}
               >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                 </svg>
                 Upload Recording
@@ -188,9 +195,10 @@ const Dashboard: React.FC = () => {
               <Button 
                 className="w-full justify-start" 
                 variant="outline"
+                size="sm"
                 onClick={handleNavigateToRecordings}
               >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                 </svg>
                 View Recordings
@@ -198,25 +206,120 @@ const Dashboard: React.FC = () => {
               <Button 
                 className="w-full justify-start" 
                 variant="outline"
+                size="sm"
                 onClick={handleNavigateToSettings}
               >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
-                Manage Settings
+                Settings
               </Button>
               <Button 
                 className="w-full justify-start" 
                 variant="outline"
+                size="sm"
                 onClick={handleNavigateToBilling}
               >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                 </svg>
-                View Billing
+                Billing
               </Button>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Subscription Overview */}
+        <Card className="hover:shadow-lg transition-shadow duration-200">
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span>Subscription</span>
+              {subscription.status === 'active' && (
+                <Badge variant="default" className="text-xs">Active</Badge>
+              )}
+            </CardTitle>
+            <CardDescription>Current plan and usage</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {subscriptionLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Plan Name */}
+                <div className="text-center py-3 px-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg">
+                  <p className="text-lg font-bold text-gray-900 dark:text-white">
+                    {subscription.tierDisplayName}
+                  </p>
+                </div>
+
+                {/* Files Usage Bar */}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                      Files
+                    </span>
+                    <span className="text-xs text-gray-500 dark:text-gray-500">
+                      {subscription.usage.files_uploaded} / {subscription.usage.files_limit}
+                    </span>
+                  </div>
+                  <div className="relative w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                    <div 
+                      className={`absolute top-0 left-0 h-full rounded-full transition-all duration-500 ${
+                        usagePercentages.files > 80 
+                          ? 'bg-gradient-to-r from-red-500 to-red-600' 
+                          : usagePercentages.files > 60
+                          ? 'bg-gradient-to-r from-yellow-500 to-yellow-600'
+                          : 'bg-gradient-to-r from-blue-500 to-blue-600'
+                      }`}
+                      style={{ width: `${Math.min(usagePercentages.files, 100)}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Storage Usage Bar */}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                      Storage
+                    </span>
+                    <span className="text-xs text-gray-500 dark:text-gray-500">
+                      {subscription.usage.storage_used_gb?.toFixed(1) || 0} / {subscription.usage.storage_limit_gb} GB
+                    </span>
+                  </div>
+                  <div className="relative w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                    <div 
+                      className={`absolute top-0 left-0 h-full rounded-full transition-all duration-500 ${
+                        usagePercentages.storage > 80 
+                          ? 'bg-gradient-to-r from-red-500 to-red-600' 
+                          : usagePercentages.storage > 60
+                          ? 'bg-gradient-to-r from-yellow-500 to-yellow-600'
+                          : 'bg-gradient-to-r from-green-500 to-green-600'
+                      }`}
+                      style={{ width: `${Math.min(usagePercentages.storage, 100)}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Warning Badge */}
+                {(usagePercentages.files > 80 || usagePercentages.storage > 80) && (
+                  <Badge variant="destructive" className="w-full justify-center text-xs py-1">
+                    Approaching limit
+                  </Badge>
+                )}
+
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="w-full"
+                  onClick={handleNavigateToBilling}
+                >
+                  View Details
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 

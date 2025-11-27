@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@clerk/clerk-react';
 import { useAppDispatch, useAppSelector } from '../redux/hooks';
-import { fetchRecordings, openUploadModal, closeUploadModal } from '../redux';
+import { fetchRecordings, openUploadModal, closeUploadModal, fetchSubscription } from '../redux';
 import { ANALYTICS_ENDPOINTS, buildUrl } from '../endpoints';
 import { Recording } from '../types';
 
@@ -14,6 +14,20 @@ const FALLBACK_DATA = {
   minutesTrend: [0, 0, 0, 0, 0, 0],
   statusBreakdown: { completed: 0, processing: 0, failed: 0 },
   insightsTotal: { actions: 0, decisions: 0, issues: 0 },
+};
+
+// Fallback subscription data
+const FALLBACK_SUBSCRIPTION = {
+  tier: 'Free',
+  tierDisplayName: 'Free Plan',
+  status: 'active',
+  usage: {
+    files_uploaded: 0,
+    files_limit: 10,
+    files_limit_text: '10 files',
+    storage_used_gb: 0,
+    storage_limit_gb: 5,
+  },
 };
 
 interface AnalyticsData {
@@ -32,18 +46,35 @@ export const useDashboard = () => {
   
   // Redux state
   const { recordings, loading, isUploadModalOpen } = useAppSelector((state) => state.recordings);
+  const subscription = useAppSelector((state) => state.billing.subscription);
   
   // Local state for analytics
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData>(FALLBACK_DATA);
   const [usingFallback, setUsingFallback] = useState(false);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
 
-  // Fetch recordings on mount
+  // Fetch recordings and subscription on mount
   useEffect(() => {
     dispatch(fetchRecordings({ 
       getToken,
       limit: 100, // Get more for analytics
       offset: 0 
     }));
+    
+    // Fetch subscription data
+    const loadSubscription = async () => {
+      setSubscriptionLoading(true);
+      try {
+        await dispatch(fetchSubscription(getToken)).unwrap();
+      } catch (error) {
+        console.error('Failed to load subscription in dashboard:', error);
+        // Fallback data will be used from Redux
+      } finally {
+        setSubscriptionLoading(false);
+      }
+    };
+    
+    loadSubscription();
   }, [dispatch, getToken]);
 
   // Calculate analytics from recordings data
@@ -426,7 +457,7 @@ export const useDashboard = () => {
   };
 
   const handleNavigateToBilling = () => {
-    navigate('/app/billing');
+    navigate('/app/billings');
   };
 
   const handleNavigateToRecording = (id: string) => {
@@ -448,6 +479,33 @@ export const useDashboard = () => {
     }
   };
 
+  // Subscription data with fallback
+  const subscriptionData = useMemo(() => {
+    if (!subscription || subscription.id === 'sub_fallback' || subscription.id === 'sub_error_fallback') {
+      return FALLBACK_SUBSCRIPTION;
+    }
+    
+    return {
+      tier: subscription.tier || subscription.planId || 'Free',
+      tierDisplayName: subscription.tierDisplayName || subscription.tier || 'Free Plan',
+      status: subscription.status || 'active',
+      usage: subscription.usage || FALLBACK_SUBSCRIPTION.usage,
+    };
+  }, [subscription]);
+
+  // Calculate usage percentages
+  const usagePercentages = useMemo(() => {
+    const usage = subscriptionData.usage;
+    return {
+      files: usage.files_limit 
+        ? Math.round(((usage.files_uploaded || 0) / usage.files_limit) * 100)
+        : 0,
+      storage: usage.storage_limit_gb
+        ? Math.round(((usage.storage_used_gb || 0) / usage.storage_limit_gb) * 100)
+        : 0,
+    };
+  }, [subscriptionData]);
+
   return {
     // State
     recordings,
@@ -456,6 +514,11 @@ export const useDashboard = () => {
     analyticsData,
     usingFallback,
     recentActivity,
+    subscriptionLoading,
+    
+    // Subscription data
+    subscription: subscriptionData,
+    usagePercentages,
     
     // Computed values
     recordingsChange,

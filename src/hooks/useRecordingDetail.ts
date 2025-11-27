@@ -42,6 +42,7 @@ const getDataFromAPI = async ({ recordingId, getToken }: { recordingId: string; 
       // Transform the API data to match our Recording interface
       const apiResults = {
         recordingId,
+        recording: data.recording,
         transcript: data.full_transcription || data.transcript,
         intelligence: data.intelligence || data.detailed_intelligence || {
           action_items: data.action_items || [],
@@ -427,7 +428,7 @@ export const useRecordingDetail = (
           const tempDataSource = {
             recording: {
               id: recordingId,
-              file_name: dataSourceAPI?.transcript?.file_name || '',
+              file_name: dataSourceAPI?.recording?.file_name || dataSourceAPI?.transcript?.file_name || '',
               duration_seconds: dataSourceAPI?.transcript?.duration_seconds || 0,
               created_at: new Date().toISOString(),
             },

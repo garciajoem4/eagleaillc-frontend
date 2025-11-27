@@ -26,8 +26,26 @@ export interface Subscription {
   currentPeriodEnd: string; // ISO date string
   cancelAtPeriodEnd: boolean;
   trialEnd?: string; // ISO date string
-  stripeSubscriptionId: string;
-  customerId: string;
+  stripeSubscriptionId?: string;
+  customerId?: string;
+  // Additional fields from backend API
+  tier?: string;
+  tierDisplayName?: string;
+  billingCycle?: string;
+  trialEndsAt?: string;
+  usage?: {
+    files_uploaded?: number;
+    files_limit?: number;
+    files_limit_text?: string;
+    storage_used_gb?: number;
+    storage_limit_gb?: number;
+    billing_period_start?: string;
+    billing_period_end?: string;
+  };
+  limits?: {
+    max_file_duration_text?: string;
+    priority_text?: string;
+  };
 }
 
 // Payment Method
@@ -245,26 +263,77 @@ const initialState: BillingState = {
 // Async Thunks
 export const fetchSubscription = createAsyncThunk(
   'billing/fetchSubscription',
-  async (_, { rejectWithValue }) => {
+  async (getToken: (() => Promise<string | null>) | undefined, { rejectWithValue }) => {
     try {
-      // Simulate API call to fetch user's subscription
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Try to fetch from real API if getToken is provided
+      if (getToken) {
+        const token = await getToken();
+        
+        if (token) {
+          const API_BASE = process.env.REACT_APP_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+          
+          const response = await fetch(`${API_BASE}/api/subscriptions/status`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          console.log('response', response);
+
+          if (response.ok) {
+            const data = await response.json();
+            
+            // Transform backend response to match our Subscription interface
+            const transformedData: Subscription = {
+              id: data.subscription?.id || 'sub_default',
+              planId: data.subscription?.tier || 'free',
+              status: data.subscription?.status || 'active',
+              currentPeriodStart: data.usage?.billing_period_start || new Date().toISOString(),
+              currentPeriodEnd: data.subscription?.current_period_end || data.usage?.billing_period_end || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+              cancelAtPeriodEnd: false,
+              stripeSubscriptionId: data.subscription?.stripe_subscription_id,
+              customerId: data.subscription?.stripe_customer_id,
+              // Store additional backend data
+              tier: data.subscription?.tier,
+              tierDisplayName: data.subscription?.tier_display_name,
+              billingCycle: data.subscription?.billing_cycle,
+              trialEndsAt: data.subscription?.trial_ends_at,
+              usage: data.usage,
+              limits: data.limits,
+            };
+            
+            return transformedData;
+          }
+        }
+      }
       
-      // Mock subscription data
+      // Fallback to mock data if API fails or token not available
+      console.warn('Using fallback subscription data - API call failed or not authenticated');
+      
       const mockSubscription: Subscription = {
-        id: 'sub_1',
-        planId: 'professional',
+        id: 'sub_fallback',
+        planId: 'free',
         status: 'active',
-        currentPeriodStart: new Date('2024-09-01').toISOString(),
-        currentPeriodEnd: new Date('2024-10-01').toISOString(),
+        currentPeriodStart: new Date().toISOString(),
+        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
         cancelAtPeriodEnd: false,
-        stripeSubscriptionId: 'sub_stripe_123',
-        customerId: 'cus_stripe_456',
+        stripeSubscriptionId: undefined,
+        customerId: undefined,
       };
       
       return mockSubscription;
     } catch (error) {
-      return rejectWithValue(error instanceof Error ? error.message : 'Failed to fetch subscription');
+      console.error('Error fetching subscription:', error);
+      // Return fallback data instead of rejecting
+      return {
+        id: 'sub_error_fallback',
+        planId: 'free',
+        status: 'active',
+        currentPeriodStart: new Date().toISOString(),
+        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        cancelAtPeriodEnd: false,
+      } as Subscription;
     }
   }
 );

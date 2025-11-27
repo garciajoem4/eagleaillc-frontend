@@ -28,7 +28,7 @@ export const API_CONFIG = {
     PASSWORD: API_PASSWORD,
   },
   CLERK_CONFIG: {
-    DOMAIN: 'https://set-clam-53.clerk.accounts.dev',
+    DOMAIN: 'fleet-antelope-4.clerk.accounts.dev',
     TOKEN_REFRESH_INTERVAL: 2, // Refresh token every 2 polls (6 seconds)
   },
 };
