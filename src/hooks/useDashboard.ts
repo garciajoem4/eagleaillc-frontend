@@ -97,9 +97,9 @@ export const useDashboard = () => {
       issues: recordings.reduce((sum, r) => sum + (r.issue_count || 0), 0),
     };
 
-    // Total minutes processed
+    // Total minutes processed (convert from seconds to minutes)
     const minutesProcessed = Math.round(
-      recordings.reduce((sum, r) => sum + (r.duration || 0), 0)
+      recordings.reduce((sum, r) => sum + (r.duration || 0), 0) / 60
     );
 
     // Create trend data (group by month for last 6 months)
@@ -118,13 +118,13 @@ export const useDashboard = () => {
     });
 
     const minutesTrend = months.map(month => {
-      return recordings
+      return Math.round(recordings
         .filter(r => {
           const recordingDate = new Date(r.dateUploaded);
           return recordingDate.getMonth() === month.getMonth() && 
                  recordingDate.getFullYear() === month.getFullYear();
         })
-        .reduce((sum, r) => sum + (r.duration || 0), 0);
+        .reduce((sum, r) => sum + (r.duration || 0), 0) / 60); // Convert seconds to minutes
     });
 
     return {

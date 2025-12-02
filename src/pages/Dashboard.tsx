@@ -249,11 +249,11 @@ const Dashboard: React.FC = () => {
             ) : (
               <div className="space-y-4">
                 {/* Plan Name */}
-                <div className="text-center py-3 px-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg">
+                {/* <div className="text-center py-3 px-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg">
                   <p className="text-lg font-bold text-gray-900 dark:text-white">
                     {subscription.tierDisplayName}
                   </p>
-                </div>
+                </div> */}
 
                 {/* Files Usage Bar */}
                 <div className="space-y-2">

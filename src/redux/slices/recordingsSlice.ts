@@ -155,7 +155,7 @@ export const fetchRecordings = createAsyncThunk(
           id: rec.id,
           name: rec.file_name || rec.name,
           dateUploaded: rec.created_at,
-          duration: rec.duration_seconds ? Math.ceil(rec.duration_seconds / 60) : 0,
+          duration: rec.duration_seconds || 0, // Store duration in seconds
           overview: rec.transcript_preview || '',
           transcript: rec.full_transcription,
           intelligence: rec.intelligence,
@@ -195,7 +195,7 @@ export const createRecording = createAsyncThunk(
       id: Date.now().toString(),
       name: recordingData.name,
       dateUploaded: new Date().toISOString(),
-      duration: Math.floor(Math.random() * 60) + 10, // Random duration 10-70 minutes
+      duration: Math.floor(Math.random() * 3600) + 600, // Random duration 10-70 minutes in seconds (600-4200)
       overview: 'Processing...',
       exports: []
     };

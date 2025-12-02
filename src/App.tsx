@@ -9,7 +9,6 @@ import TrialRestriction from './components/TrialRestriction';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Billings from './pages/Billings';
 import Dashboard from './pages/Dashboard';
-import FreeTrial from './pages/FreeTrial';
 import Homepage from './pages/Homepage';
 import RecordingDetail from './pages/RecordingDetail';
 import Recordings from './pages/Recordings';
@@ -45,7 +44,6 @@ const AppContent: React.FC = () => {
         {/* Public routes */}
         <Route path="/" element={<Homepage />} />
         <Route path="/login" element={user ? <Navigate to="/app/recordings" /> : <Login />} />
-        <Route path="/trial" element={<FreeTrial />} />
         
         {/* Trial restriction routes - for users trying to access protected features without login */}
         <Route path="/trial-recordings" element={

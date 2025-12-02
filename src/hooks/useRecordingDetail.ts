@@ -377,7 +377,7 @@ export const useRecordingDetail = (
         recording: {
           id: reduxRecording.id,
           file_name: reduxRecording.name || 'recording.wav',
-          duration_seconds: (reduxRecording.duration || 0) * 60, // Convert minutes to seconds
+          duration_seconds: reduxRecording.duration || 0, // Already in seconds
           created_at: reduxRecording.dateUploaded
         },
         transcript: transcriptData,

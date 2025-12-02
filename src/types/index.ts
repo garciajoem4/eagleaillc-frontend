@@ -2,7 +2,7 @@ export interface Recording {
   id: string;
   name: string;
   dateUploaded: string; // ISO date string
-  duration: number; // in minutes
+  duration: number; // in seconds (changed from minutes for accurate display)
   overview?: string;
   transcript?: string;
   intelligence?: any;
@@ -19,7 +19,7 @@ export interface RecordingItem {
   id: string;
   name: string;
   uploadDate: string; // ISO date string
-  duration: number; // in minutes
+  duration: number; // in seconds
 }
 
 export interface User {
