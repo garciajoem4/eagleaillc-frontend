@@ -667,33 +667,29 @@ const Homepage: React.FC = () => {
                     className={`w-full py-3 text-base font-medium text-xs transition-all duration-200 ${
                       tier.recommended 
                         ? 'bg-[#4e69fd] hover:bg-[#3d54e6] text-white shadow-md hover:shadow-lg' 
-                        : tier.id === 'enterprise'
+                        : tier.id === 'business'
                         ? 'bg-gray-900 hover:bg-gray-800 text-white'
                         : 'border-2 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                     }`}
-                    variant={tier.recommended || tier.id === 'enterprise' ? 'default' : 'outline'}
+                    variant={tier.recommended || tier.id === 'business' ? 'default' : 'outline'}
                     onClick={() => {
-                      if (tier.id === 'free-trial') {
+                      if (tier.id === 'free') {
                         openFreeTrialModal();
-                      } else if (tier.id === 'enterprise') {
-                        window.location.href = 'mailto:sales@synaptivoice.com?subject=Enterprise%20Plan%20Inquiry';
                       } else {
                         handleTierSubscribe(tier);
                       }
                     }}
                   >
-                    {tier.id === 'free-trial' 
-                      ? 'Start Free Trial' 
-                      : tier.id === 'enterprise' 
-                      ? 'Contact Sales' 
+                    {tier.id === 'free' 
+                      ? 'Get Started Free' 
                       : `Get Started with ${tier.name}`}
                   </Button>
 
                   {/* Trial Info */}
                   <p className="text-xs text-gray-500 text-center mt-4">
-                    {tier.id === 'free-trial' 
-                      ? `${tier.trialDuration} free trial`
-                      : '14-day free trial • No credit card required • Cancel anytime'}
+                    {tier.id === 'free' 
+                      ? 'No credit card required'
+                      : `${tier.trialDuration} free trial • Cancel anytime`}
                   </p>
                 </div>
               </div>
