@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -7,10 +7,25 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import StripeProvider from '../components/StripeProvider';
 import SubscriptionPayment from '../components/SubscriptionPayment';
 import { useBilling } from '../hooks/useBilling';
+import { pricingTiers, type PricingTier } from '../hooks/useHomepage';
 
 
 const Billings: React.FC = () => {
   const { user } = useUser();
+  const [isAnnualBilling, setIsAnnualBilling] = useState(false);
+  
+  // Toggle billing period
+  const toggleBillingPeriod = () => {
+    setIsAnnualBilling(!isAnnualBilling);
+  };
+
+  // Format tier price based on billing period
+  const formatTierPrice = (tier: PricingTier) => {
+    const price = isAnnualBilling ? tier.annualPrice : tier.monthlyPrice;
+    if (price === 'Free') return 'Free';
+    if (price === 'Custom') return 'Custom';
+    return `$${price}`;
+  };
   
   // Get everything from the useBilling hook (with auto-refresh every 5 minutes)
   const {
@@ -461,7 +476,206 @@ const Billings: React.FC = () => {
           </TabsContent>
 
           <TabsContent value="subscription" className="space-y-6">
-            <SubscriptionPayment />
+            {/* Current Subscription Status */}
+            {subscription && (
+              <Card className="border-blue-200 bg-blue-50/50">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                        <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">
+                          Current Plan: <span className="text-blue-600">{subscription.tierDisplayName || currentPlan?.name || 'Free Trial'}</span>
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          {subscription.status === 'active' ? 'Active subscription' : subscription.status === 'trialing' ? 'Trial period' : subscription.status}
+                          {subscription.currentPeriodEnd && ` • Renews ${new Date(subscription.currentPeriodEnd).toLocaleDateString()}`}
+                        </p>
+                      </div>
+                    </div>
+                    <Badge className={subscription.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}>
+                      {subscription.status === 'active' ? 'Active' : subscription.status === 'trialing' ? 'Trial' : subscription.status}
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Plan Selection Header */}
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                {subscription ? 'Change Your Plan' : 'Choose Your Plan'}
+              </h2>
+              <p className="text-gray-600 dark:text-gray-300 mb-6">
+                Select the plan that best fits your needs
+              </p>
+              
+              {/* Monthly/Annual Toggle */}
+              <div className="flex items-center justify-center gap-4 mb-8">
+                <span className={`text-sm font-medium transition-colors ${!isAnnualBilling ? 'text-[#4e69fd]' : 'text-gray-500'}`}>
+                  Monthly
+                </span>
+                <button
+                  onClick={toggleBillingPeriod}
+                  className={`relative w-14 h-7 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-[#4e69fd]/50 ${
+                    isAnnualBilling ? 'bg-[#4e69fd]' : 'bg-gray-300'
+                  }`}
+                  aria-label="Toggle billing period"
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform duration-300 ${
+                      isAnnualBilling ? 'translate-x-7' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+                <span className={`text-sm font-medium transition-colors ${isAnnualBilling ? 'text-[#4e69fd]' : 'text-gray-500'}`}>
+                  Annual
+                </span>
+                {isAnnualBilling && (
+                  <Badge className="bg-green-100 text-green-700 border-green-200 ml-2">
+                    Save up to 20%
+                  </Badge>
+                )}
+              </div>
+            </div>
+
+            {/* Pricing Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {pricingTiers.map((tier) => {
+                const isCurrentPlan = subscription?.tier === tier.id || 
+                  (currentPlan?.id === tier.id) ||
+                  (tier.id === 'free-trial' && (!subscription || subscription.status === 'trialing'));
+                
+                return (
+                  <div 
+                    key={tier.id}
+                    className={`relative bg-white dark:bg-gray-800 rounded-2xl border-2 transition-all duration-300 hover:shadow-xl ${
+                      isCurrentPlan
+                        ? 'border-green-500 shadow-lg shadow-green-500/10 ring-2 ring-green-500/20'
+                        : tier.recommended 
+                        ? 'border-[#4e69fd] shadow-lg shadow-[#4e69fd]/10' 
+                        : 'border-gray-100 dark:border-gray-700 shadow-md hover:border-gray-200'
+                    }`}
+                  >
+                    {/* Current Plan Badge */}
+                    {isCurrentPlan && (
+                      <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-10">
+                        <Badge className="bg-green-500 text-white px-4 py-1 text-sm font-medium rounded-full shadow-md">
+                          Current Plan
+                        </Badge>
+                      </div>
+                    )}
+                    
+                    {/* Most Popular Badge */}
+                    {tier.recommended && !isCurrentPlan && (
+                      <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                        <Badge className="bg-[#4e69fd] text-white px-4 py-1 text-sm font-medium rounded-full shadow-md">
+                          Most Popular
+                        </Badge>
+                      </div>
+                    )}
+
+                    <div className="p-6">
+                      {/* Plan Name */}
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-white text-center mb-2">
+                        {tier.name}
+                      </h3>
+
+                      {/* Price */}
+                      <div className="text-center mb-5">
+                        <span className={`text-3xl font-bold ${
+                          isCurrentPlan ? 'text-green-600' : tier.recommended ? 'text-[#4e69fd]' : 'text-gray-900 dark:text-white'
+                        }`}>
+                          {formatTierPrice(tier)}
+                        </span>
+                        {tier.pricePerUser && formatTierPrice(tier) !== 'Free' && formatTierPrice(tier) !== 'Custom' && (
+                          <span className="text-gray-500 text-base">/{isAnnualBilling ? 'year' : 'month'}</span>
+                        )}
+                      </div>
+
+                      {/* Features List */}
+                      <ul className="space-y-3 mb-6">
+                        {tier.features.map((feature, index) => (
+                          <li key={index} className="flex items-start">
+                            <svg className="w-4 h-4 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span className="text-gray-600 dark:text-gray-300 text-sm">{feature}</span>
+                          </li>
+                        ))}
+                        <li className="flex items-start">
+                          <svg className="w-4 h-4 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span className="text-gray-600 dark:text-gray-300 text-sm">{tier.audioFileUploads} uploads</span>
+                        </li>
+                        <li className="flex items-start">
+                          <svg className="w-4 h-4 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span className="text-gray-600 dark:text-gray-300 text-sm">{tier.storagePerUser} storage</span>
+                        </li>
+                        <li className="flex items-start">
+                          <svg className="w-4 h-4 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span className="text-gray-600 dark:text-gray-300 text-sm">{tier.maxFileDuration} max duration</span>
+                        </li>
+                      </ul>
+
+                      {/* CTA Button */}
+                      <Button
+                        className={`w-full py-2.5 text-sm font-medium transition-all duration-200 ${
+                          isCurrentPlan
+                            ? 'bg-green-100 text-green-700 hover:bg-green-200 cursor-default'
+                            : tier.recommended 
+                            ? 'bg-[#4e69fd] hover:bg-[#3d54e6] text-white shadow-md hover:shadow-lg' 
+                            : tier.id === 'enterprise'
+                            ? 'bg-gray-900 hover:bg-gray-800 text-white'
+                            : 'border-2 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                        }`}
+                        variant={isCurrentPlan ? 'secondary' : tier.recommended || tier.id === 'enterprise' ? 'default' : 'outline'}
+                        disabled={isCurrentPlan}
+                        onClick={() => {
+                          if (isCurrentPlan) return;
+                          if (tier.id === 'enterprise') {
+                            window.location.href = 'mailto:sales@synaptivoice.com?subject=Enterprise%20Plan%20Inquiry';
+                          } else {
+                            openPaymentMethodModal();
+                          }
+                        }}
+                      >
+                        {isCurrentPlan 
+                          ? 'Current Plan' 
+                          : tier.id === 'enterprise' 
+                          ? 'Contact Sales' 
+                          : subscription 
+                          ? `Switch to ${tier.name}` 
+                          : `Get ${tier.name}`}
+                      </Button>
+
+                      {/* Trial Info */}
+                      {!isCurrentPlan && (
+                        <p className="text-xs text-gray-500 text-center mt-3">
+                          {tier.id === 'free-trial' 
+                            ? `${tier.trialDuration} free trial`
+                            : '14-day free trial • Cancel anytime'}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Additional Payment Component */}
+            {/* <div className="mt-8">
+              <SubscriptionPayment />
+            </div> */}
             
             {/* Debug Section - Show raw subscription data */}
             {process.env.NODE_ENV === 'development' && subscription && (

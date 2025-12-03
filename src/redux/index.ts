@@ -89,6 +89,10 @@ export {
   setError as setUploadError,
   clearError as clearUploadError,
   resetUploads,
+  // Analytics actions
+  addFileAnalytics,
+  removeFileAnalytics,
+  clearFileAnalytics,
   // Async thunks
   uploadFile,
   uploadFromUrl,
@@ -107,7 +111,17 @@ export {
   selectIsUploading,
   selectTotalProgress,
   selectUploadConfig,
+  // Analytics selectors
+  selectFileAnalytics,
+  selectFileAnalyticsById,
+  selectTotalUploadedSize,
+  selectTotalUploadedCount,
+  selectAverageFileSize,
+  selectRecentUploads,
 } from './slices/uploadsSlice';
+
+// Export types
+export type { FileAnalytics } from './slices/uploadsSlice';
 
 // Billing slice actions and selectors exports
 export {

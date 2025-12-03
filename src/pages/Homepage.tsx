@@ -1,12 +1,12 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Card } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import StripeProvider from '../components/StripeProvider';
 import FreeTrialModal from '../components/FreeTrialModal';
 import SubscriptionModal from '../components/SubscriptionModal';
-import { useHomepage, plans, transcriptionExamples, featuresData, type Feature } from '../hooks/useHomepage';
+import { useHomepage, pricingTiers, transcriptionExamples, featuresData, type Feature } from '../hooks/useHomepage';
 
 const Homepage: React.FC = () => {
   const {
@@ -17,21 +17,21 @@ const Homepage: React.FC = () => {
     subscriptionModal,
     freeTrialModal,
     isMobileMenuOpen,
-    isCarouselPaused,
+    isAnnualBilling,
     
     // Functions
     goToFeature,
     goToPrevFeature,
     goToNextFeature,
     toggleFAQ,
-    handleSubscribe,
+    handleTierSubscribe,
     closeSubscriptionModal,
     openFreeTrialModal,
     closeFreeTrialModal,
-    formatPrice,
+    formatTierPrice,
     toggleMobileMenu,
     closeMobileMenu,
-    toggleCarouselPause,
+    toggleBillingPeriod,
   } = useHomepage();
 
   // Build features with JSX icons from featuresData
@@ -553,61 +553,154 @@ const Homepage: React.FC = () => {
       {/* Pricing Section */}
       <section id="pricing" className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
+          <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
               Choose Your Plan
             </h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-8">
               Start with our free trial, then choose the plan that best fits your needs
             </p>
+            
+            {/* Monthly/Annual Toggle */}
+            <div className="flex items-center justify-center gap-4">
+              <span className={`text-sm font-medium transition-colors ${!isAnnualBilling ? 'text-[#4e69fd]' : 'text-gray-500'}`}>
+                Monthly
+              </span>
+              <button
+                onClick={toggleBillingPeriod}
+                className={`relative w-14 h-7 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-[#4e69fd]/50 ${
+                  isAnnualBilling ? 'bg-[#4e69fd]' : 'bg-gray-300'
+                }`}
+                aria-label="Toggle billing period"
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform duration-300 ${
+                    isAnnualBilling ? 'translate-x-7' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+              <span className={`text-sm font-medium transition-colors ${isAnnualBilling ? 'text-[#4e69fd]' : 'text-gray-500'}`}>
+                Annual
+              </span>
+              {isAnnualBilling && (
+                <Badge className="bg-green-100 text-green-700 border-green-200 ml-2">
+                  Save up to 20%
+                </Badge>
+              )}
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {plans.map((plan) => (
-              <Card 
-                key={plan.id} 
-                className={`relative transition-all hover:shadow-lg ${
-                  plan.recommended ? 'border-[#4e69fd] shadow-md' : ''
+          {/* Pricing Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+            {pricingTiers.map((tier) => (
+              <div 
+                key={tier.id}
+                className={`relative bg-white rounded-2xl border-2 transition-all duration-300 hover:shadow-xl ${
+                  tier.recommended 
+                    ? 'border-[#4e69fd] shadow-lg shadow-[#4e69fd]/10' 
+                    : 'border-gray-100 shadow-md hover:border-gray-200'
                 }`}
               >
-                {plan.recommended && (
+                {/* Most Popular Badge */}
+                {tier.recommended && (
                   <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                    <Badge className="bg-[#4e69fd] text-white">Most Popular</Badge>
+                    <Badge className="bg-[#4e69fd] text-white px-4 py-1 text-sm font-medium rounded-full shadow-md">
+                      Most Popular
+                    </Badge>
                   </div>
                 )}
-                <CardHeader className="text-center pb-4">
-                  <CardTitle className="text-xl font-bold">{plan.name}</CardTitle>
-                  <div className="text-4xl font-bold text-[#4e69fd] mt-2">
-                    {formatPrice(plan.price)}
-                    <span className="text-lg text-gray-600 font-normal">/{plan.interval}</span>
+
+                <div className="p-8">
+                  {/* Plan Name */}
+                  <h3 className="text-xl font-bold text-gray-900 text-center mb-2">
+                    {tier.name}
+                  </h3>
+
+                  {/* Price */}
+                  <div className="text-center mb-6">
+                    <span className={`text-4xl font-bold ${tier.recommended ? 'text-[#4e69fd]' : 'text-gray-900'}`}>
+                      {formatTierPrice(tier)}
+                    </span>
+                    {tier.pricePerUser && formatTierPrice(tier) !== 'Free' && formatTierPrice(tier) !== 'Custom' && (
+                      <span className="text-gray-500 text-lg">/{isAnnualBilling ? 'year' : 'month'}</span>
+                    )}
+                    {(formatTierPrice(tier) === 'Free' || formatTierPrice(tier) === 'Custom') && (
+                      <span className="text-gray-500 text-lg">
+                        {formatTierPrice(tier) === 'Free' ? '' : ''}
+                      </span>
+                    )}
                   </div>
-                </CardHeader>
-                <CardContent className="pt-4">
-                  <ul className="space-y-3 mb-6">
-                    {plan.features.map((feature, index) => (
-                      <li key={index} className="flex items-center text-sm">
-                        <svg className="w-4 h-4 text-green-500 mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+
+                  {/* Features List */}
+                  <ul className="space-y-4 mb-8">
+                    {tier.features.map((feature, index) => (
+                      <li key={index} className="flex items-start">
+                        <svg className="w-5 h-5 text-green-500 mr-3 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
-                        {feature}
+                        <span className="text-gray-600 text-sm">{feature}</span>
                       </li>
                     ))}
+                    {/* Additional usage info */}
+                    <li className="flex items-start">
+                      <svg className="w-5 h-5 text-green-500 mr-3 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span className="text-gray-600 text-sm">{tier.audioFileUploads} uploads</span>
+                    </li>
+                    <li className="flex items-start">
+                      <svg className="w-5 h-5 text-green-500 mr-3 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span className="text-gray-600 text-sm">{tier.storagePerUser} storage</span>
+                    </li>
+                    <li className="flex items-start">
+                      <svg className="w-5 h-5 text-green-500 mr-3 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span className="text-gray-600 text-sm">{tier.maxFileDuration} max duration</span>
+                    </li>
                   </ul>
-                  <Button 
-                    className={`w-full ${plan.recommended ? 'bg-[#4e69fd] hover:bg-[#3d54e6]' : ''}`}
-                    variant={plan.recommended ? 'default' : 'outline'}
-                    onClick={() => handleSubscribe(plan)}
+
+                  {/* CTA Button */}
+                  <Button
+                    className={`w-full py-3 text-base font-medium text-xs transition-all duration-200 ${
+                      tier.recommended 
+                        ? 'bg-[#4e69fd] hover:bg-[#3d54e6] text-white shadow-md hover:shadow-lg' 
+                        : tier.id === 'enterprise'
+                        ? 'bg-gray-900 hover:bg-gray-800 text-white'
+                        : 'border-2 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    }`}
+                    variant={tier.recommended || tier.id === 'enterprise' ? 'default' : 'outline'}
+                    onClick={() => {
+                      if (tier.id === 'free-trial') {
+                        openFreeTrialModal();
+                      } else if (tier.id === 'enterprise') {
+                        window.location.href = 'mailto:sales@synaptivoice.com?subject=Enterprise%20Plan%20Inquiry';
+                      } else {
+                        handleTierSubscribe(tier);
+                      }
+                    }}
                   >
-                    Get Started with {plan.name}
+                    {tier.id === 'free-trial' 
+                      ? 'Start Free Trial' 
+                      : tier.id === 'enterprise' 
+                      ? 'Contact Sales' 
+                      : `Get Started with ${tier.name}`}
                   </Button>
-                  <p className="text-xs text-gray-500 text-center mt-2">
-                    14-day free trial • No credit card required • Cancel anytime
+
+                  {/* Trial Info */}
+                  <p className="text-xs text-gray-500 text-center mt-4">
+                    {tier.id === 'free-trial' 
+                      ? `${tier.trialDuration} free trial`
+                      : '14-day free trial • No credit card required • Cancel anytime'}
                   </p>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             ))}
           </div>
 
+          {/* All plans include section */}
           <div className="text-center mt-12">
             <p className="text-gray-600 mb-4">All plans include:</p>
             <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-600">

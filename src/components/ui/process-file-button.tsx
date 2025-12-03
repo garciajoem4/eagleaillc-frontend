@@ -6,6 +6,7 @@
     import { useUser, useAuth } from '@clerk/clerk-react';
     import { useAppDispatch } from '../../redux/hooks';
     import { fetchAndStoreApiResults } from '../../redux/slices/recordingsSlice';
+    import { addFileAnalytics, type FileAnalytics } from '../../redux/slices/uploadsSlice';
     import { Button } from './button';
     import { Badge } from './badge';
     import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './card';
@@ -279,6 +280,20 @@
 
             setProcessResult(result);
 
+            // Store file analytics in Redux for analytics block
+            const fileAnalyticsData: FileAnalytics = {
+              recordingId,
+              fileName: file.name,
+              fileSize: file.size,
+              fileType: file.type,
+              uploadedAt: new Date().toISOString(),
+              duration: isFreeTrial && isTrimmed ? FREE_TRIAL_TIME_LIMIT_SECONDS : undefined,
+              isTrimmed,
+              userId: clerkUser?.id,
+              tenantId: clerkUser?.organizationMemberships?.[0]?.organization?.id,
+            };
+            dispatch(addFileAnalytics(fileAnalyticsData));
+
             // Call completion callback if provided
             if (onProcessComplete) {
               onProcessComplete(result.recordingId, result.audioUrl);
@@ -357,6 +372,20 @@
               };
 
               setProcessResult(result);
+
+              // Store file analytics in Redux for analytics block (fallback mode)
+              const fileAnalyticsData: FileAnalytics = {
+                recordingId,
+                fileName: file.name,
+                fileSize: file.size,
+                fileType: file.type,
+                uploadedAt: new Date().toISOString(),
+                duration: isFreeTrial && isTrimmed ? FREE_TRIAL_TIME_LIMIT_SECONDS : undefined,
+                isTrimmed,
+                userId: clerkUser?.id,
+                tenantId: clerkUser?.organizationMemberships?.[0]?.organization?.id,
+              };
+              dispatch(addFileAnalytics(fileAnalyticsData));
 
               if (onProcessComplete) {
                 onProcessComplete(result.recordingId, result.audioUrl);
