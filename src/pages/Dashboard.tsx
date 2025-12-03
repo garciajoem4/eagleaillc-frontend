@@ -45,6 +45,7 @@ const Dashboard: React.FC = () => {
     // Subscription data
     subscription,
     usagePercentages,
+    usageValues, // Computed usage values with Redux fallback support
     
     // Computed values
     stats,
@@ -262,7 +263,7 @@ const Dashboard: React.FC = () => {
                       Files
                     </span>
                     <span className="text-xs text-gray-500 dark:text-gray-500">
-                      {subscription.usage.files_uploaded} / {subscription.usage.files_limit}
+                      {usageValues.files_uploaded} / {usageValues.files_limit}
                     </span>
                   </div>
                   <div className="relative w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
@@ -286,7 +287,7 @@ const Dashboard: React.FC = () => {
                       Storage
                     </span>
                     <span className="text-xs text-gray-500 dark:text-gray-500">
-                      {subscription.usage.storage_used_gb?.toFixed(1) || 0} / {subscription.usage.storage_limit_gb} GB
+                      {usageValues.storage_used_gb?.toFixed(1) || 0} / {usageValues.storage_limit_gb} GB
                     </span>
                   </div>
                   <div className="relative w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
