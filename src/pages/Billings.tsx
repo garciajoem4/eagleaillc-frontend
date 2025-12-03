@@ -548,7 +548,7 @@ const Billings: React.FC = () => {
               {pricingTiers.map((tier) => {
                 const isCurrentPlan = subscription?.tier === tier.id || 
                   (currentPlan?.id === tier.id) ||
-                  (tier.id === 'free-trial' && (!subscription || subscription.status === 'trialing'));
+                  (tier.id === 'free' && (!subscription || subscription.status === 'trialing'));
                 
                 return (
                   <div 
@@ -634,25 +634,19 @@ const Billings: React.FC = () => {
                             ? 'bg-green-100 text-green-700 hover:bg-green-200 cursor-default'
                             : tier.recommended 
                             ? 'bg-[#4e69fd] hover:bg-[#3d54e6] text-white shadow-md hover:shadow-lg' 
-                            : tier.id === 'enterprise'
+                            : tier.id === 'business'
                             ? 'bg-gray-900 hover:bg-gray-800 text-white'
                             : 'border-2 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                         }`}
-                        variant={isCurrentPlan ? 'secondary' : tier.recommended || tier.id === 'enterprise' ? 'default' : 'outline'}
+                        variant={isCurrentPlan ? 'secondary' : tier.recommended || tier.id === 'business' ? 'default' : 'outline'}
                         disabled={isCurrentPlan}
                         onClick={() => {
                           if (isCurrentPlan) return;
-                          if (tier.id === 'enterprise') {
-                            window.location.href = 'mailto:sales@synaptivoice.com?subject=Enterprise%20Plan%20Inquiry';
-                          } else {
-                            openPaymentMethodModal();
-                          }
+                          openPaymentMethodModal();
                         }}
                       >
                         {isCurrentPlan 
                           ? 'Current Plan' 
-                          : tier.id === 'enterprise' 
-                          ? 'Contact Sales' 
                           : subscription 
                           ? `Switch to ${tier.name}` 
                           : `Get ${tier.name}`}
@@ -661,9 +655,9 @@ const Billings: React.FC = () => {
                       {/* Trial Info */}
                       {!isCurrentPlan && (
                         <p className="text-xs text-gray-500 text-center mt-3">
-                          {tier.id === 'free-trial' 
-                            ? `${tier.trialDuration} free trial`
-                            : '14-day free trial • Cancel anytime'}
+                          {tier.id === 'free' 
+                            ? 'No credit card required'
+                            : `${tier.trialDuration} free trial • Cancel anytime`}
                         </p>
                       )}
                     </div>
