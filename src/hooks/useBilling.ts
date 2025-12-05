@@ -1,4 +1,5 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useAuth } from '@clerk/clerk-react';
 import { useAppDispatch, useAppSelector } from '../redux/hooks';
 import {
   fetchSubscription,
@@ -40,10 +41,15 @@ interface UseBillingOptions {
 
 export const useBilling = (options: UseBillingOptions = {}) => {
   const dispatch = useAppDispatch();
+  const { getToken } = useAuth();
   const {
     autoFetch = true,
     refreshInterval = 0,
   } = options;
+
+  // Local state for API integration
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Redux state selectors
   const subscription = useAppSelector(selectSubscription);
@@ -128,18 +134,36 @@ export const useBilling = (options: UseBillingOptions = {}) => {
     dispatch(removePaymentMethod(paymentMethodId));
   }, [dispatch, paymentMethods.length]);
 
+  // Manual refresh function with API integration
+  const handleRefreshSubscription = useCallback(async () => {
+    setIsRefreshing(true);
+    setApiError(null);
+    
+    try {
+      await dispatch(fetchSubscription(getToken)).unwrap();
+      // Also refresh billing history
+      await dispatch(fetchBillingRecords({ page: 1, limit: 10 }));
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to refresh subscription data';
+      setApiError(errorMessage);
+      console.error('Error refreshing subscription:', err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [dispatch, getToken]);
+
   // Data fetching
   const refreshBillingData = useCallback(async () => {
     try {
       await Promise.all([
-        dispatch(fetchSubscription()),
+        dispatch(fetchSubscription(getToken)),
         dispatch(fetchPaymentMethods()),
         dispatch(fetchCurrentUsage()),
       ]);
     } catch (error) {
       console.error('Failed to refresh billing data:', error);
     }
-  }, [dispatch]);
+  }, [dispatch, getToken]);
 
   const refreshBillingHistory = useCallback((page: number = 1, limit: number = 10) => {
     dispatch(setBillingPage(page));
@@ -206,6 +230,58 @@ export const useBilling = (options: UseBillingOptions = {}) => {
       style: 'currency',
       currency,
     }).format(amount);
+  }, []);
+
+  const formatDate = useCallback((date: string | Date): string => {
+    // Handle both ISO string dates and Date objects
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    return dateObj.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  }, []);
+
+  // Calculate billing totals
+  const totalPaid = billingRecords
+    .filter(record => record.status === 'paid')
+    .reduce((sum, record) => sum + (record.amount || record.total || 0), 0);
+
+  const totalPending = billingRecords
+    .filter(record => record.status === 'pending' || record.status === 'overdue')
+    .reduce((sum, record) => sum + (record.amount || record.total || 0), 0);
+
+  const getStatusVariant = useCallback((status: string): 'default' | 'secondary' | 'destructive' => {
+    switch (status) {
+      case 'paid':
+        return 'default';
+      case 'pending':
+        return 'secondary';
+      case 'overdue':
+      case 'failed':
+        return 'destructive';
+      default:
+        return 'secondary';
+    }
+  }, []);
+
+  // Helper functions
+  const openUpgradePlanModal = useCallback(() => {
+    openPaymentMethodModal(); // Use existing modal function for now
+  }, [openPaymentMethodModal]);
+
+  const downloadInvoice = useCallback((recordId: string) => {
+    // TODO: Implement invoice download
+    console.log('Downloading invoice for record:', recordId);
+  }, []);
+
+  const retryPayment = useCallback((recordId: string) => {
+    // TODO: Implement payment retry
+    console.log('Retrying payment for record:', recordId);
+  }, []);
+
+  const clearApiError = useCallback(() => {
+    setApiError(null);
   }, []);
 
   const formatUsage = useCallback((usage: typeof currentUsage) => {
@@ -280,22 +356,41 @@ export const useBilling = (options: UseBillingOptions = {}) => {
     return targetPlan.price < currentPlan.price;
   }, [currentPlan, availablePlans]);
 
-  // Auto-fetch and refresh logic
+  // Fetch subscription data on mount
   useEffect(() => {
     if (autoFetch) {
-      refreshBillingData();
-    }
-  }, [autoFetch, refreshBillingData]);
+      const loadSubscriptionData = async () => {
+        setIsRefreshing(true);
+        setApiError(null);
+        
+        try {
+          // Fetch subscription with token
+          await dispatch(fetchSubscription(getToken)).unwrap();
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : 'Failed to load subscription data';
+          setApiError(errorMessage);
+          console.error('Error loading subscription:', err);
+          // Don't throw - we have fallback data
+        } finally {
+          setIsRefreshing(false);
+        }
+      };
 
+      loadSubscriptionData();
+    }
+  }, [autoFetch, dispatch, getToken]);
+
+  // Auto-refresh billing data periodically
   useEffect(() => {
     if (refreshInterval > 0) {
       const interval = setInterval(() => {
-        refreshBillingData();
+        handleRefreshSubscription();
       }, refreshInterval);
 
       return () => clearInterval(interval);
     }
-  }, [refreshInterval, refreshBillingData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshInterval]);
 
   return {
     // State
@@ -311,6 +406,10 @@ export const useBilling = (options: UseBillingOptions = {}) => {
     error,
     upcomingRenewal,
     paymentFailures,
+    
+    // API integration state
+    apiError,
+    isRefreshing,
 
     // UI state
     showUpgradeModal,
@@ -329,6 +428,7 @@ export const useBilling = (options: UseBillingOptions = {}) => {
     // Data fetching
     refreshBillingData,
     refreshBillingHistory,
+    handleRefreshSubscription,
 
     // Preferences
     updatePreferences,
@@ -347,14 +447,26 @@ export const useBilling = (options: UseBillingOptions = {}) => {
 
     // Error handling
     clearError,
+    clearApiError,
 
     // Utility functions
     formatCurrency,
+    formatDate,
     formatUsage,
     getUsagePercentages,
     isNearLimit,
     canUpgrade,
     canDowngrade,
+    
+    // Computed values
+    totalPaid,
+    totalPending,
+    getStatusVariant,
+    
+    // Helper functions
+    openUpgradePlanModal,
+    downloadInvoice,
+    retryPayment,
   };
 };
 

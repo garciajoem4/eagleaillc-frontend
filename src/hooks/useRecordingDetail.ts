@@ -9,7 +9,7 @@ import { audioStorageService } from '../services/audioStorageService';
 import { useAppSelector } from '../redux/hooks';
 
 import { ApiResponse } from '../types/api';
-import { WorkflowHelpers } from '../endpoints';
+import { WorkflowHelpers, EMAIL_ENDPOINTS, buildUrl } from '../endpoints';
 
 interface TranscriptData {
   full_transcription?: string;
@@ -42,6 +42,7 @@ const getDataFromAPI = async ({ recordingId, getToken }: { recordingId: string; 
       // Transform the API data to match our Recording interface
       const apiResults = {
         recordingId,
+        recording: data.recording,
         transcript: data.full_transcription || data.transcript,
         intelligence: data.intelligence || data.detailed_intelligence || {
           action_items: data.action_items || [],
@@ -257,6 +258,11 @@ export const useRecordingDetail = (
   const [activeAutomationTab, setActiveAutomationTab] = useState<string>('transcript');
   const [isOtherExportsOpen, setIsOtherExportsOpen] = useState<boolean>(false);
   
+  // Email export state
+  const [isEmailingTranscript, setIsEmailingTranscript] = useState<boolean>(false);
+  const [emailSuccess, setEmailSuccess] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  
   // Audio synchronization state
   const [currentAudioTime, setCurrentAudioTime] = useState<number>(0);
   const [isAudioPlaying, setIsAudioPlaying] = useState<boolean>(false);
@@ -376,7 +382,7 @@ export const useRecordingDetail = (
         recording: {
           id: reduxRecording.id,
           file_name: reduxRecording.name || 'recording.wav',
-          duration_seconds: (reduxRecording.duration || 0) * 60, // Convert minutes to seconds
+          duration_seconds: reduxRecording.duration || 0, // Already in seconds
           created_at: reduxRecording.dateUploaded
         },
         transcript: transcriptData,
@@ -427,7 +433,7 @@ export const useRecordingDetail = (
           const tempDataSource = {
             recording: {
               id: recordingId,
-              file_name: dataSourceAPI?.transcript?.file_name || '',
+              file_name: dataSourceAPI?.recording?.file_name || dataSourceAPI?.transcript?.file_name || '',
               duration_seconds: dataSourceAPI?.transcript?.duration_seconds || 0,
               created_at: new Date().toISOString(),
             },
@@ -1281,6 +1287,286 @@ export const useRecordingDetail = (
     downloadFile(content, fileName, mimeType);
   }, [downloadFile, normalizedDataAPI?.intelligence]);
 
+  // Email transcript data function
+  const emailTranscriptData = useCallback(async (
+    type: 'full-segments' | 'full-only' | 'segments-only',
+    userEmail: string
+  ) => {
+    if (!userEmail) {
+      setEmailError('No email address found. Please make sure you are logged in.');
+      return;
+    }
+
+    setIsEmailingTranscript(true);
+    setEmailError(null);
+    setEmailSuccess(null);
+
+    try {
+      // Generate the text content for email
+      const timestamp = new Date().toISOString().split('T')[0];
+      let content = '';
+      const recordingName = normalizedDataAPI?.recording?.file_name || 'transcript';
+      const duration = normalizedDataAPI?.recording?.duration_seconds || 0;
+
+      if (type === 'full-segments') {
+        content = `Transcript: ${recordingName}\n`;
+        content += `Duration: ${Math.floor(duration / 60)}m ${Math.floor(duration % 60)}s\n`;
+        content += `Generated: ${new Date().toLocaleDateString()}\n\n`;
+        content += '=== FULL TRANSCRIPTION ===\n\n';
+        content += normalizedDataAPI?.transcript?.full_transcription || 'No transcript available';
+        content += '\n\n=== SEGMENTS ===\n\n';
+        normalizedDataAPI?.transcript?.segments?.forEach(segment => {
+          const start = segment.start_sec ?? segment.start ?? 0;
+          const end = segment.end_sec ?? segment.end ?? 0;
+          const speaker = segment.speaker_label ?? segment.speaker ?? 'Unknown';
+          content += `[${formatTimestamp(start)} - ${formatTimestamp(end)}] ${speaker}: ${segment.text}\n\n`;
+        });
+      } else if (type === 'full-only') {
+        content = `Transcript: ${recordingName}\n`;
+        content += `Duration: ${Math.floor(duration / 60)}m ${Math.floor(duration % 60)}s\n`;
+        content += `Generated: ${new Date().toLocaleDateString()}\n\n`;
+        content += normalizedDataAPI?.transcript?.full_transcription || 'No transcript available';
+      } else if (type === 'segments-only') {
+        content = `Transcript Segments: ${recordingName}\n`;
+        content += `Duration: ${Math.floor(duration / 60)}m ${Math.floor(duration % 60)}s\n`;
+        content += `Generated: ${new Date().toLocaleDateString()}\n\n`;
+        normalizedDataAPI?.transcript?.segments?.forEach(segment => {
+          const start = segment.start_sec ?? segment.start ?? 0;
+          const end = segment.end_sec ?? segment.end ?? 0;
+          const speaker = segment.speaker_label ?? segment.speaker ?? 'Unknown';
+          content += `[${formatTimestamp(start)} - ${formatTimestamp(end)}] ${speaker}: ${segment.text}\n\n`;
+        });
+      }
+
+      // Try to send via API
+      if (getToken) {
+        try {
+          const token = await getToken();
+          const response = await fetch(buildUrl(EMAIL_ENDPOINTS.SEND_TRANSCRIPT), {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              to: userEmail,
+              subject: `Transcript Export: ${recordingName} - ${timestamp}`,
+              content: content,
+              fileName: `transcript-${type}-${timestamp}.txt`,
+              recordingId: recordingId,
+            }),
+          });
+
+          if (response.ok) {
+            setEmailSuccess(`Transcript sent successfully to ${userEmail}`);
+            // Clear success message after 5 seconds
+            setTimeout(() => setEmailSuccess(null), 5000);
+            return;
+          }
+        } catch (apiError) {
+          console.log('API email failed, falling back to mailto:', apiError);
+        }
+      }
+
+      // Fallback: Download the file and open email client with instructions
+      // First, download the transcript file
+      const fileName = `transcript-${type}-${timestamp}.txt`;
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      // Then open email client with a simple message
+      const subject = encodeURIComponent(`Transcript Export: ${recordingName} - ${timestamp}`);
+      const emailBody = encodeURIComponent(
+        `Hi,\n\nPlease find the transcript file "${fileName}" attached to this email.\n\n` +
+        `Recording: ${recordingName}\n` +
+        `Export Type: ${type}\n` +
+        `Generated: ${new Date().toLocaleDateString()}\n\n` +
+        `Note: The file has been downloaded to your device. Please attach it to this email before sending.\n\n` +
+        `Best regards`
+      );
+      
+      window.open(`mailto:${userEmail}?subject=${subject}&body=${emailBody}`, '_blank');
+      setEmailSuccess(`File downloaded as "${fileName}". Please attach it to the email that opened.`);
+      setTimeout(() => setEmailSuccess(null), 8000);
+
+    } catch (error) {
+      console.error('Error emailing transcript:', error);
+      setEmailError('Failed to send email. Please try again or use the download option.');
+      setTimeout(() => setEmailError(null), 5000);
+    } finally {
+      setIsEmailingTranscript(false);
+    }
+  }, [getToken, recordingId, formatTimestamp, normalizedDataAPI?.recording?.file_name, normalizedDataAPI?.recording?.duration_seconds, normalizedDataAPI?.transcript?.full_transcription, normalizedDataAPI?.transcript?.segments]);
+
+  // Email intelligence data function
+  const emailIntelligenceData = useCallback(async (
+    type: 'all' | 'action-items' | 'decisions' | 'issues' | 'questions',
+    userEmail: string
+  ) => {
+    if (!userEmail) {
+      setEmailError('No email address found. Please make sure you are logged in.');
+      return;
+    }
+
+    setIsEmailingTranscript(true);
+    setEmailError(null);
+    setEmailSuccess(null);
+
+    try {
+      const timestamp = new Date().toISOString().split('T')[0];
+      const recordingName = normalizedDataAPI?.recording?.file_name || 'recording';
+      let content = `Intelligence Analysis Export\nRecording: ${recordingName}\nGenerated: ${new Date().toLocaleDateString()}\n\n`;
+
+      const getData = () => {
+        switch (type) {
+          case 'all':
+            return {
+              action_items: normalizedDataAPI?.intelligence?.actions || [],
+              decisions: normalizedDataAPI?.intelligence?.decisions || [],
+              issues: normalizedDataAPI?.intelligence?.issues || [],
+              questions: normalizedDataAPI?.intelligence?.questions || [],
+              executive_summary: normalizedDataAPI?.intelligence?.summary,
+              key_topics: normalizedDataAPI?.intelligence?.topics || []
+            };
+          case 'action-items':
+            return normalizedDataAPI?.intelligence?.actions || [];
+          case 'decisions':
+            return normalizedDataAPI?.intelligence?.decisions || [];
+          case 'issues':
+            return normalizedDataAPI?.intelligence?.issues || [];
+          case 'questions':
+            return normalizedDataAPI?.intelligence?.questions || [];
+          default:
+            return [];
+        }
+      };
+
+      const data = getData();
+
+      if (type === 'all') {
+        content += '=== EXECUTIVE SUMMARY ===\n\n';
+        content += (data as any).executive_summary || 'No summary available';
+        content += '\n\n=== KEY TOPICS ===\n\n';
+        (data as any).key_topics?.forEach((topic: string) => {
+          content += `• ${topic}\n`;
+        });
+        
+        content += '\n\n=== ACTION ITEMS ===\n\n';
+        (data as any).action_items?.forEach((item: any, index: number) => {
+          content += `${index + 1}. ${item.task}\n`;
+          content += `   Timestamp: ${item.timestamp_start}\n`;
+          if (item.assigned_to) content += `   Assigned to: ${item.assigned_to}\n`;
+          if (item.deadline) content += `   Deadline: ${item.deadline}\n`;
+          content += `   Confidence: ${item.confidence}\n\n`;
+        });
+        
+        content += '=== DECISIONS ===\n\n';
+        (data as any).decisions?.forEach((item: any, index: number) => {
+          content += `${index + 1}. ${item.decision}\n`;
+          content += `   Timestamp: ${item.timestamp_start}\n`;
+          if (item.reason) content += `   Reason: ${item.reason}\n`;
+          content += `   Confidence: ${item.confidence}\n\n`;
+        });
+        
+        content += '=== ISSUES ===\n\n';
+        (data as any).issues?.forEach((item: any, index: number) => {
+          content += `${index + 1}. ${item.issue}\n`;
+          content += `   Timestamp: ${item.timestamp_start}\n\n`;
+        });
+        
+        content += '=== QUESTIONS ===\n\n';
+        (data as any).questions?.forEach((item: any, index: number) => {
+          content += `${index + 1}. ${item.question}\n`;
+          content += `   Timestamp: ${item.timestamp_start}\n\n`;
+        });
+      } else {
+        const typeLabel = type.replace('-', ' ').toUpperCase();
+        content += `=== ${typeLabel} ===\n\n`;
+        
+        (data as any[]).forEach((item: any, index: number) => {
+          const itemText = item.task || item.decision || item.issue || item.question;
+          content += `${index + 1}. ${itemText}\n`;
+          content += `   Timestamp: ${item.timestamp_start}\n`;
+          if (item.assigned_to) content += `   Assigned to: ${item.assigned_to}\n`;
+          if (item.reason) content += `   Reason: ${item.reason}\n`;
+          if (item.confidence) content += `   Confidence: ${item.confidence}\n`;
+          content += '\n';
+        });
+      }
+
+      // Try to send via API
+      if (getToken) {
+        try {
+          const token = await getToken();
+          const response = await fetch(buildUrl(EMAIL_ENDPOINTS.SEND_INTELLIGENCE), {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              to: userEmail,
+              subject: `Intelligence Analysis: ${recordingName} - ${type} - ${timestamp}`,
+              content: content,
+              fileName: `intelligence-${type}-${timestamp}.txt`,
+              recordingId: recordingId,
+            }),
+          });
+
+          if (response.ok) {
+            setEmailSuccess(`Intelligence analysis sent successfully to ${userEmail}`);
+            setTimeout(() => setEmailSuccess(null), 5000);
+            return;
+          }
+        } catch (apiError) {
+          console.log('API email failed, falling back to mailto:', apiError);
+        }
+      }
+
+      // Fallback: Download the file and open email client with instructions
+      // First, download the intelligence file
+      const fileName = `intelligence-${type}-${timestamp}.txt`;
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      // Then open email client with a simple message
+      const subject = encodeURIComponent(`Intelligence Analysis: ${recordingName} - ${type} - ${timestamp}`);
+      const emailBody = encodeURIComponent(
+        `Hi,\n\nPlease find the intelligence analysis file "${fileName}" attached to this email.\n\n` +
+        `Recording: ${recordingName}\n` +
+        `Analysis Type: ${type}\n` +
+        `Generated: ${new Date().toLocaleDateString()}\n\n` +
+        `Note: The file has been downloaded to your device. Please attach it to this email before sending.\n\n` +
+        `Best regards`
+      );
+      
+      window.open(`mailto:${userEmail}?subject=${subject}&body=${emailBody}`, '_blank');
+      setEmailSuccess(`File downloaded as "${fileName}". Please attach it to the email that opened.`);
+      setTimeout(() => setEmailSuccess(null), 8000);
+
+    } catch (error) {
+      console.error('Error emailing intelligence:', error);
+      setEmailError('Failed to send email. Please try again or use the download option.');
+      setTimeout(() => setEmailError(null), 5000);
+    } finally {
+      setIsEmailingTranscript(false);
+    }
+  }, [getToken, recordingId, normalizedDataAPI?.recording?.file_name, normalizedDataAPI?.intelligence]);
+
   const getSeverityVariant = (value: number | string): "default" | "secondary" | "destructive" | "outline" => {
     if (typeof value === 'number') {
       if (value >= 0.8) return 'default';
@@ -1418,6 +1704,15 @@ export const useRecordingDetail = (
     formatSegmentTime,
     renderHighlightedText,
     exportTranscriptData,
-    exportIntelligenceData
+    exportIntelligenceData,
+    
+    // Email export functions and state
+    emailTranscriptData,
+    emailIntelligenceData,
+    isEmailingTranscript,
+    emailSuccess,
+    emailError,
+    setEmailSuccess,
+    setEmailError
   };
 };

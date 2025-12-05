@@ -5,7 +5,7 @@ export const mockRecordings: Recording[] = [
     id: '1',
     name: 'Weekly Team Meeting',
     dateUploaded: new Date('2024-01-15').toISOString(),
-    duration: 45,
+    duration: 2700, // 45 minutes in seconds
     overview: 'Discussion of project progress and upcoming milestones',
     transcript: 'Welcome everyone to our weekly team meeting...',
     intelligence: {
@@ -19,7 +19,7 @@ export const mockRecordings: Recording[] = [
     id: '2',
     name: 'Client Presentation',
     dateUploaded: new Date('2024-01-18').toISOString(),
-    duration: 120,
+    duration: 7200, // 120 minutes (2 hours) in seconds
     overview: 'Product demonstration for potential client',
     transcript: 'Good morning, thank you for joining us today...',
     intelligence: {
@@ -33,7 +33,7 @@ export const mockRecordings: Recording[] = [
     id: '3',
     name: 'Training Session',
     dateUploaded: new Date('2024-01-22').toISOString(),
-    duration: 90,
+    duration: 5400, // 90 minutes in seconds
     overview: 'New employee onboarding and system training',
     transcript: 'Welcome to the company training session...',
     intelligence: {
@@ -47,7 +47,7 @@ export const mockRecordings: Recording[] = [
     id: '4',
     name: 'Board Meeting Q4',
     dateUploaded: new Date('2024-01-25').toISOString(),
-    duration: 180,
+    duration: 10800, // 180 minutes (3 hours) in seconds
     overview: 'Quarterly board meeting discussing financials and strategy',
     transcript: 'Good afternoon board members...',
     intelligence: {
@@ -61,7 +61,7 @@ export const mockRecordings: Recording[] = [
     id: '5',
     name: 'Developer Standup',
     dateUploaded: new Date('2024-01-28').toISOString(),
-    duration: 30,
+    duration: 1800, // 30 minutes in seconds
     overview: 'Daily development team standup meeting',
     transcript: 'Good morning team, let\'s start with yesterday\'s progress...',
     intelligence: {

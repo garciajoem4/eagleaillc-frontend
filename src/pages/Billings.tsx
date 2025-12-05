@@ -1,19 +1,54 @@
-import React, { useEffect } from 'react';
+import React, { useState } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import StripeProvider from '../components/StripeProvider';
-import SubscriptionPayment from '../components/SubscriptionPayment';
+import PlanUpgradeModal from '../components/PlanUpgradeModal';
 import { useBilling } from '../hooks/useBilling';
+import { pricingTiers, type PricingTier } from '../hooks/useHomepage';
 
 
 const Billings: React.FC = () => {
   const { user } = useUser();
+  const [isAnnualBilling, setIsAnnualBilling] = useState(false);
+  const [selectedTier, setSelectedTier] = useState<PricingTier | null>(null);
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   
-  // Redux billing hook
+  // Toggle billing period
+  const toggleBillingPeriod = () => {
+    setIsAnnualBilling(!isAnnualBilling);
+  };
+
+  // Handle plan selection
+  const handleSelectPlan = (tier: PricingTier) => {
+    setSelectedTier(tier);
+    setIsUpgradeModalOpen(true);
+  };
+
+  // Handle modal close
+  const handleCloseModal = () => {
+    setIsUpgradeModalOpen(false);
+    setSelectedTier(null);
+  };
+
+  // Handle successful subscription
+  const handleSubscriptionSuccess = () => {
+    handleRefreshSubscription();
+  };
+
+  // Format tier price based on billing period
+  const formatTierPrice = (tier: PricingTier) => {
+    const price = isAnnualBilling ? tier.annualPrice : tier.monthlyPrice;
+    if (price === 'Free') return 'Free';
+    if (price === 'Custom') return 'Custom';
+    return `$${price}`;
+  };
+  
+  // Get everything from the useBilling hook (with auto-refresh every 5 minutes)
   const {
+    // State
     subscription,
     currentPlan,
     defaultPaymentMethod,
@@ -22,69 +57,31 @@ const Billings: React.FC = () => {
     isLoading,
     error,
     paymentFailures,
+    apiError,
+    isRefreshing,
+    
+    // Functions
     formatCurrency,
+    formatDate,
     openPaymentMethodModal,
     clearError,
+    clearApiError,
     dismissUsageWarning,
-    refreshBillingHistory,
-  } = useBilling({ autoFetch: true });
-
-  // Auto-refresh billing data periodically
-  useEffect(() => {
-    const interval = setInterval(() => {
-      refreshBillingHistory();
-    }, 60000); // Refresh every minute
-
-    return () => clearInterval(interval);
-  }, [refreshBillingHistory]);
-
-  const formatDate = (date: string | Date): string => {
-    // Handle both ISO string dates and Date objects
-    const dateObj = typeof date === 'string' ? new Date(date) : date;
-    return dateObj.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
-  // Calculate billing totals
-  const totalPaid = billingRecords
-    .filter(record => record.status === 'paid')
-    .reduce((sum, record) => sum + (record.amount || record.total || 0), 0);
-
-  const totalPending = billingRecords
-    .filter(record => record.status === 'pending' || record.status === 'overdue')
-    .reduce((sum, record) => sum + (record.amount || record.total || 0), 0);
-
-  const getStatusVariant = (status: string) => {
-    switch (status) {
-      case 'paid':
-        return 'default';
-      case 'pending':
-        return 'secondary';
-      case 'overdue':
-      case 'failed':
-        return 'destructive';
-      default:
-        return 'secondary';
-    }
-  };
-
-  // Helper functions for new Redux-powered features
-  const openUpgradePlanModal = () => {
-    openPaymentMethodModal(); // Use existing modal function for now
-  };
-
-  const downloadInvoice = (recordId: string) => {
-    // TODO: Implement invoice download
-    console.log('Downloading invoice for record:', recordId);
-  };
-
-  const retryPayment = (recordId: string) => {
-    // TODO: Implement payment retry
-    console.log('Retrying payment for record:', recordId);
-  };
+    handleRefreshSubscription,
+    
+    // Computed values
+    totalPaid,
+    totalPending,
+    getStatusVariant,
+    
+    // Helper functions
+    openUpgradePlanModal,
+    downloadInvoice,
+    retryPayment,
+  } = useBilling({ 
+    autoFetch: true,
+    refreshInterval: 300000 // Auto-refresh every 5 minutes
+  });
 
 
 
@@ -98,12 +95,30 @@ const Billings: React.FC = () => {
               Manage your subscription and payment history for {user?.firstName || 'User'}
             </p>
           </div>
-          <Button className="flex items-center gap-2">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            Download Invoice
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              className="flex items-center gap-2"
+              onClick={handleRefreshSubscription}
+              disabled={isRefreshing}
+            >
+              <svg 
+                className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              {isRefreshing ? 'Refreshing...' : 'Refresh'}
+            </Button>
+            <Button className="flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Download Invoice
+            </Button>
+          </div>
         </div>
 
         <Tabs defaultValue="overview" className="w-full">
@@ -114,13 +129,50 @@ const Billings: React.FC = () => {
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
+            {/* Loading State */}
+            {isRefreshing && (
+              <Card className="border-blue-200 bg-blue-50">
+                <CardContent className="p-4">
+                  <div className="flex items-center space-x-2">
+                    <svg className="w-5 h-5 text-blue-600 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <span className="text-blue-800">Loading subscription data...</span>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* API Error Display */}
+            {apiError && (
+              <Card className="border-yellow-200 bg-yellow-50">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      <div>
+                        <span className="text-yellow-800 font-medium">API Connection Issue: </span>
+                        <span className="text-yellow-700">{apiError}</span>
+                        <p className="text-yellow-600 text-sm mt-1">Displaying cached or fallback data</p>
+                      </div>
+                    </div>
+                    <Button onClick={clearApiError} size="sm" variant="outline">
+                      Dismiss
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Error Display */}
             {error && (
               <Card className="border-red-200 bg-red-50">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
-                      <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
                       </svg>
                       <span className="text-red-800">{error}</span>
@@ -208,6 +260,87 @@ const Billings: React.FC = () => {
               </Card>
             </div>
 
+            {/* Usage Statistics from Backend API */}
+            {subscription?.usage && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Usage & Limits</CardTitle>
+                  <CardDescription>Current billing period usage from backend</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Files Usage */}
+                  <div>
+                    <div className="flex justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">Files Uploaded</span>
+                      <span className="text-sm text-gray-600">
+                        {subscription.usage.files_uploaded || 0} / {subscription.usage.files_limit_text || subscription.usage.files_limit || 'Unlimited'}
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2.5">
+                      <div 
+                        className={`h-2.5 rounded-full ${
+                          ((subscription.usage.files_uploaded || 0) / (subscription.usage.files_limit || 1)) > 0.8 
+                            ? 'bg-red-600' 
+                            : 'bg-blue-600'
+                        }`}
+                        style={{ 
+                          width: `${Math.min(100, ((subscription.usage.files_uploaded || 0) / (subscription.usage.files_limit || 1)) * 100)}%` 
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Storage Usage */}
+                  <div>
+                    <div className="flex justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">Storage Used</span>
+                      <span className="text-sm text-gray-600">
+                        {subscription.usage.storage_used_gb?.toFixed(2) || 0} GB / {subscription.usage.storage_limit_gb || 'Unlimited'} GB
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2.5">
+                      <div 
+                        className={`h-2.5 rounded-full ${
+                          ((subscription.usage.storage_used_gb || 0) / (subscription.usage.storage_limit_gb || 1)) > 0.8 
+                            ? 'bg-red-600' 
+                            : 'bg-green-600'
+                        }`}
+                        style={{ 
+                          width: `${Math.min(100, ((subscription.usage.storage_used_gb || 0) / (subscription.usage.storage_limit_gb || 1)) * 100)}%` 
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Billing Period */}
+                  {subscription.usage.billing_period_start && subscription.usage.billing_period_end && (
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <p className="text-xs text-gray-500">
+                        Billing Period: {new Date(subscription.usage.billing_period_start).toLocaleDateString()} - {new Date(subscription.usage.billing_period_end).toLocaleDateString()}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Plan Limits */}
+                  {subscription.limits && (
+                    <div className="mt-4 pt-4 border-t border-gray-200 space-y-2">
+                      <h4 className="text-sm font-medium text-gray-700">Plan Limits</h4>
+                      {subscription.limits.max_file_duration_text && (
+                        <p className="text-xs text-gray-600">
+                          • Max File Duration: {subscription.limits.max_file_duration_text}
+                        </p>
+                      )}
+                      {subscription.limits.priority_text && (
+                        <p className="text-xs text-gray-600">
+                          • Processing Priority: {subscription.limits.priority_text}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Current Plan */}
               <Card>
@@ -219,16 +352,23 @@ const Billings: React.FC = () => {
                   {currentPlan ? (
                     <>
                       <div>
-                        <h3 className="text-xl font-semibold">{currentPlan.name}</h3>
+                        <h3 className="text-xl font-semibold">
+                          {subscription?.tierDisplayName || currentPlan.name}
+                        </h3>
                         <p className="text-2xl font-bold text-blue-600">
-                          {formatCurrency(currentPlan.price)}/{currentPlan.interval}
+                          {formatCurrency(currentPlan.price)}/{subscription?.billingCycle || currentPlan.interval}
                         </p>
                         <p className="text-sm text-gray-600 mt-1">
-                          Status: {subscription?.status}
+                          Status: <span className="capitalize">{subscription?.status}</span>
                           {subscription?.currentPeriodEnd && 
                             ` • Next billing: ${new Date(subscription.currentPeriodEnd).toLocaleDateString()}`
                           }
                         </p>
+                        {subscription?.trialEndsAt && (
+                          <p className="text-sm text-blue-600 mt-1">
+                            Trial ends: {new Date(subscription.trialEndsAt).toLocaleDateString()}
+                          </p>
+                        )}
                       </div>
                       
                       <div>
@@ -279,10 +419,19 @@ const Billings: React.FC = () => {
                       </div>
                       
                       <div className="flex space-x-2 pt-4">
-                        <Button size="sm" onClick={() => openUpgradePlanModal()}>
+                        <Button size="sm" onClick={() => {
+                          // Find the next tier up for upgrade
+                          const currentTierIndex = pricingTiers.findIndex(t => t.id === (subscription?.tier || currentPlan?.id));
+                          const nextTier = pricingTiers[currentTierIndex + 1] || pricingTiers.find(t => t.recommended);
+                          if (nextTier) handleSelectPlan(nextTier);
+                        }}>
                           Upgrade Plan
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => openUpgradePlanModal()}>
+                        <Button size="sm" variant="outline" onClick={() => {
+                          // Show the subscription tab for plan selection
+                          const tabTrigger = document.querySelector('[value="subscription"]') as HTMLButtonElement;
+                          tabTrigger?.click();
+                        }}>
                           Change Plan
                         </Button>
                       </div>
@@ -290,7 +439,11 @@ const Billings: React.FC = () => {
                   ) : (
                     <div className="text-center py-8">
                       <p className="text-gray-500 mb-4">No active subscription plan</p>
-                      <Button onClick={() => openUpgradePlanModal()}>
+                      <Button onClick={() => {
+                        // Show the subscription tab for plan selection
+                        const tabTrigger = document.querySelector('[value="subscription"]') as HTMLButtonElement;
+                        tabTrigger?.click();
+                      }}>
                         Choose a Plan
                       </Button>
                     </div>
@@ -355,7 +508,220 @@ const Billings: React.FC = () => {
           </TabsContent>
 
           <TabsContent value="subscription" className="space-y-6">
-            <SubscriptionPayment />
+            {/* Current Subscription Status */}
+            {subscription && (
+              <Card className="border-blue-200 bg-blue-50/50">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                        <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">
+                          Current Plan: <span className="text-blue-600">{subscription.tierDisplayName || currentPlan?.name || 'Free Trial'}</span>
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          {subscription.status === 'active' ? 'Active subscription' : subscription.status === 'trialing' ? 'Trial period' : subscription.status}
+                          {subscription.currentPeriodEnd && ` • Renews ${new Date(subscription.currentPeriodEnd).toLocaleDateString()}`}
+                        </p>
+                      </div>
+                    </div>
+                    <Badge className={subscription.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}>
+                      {subscription.status === 'active' ? 'Active' : subscription.status === 'trialing' ? 'Trial' : subscription.status}
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Plan Selection Header */}
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                {subscription ? 'Change Your Plan' : 'Choose Your Plan'}
+              </h2>
+              <p className="text-gray-600 dark:text-gray-300 mb-6">
+                Select the plan that best fits your needs
+              </p>
+              
+              {/* Monthly/Annual Toggle */}
+              <div className="flex items-center justify-center gap-4 mb-8">
+                <span className={`text-sm font-medium transition-colors ${!isAnnualBilling ? 'text-[#4e69fd]' : 'text-gray-500'}`}>
+                  Monthly
+                </span>
+                <button
+                  onClick={toggleBillingPeriod}
+                  className={`relative w-14 h-7 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-[#4e69fd]/50 ${
+                    isAnnualBilling ? 'bg-[#4e69fd]' : 'bg-gray-300'
+                  }`}
+                  aria-label="Toggle billing period"
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform duration-300 ${
+                      isAnnualBilling ? 'translate-x-7' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+                <span className={`text-sm font-medium transition-colors ${isAnnualBilling ? 'text-[#4e69fd]' : 'text-gray-500'}`}>
+                  Annual
+                </span>
+                {isAnnualBilling && (
+                  <Badge className="bg-green-100 text-green-700 border-green-200 ml-2">
+                    Save up to 20%
+                  </Badge>
+                )}
+              </div>
+            </div>
+
+            {/* Pricing Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {pricingTiers.map((tier) => {
+                const isCurrentPlan = subscription?.tier === tier.id || 
+                  (currentPlan?.id === tier.id) ||
+                  (tier.id === 'free' && (!subscription || subscription.status === 'trialing'));
+                
+                return (
+                  <div 
+                    key={tier.id}
+                    className={`relative bg-white dark:bg-gray-800 rounded-2xl border-2 transition-all duration-300 hover:shadow-xl ${
+                      isCurrentPlan
+                        ? 'border-green-500 shadow-lg shadow-green-500/10 ring-2 ring-green-500/20'
+                        : tier.recommended 
+                        ? 'border-[#4e69fd] shadow-lg shadow-[#4e69fd]/10' 
+                        : 'border-gray-100 dark:border-gray-700 shadow-md hover:border-gray-200'
+                    }`}
+                  >
+                    {/* Current Plan Badge */}
+                    {isCurrentPlan && (
+                      <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-10">
+                        <Badge className="bg-green-500 text-white px-4 py-1 text-sm font-medium rounded-full shadow-md">
+                          Current Plan
+                        </Badge>
+                      </div>
+                    )}
+                    
+                    {/* Most Popular Badge */}
+                    {tier.recommended && !isCurrentPlan && (
+                      <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                        <Badge className="bg-[#4e69fd] text-white px-4 py-1 text-sm font-medium rounded-full shadow-md">
+                          Most Popular
+                        </Badge>
+                      </div>
+                    )}
+
+                    <div className="p-6">
+                      {/* Plan Name */}
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-white text-center mb-2">
+                        {tier.name}
+                      </h3>
+
+                      {/* Price */}
+                      <div className="text-center mb-5">
+                        <span className={`text-3xl font-bold ${
+                          isCurrentPlan ? 'text-green-600' : tier.recommended ? 'text-[#4e69fd]' : 'text-gray-900 dark:text-white'
+                        }`}>
+                          {formatTierPrice(tier)}
+                        </span>
+                        {tier.pricePerUser && formatTierPrice(tier) !== 'Free' && formatTierPrice(tier) !== 'Custom' && (
+                          <span className="text-gray-500 text-base">/{isAnnualBilling ? 'year' : 'month'}</span>
+                        )}
+                      </div>
+
+                      {/* Features List */}
+                      <ul className="space-y-3 mb-6">
+                        {tier.features.map((feature, index) => (
+                          <li key={index} className="flex items-start">
+                            <svg className="w-4 h-4 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span className="text-gray-600 dark:text-gray-300 text-sm">{feature}</span>
+                          </li>
+                        ))}
+                        <li className="flex items-start">
+                          <svg className="w-4 h-4 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span className="text-gray-600 dark:text-gray-300 text-sm">{tier.audioFileUploads} uploads</span>
+                        </li>
+                        <li className="flex items-start">
+                          <svg className="w-4 h-4 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span className="text-gray-600 dark:text-gray-300 text-sm">{tier.storagePerUser} storage</span>
+                        </li>
+                        <li className="flex items-start">
+                          <svg className="w-4 h-4 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span className="text-gray-600 dark:text-gray-300 text-sm">{tier.maxFileDuration} max duration</span>
+                        </li>
+                      </ul>
+
+                      {/* CTA Button */}
+                      <Button
+                        className={`w-full py-2.5 text-sm font-medium transition-all duration-200 ${
+                          isCurrentPlan
+                            ? 'bg-green-100 text-green-700 hover:bg-green-200 cursor-default'
+                            : tier.recommended 
+                            ? 'bg-[#4e69fd] hover:bg-[#3d54e6] text-white shadow-md hover:shadow-lg' 
+                            : tier.id === 'business'
+                            ? 'bg-gray-900 hover:bg-gray-800 text-white'
+                            : 'border-2 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                        }`}
+                        variant={isCurrentPlan ? 'secondary' : tier.recommended || tier.id === 'business' ? 'default' : 'outline'}
+                        disabled={isCurrentPlan}
+                        onClick={() => {
+                          if (isCurrentPlan) return;
+                          handleSelectPlan(tier);
+                        }}
+                      >
+                        {isCurrentPlan 
+                          ? 'Current Plan' 
+                          : subscription 
+                          ? `Switch to ${tier.name}` 
+                          : `Get ${tier.name}`}
+                      </Button>
+
+                      {/* Trial Info */}
+                      {!isCurrentPlan && (
+                        <p className="text-xs text-gray-500 text-center mt-3">
+                          {tier.id === 'free' 
+                            ? 'No credit card required'
+                            : `${tier.trialDuration} free trial • Cancel anytime`}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Additional Payment Component */}
+            {/* <div className="mt-8">
+              <SubscriptionPayment />
+            </div> */}
+            
+            {/* Debug Section - Show raw subscription data */}
+            {process.env.NODE_ENV === 'development' && subscription && (
+              <Card className="mt-6">
+                <CardHeader>
+                  <CardTitle className="text-sm">Debug: Raw Subscription Data</CardTitle>
+                  <CardDescription>Backend API response (Development Only)</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <details className="cursor-pointer">
+                    <summary className="font-medium text-sm text-gray-700 mb-2">
+                      View Raw JSON Data
+                    </summary>
+                    <pre className="text-xs bg-gray-50 p-4 rounded overflow-auto max-h-96 border border-gray-200">
+                      {JSON.stringify(subscription, null, 2)}
+                    </pre>
+                  </details>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="history" className="space-y-6">
@@ -456,6 +822,16 @@ const Billings: React.FC = () => {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Plan Upgrade Modal */}
+        <PlanUpgradeModal
+          isOpen={isUpgradeModalOpen}
+          onClose={handleCloseModal}
+          selectedTier={selectedTier}
+          currentPlanId={subscription?.tier || currentPlan?.id || null}
+          isAnnualBilling={isAnnualBilling}
+          onSuccess={handleSubscriptionSuccess}
+        />
       </div>
     </StripeProvider>
   );

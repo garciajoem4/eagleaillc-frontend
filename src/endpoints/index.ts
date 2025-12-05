@@ -28,7 +28,7 @@ export const API_CONFIG = {
     PASSWORD: API_PASSWORD,
   },
   CLERK_CONFIG: {
-    DOMAIN: 'https://set-clam-53.clerk.accounts.dev',
+    DOMAIN: process.env.NEXT_PUBLIC_CLERK_DOMAIN,
     TOKEN_REFRESH_INTERVAL: 2, // Refresh token every 2 polls (6 seconds)
   },
 };
@@ -94,6 +94,12 @@ export const ANALYTICS_ENDPOINTS = {
   RECORDINGS: '/analytics/recordings',
   USAGE: '/analytics/usage',
   EXPORT: '/analytics/export',
+};
+
+// Email endpoints
+export const EMAIL_ENDPOINTS = {
+  SEND_TRANSCRIPT: '/email/send-transcript',
+  SEND_INTELLIGENCE: '/email/send-intelligence',
 };
 
 // Build full URL helper

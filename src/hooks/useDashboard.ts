@@ -2,7 +2,15 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@clerk/clerk-react';
 import { useAppDispatch, useAppSelector } from '../redux/hooks';
-import { fetchRecordings, openUploadModal, closeUploadModal } from '../redux';
+import { 
+  fetchRecordings, 
+  openUploadModal, 
+  closeUploadModal, 
+  fetchSubscription,
+  selectFileAnalytics,
+  selectTotalUploadedSize,
+  selectTotalUploadedCount,
+} from '../redux';
 import { ANALYTICS_ENDPOINTS, buildUrl } from '../endpoints';
 import { Recording } from '../types';
 
@@ -14,6 +22,20 @@ const FALLBACK_DATA = {
   minutesTrend: [0, 0, 0, 0, 0, 0],
   statusBreakdown: { completed: 0, processing: 0, failed: 0 },
   insightsTotal: { actions: 0, decisions: 0, issues: 0 },
+};
+
+// Fallback subscription data
+const FALLBACK_SUBSCRIPTION = {
+  tier: 'Free',
+  tierDisplayName: 'Free Plan',
+  status: 'active',
+  usage: {
+    files_uploaded: 0,
+    files_limit: 10,
+    files_limit_text: '10 files',
+    storage_used_gb: 0,
+    storage_limit_gb: 5,
+  },
 };
 
 interface AnalyticsData {
@@ -32,23 +54,88 @@ export const useDashboard = () => {
   
   // Redux state
   const { recordings, loading, isUploadModalOpen } = useAppSelector((state) => state.recordings);
+  const subscription = useAppSelector((state) => state.billing.subscription);
+  
+  // File analytics from Redux (fallback data for when API is unavailable)
+  const fileAnalytics = useAppSelector(selectFileAnalytics);
+  const totalUploadedSize = useAppSelector(selectTotalUploadedSize);
+  const totalUploadedCount = useAppSelector(selectTotalUploadedCount);
   
   // Local state for analytics
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData>(FALLBACK_DATA);
   const [usingFallback, setUsingFallback] = useState(false);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
 
-  // Fetch recordings on mount
+  // Fetch recordings and subscription on mount
   useEffect(() => {
     dispatch(fetchRecordings({ 
       getToken,
       limit: 100, // Get more for analytics
       offset: 0 
     }));
+    
+    // Fetch subscription data
+    const loadSubscription = async () => {
+      setSubscriptionLoading(true);
+      try {
+        await dispatch(fetchSubscription(getToken)).unwrap();
+      } catch (error) {
+        console.error('Failed to load subscription in dashboard:', error);
+        // Fallback data will be used from Redux
+      } finally {
+        setSubscriptionLoading(false);
+      }
+    };
+    
+    loadSubscription();
   }, [dispatch, getToken]);
 
-  // Calculate analytics from recordings data
+  // Calculate analytics from recordings data with file analytics fallback
   const calculatedAnalytics = useMemo((): AnalyticsData => {
+    // If no recordings from API, try to use file analytics from Redux as fallback
     if (!recordings || recordings.length === 0) {
+      // Use file analytics as fallback if available
+      if (fileAnalytics && fileAnalytics.length > 0) {
+        // Create trend data from file analytics (group by month for last 6 months)
+        const now = new Date();
+        const months = Array.from({ length: 6 }, (_, i) => {
+          const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+          return d;
+        });
+
+        const recordingsTrend = months.map(month => {
+          return fileAnalytics.filter(fa => {
+            const uploadDate = new Date(fa.uploadedAt);
+            return uploadDate.getMonth() === month.getMonth() && 
+                   uploadDate.getFullYear() === month.getFullYear();
+          }).length;
+        });
+
+        // Calculate total minutes from file analytics duration
+        const totalMinutesFromAnalytics = Math.round(
+          fileAnalytics.reduce((sum, fa) => sum + (fa.duration || 0), 0) / 60
+        );
+
+        const minutesTrend = months.map(month => {
+          return Math.round(fileAnalytics
+            .filter(fa => {
+              const uploadDate = new Date(fa.uploadedAt);
+              return uploadDate.getMonth() === month.getMonth() && 
+                     uploadDate.getFullYear() === month.getFullYear();
+            })
+            .reduce((sum, fa) => sum + (fa.duration || 0), 0) / 60);
+        });
+
+        return {
+          totalRecordings: totalUploadedCount,
+          recordingsTrend,
+          minutesProcessed: totalMinutesFromAnalytics,
+          minutesTrend,
+          statusBreakdown: { completed: totalUploadedCount, processing: 0, failed: 0 },
+          insightsTotal: { actions: 0, decisions: 0, issues: 0 },
+        };
+      }
+      
       return FALLBACK_DATA;
     }
 
@@ -66,9 +153,9 @@ export const useDashboard = () => {
       issues: recordings.reduce((sum, r) => sum + (r.issue_count || 0), 0),
     };
 
-    // Total minutes processed
+    // Total minutes processed (convert from seconds to minutes)
     const minutesProcessed = Math.round(
-      recordings.reduce((sum, r) => sum + (r.duration || 0), 0)
+      recordings.reduce((sum, r) => sum + (r.duration || 0), 0) / 60
     );
 
     // Create trend data (group by month for last 6 months)
@@ -87,13 +174,13 @@ export const useDashboard = () => {
     });
 
     const minutesTrend = months.map(month => {
-      return recordings
+      return Math.round(recordings
         .filter(r => {
           const recordingDate = new Date(r.dateUploaded);
           return recordingDate.getMonth() === month.getMonth() && 
                  recordingDate.getFullYear() === month.getFullYear();
         })
-        .reduce((sum, r) => sum + (r.duration || 0), 0);
+        .reduce((sum, r) => sum + (r.duration || 0), 0) / 60); // Convert seconds to minutes
     });
 
     return {
@@ -104,17 +191,21 @@ export const useDashboard = () => {
       statusBreakdown,
       insightsTotal,
     };
-  }, [recordings]);
+  }, [recordings, fileAnalytics, totalUploadedCount]);
 
   // Update analytics data when calculated
   useEffect(() => {
     if (recordings && recordings.length > 0) {
       setAnalyticsData(calculatedAnalytics);
       setUsingFallback(false);
+    } else if (fileAnalytics && fileAnalytics.length > 0) {
+      // Use file analytics as fallback
+      setAnalyticsData(calculatedAnalytics);
+      setUsingFallback(true); // Still mark as using fallback since it's local data
     } else if (!loading) {
       setUsingFallback(true);
     }
-  }, [calculatedAnalytics, recordings, loading]);
+  }, [calculatedAnalytics, recordings, loading, fileAnalytics]);
 
   // Try to fetch analytics from API (optional enhancement)
   useEffect(() => {
@@ -426,7 +517,7 @@ export const useDashboard = () => {
   };
 
   const handleNavigateToBilling = () => {
-    navigate('/app/billing');
+    navigate('/app/billings');
   };
 
   const handleNavigateToRecording = (id: string) => {
@@ -448,6 +539,66 @@ export const useDashboard = () => {
     }
   };
 
+  // Subscription data with fallback (uses Redux file analytics when API unavailable)
+  const subscriptionData = useMemo(() => {
+    if (!subscription || subscription.id === 'sub_fallback' || subscription.id === 'sub_error_fallback') {
+      // Use Redux file analytics count as fallback for files_uploaded
+      return {
+        ...FALLBACK_SUBSCRIPTION,
+        usage: {
+          ...FALLBACK_SUBSCRIPTION.usage,
+          files_uploaded: totalUploadedCount, // Use Redux fallback data
+          storage_used_gb: totalUploadedSize / (1024 * 1024 * 1024), // Convert bytes to GB
+        },
+      };
+    }
+    
+    return {
+      tier: subscription.tier || subscription.planId || 'Free',
+      tierDisplayName: subscription.tierDisplayName || subscription.tier || 'Free Plan',
+      status: subscription.status || 'active',
+      usage: subscription.usage || FALLBACK_SUBSCRIPTION.usage,
+    };
+  }, [subscription, totalUploadedCount, totalUploadedSize]);
+
+  // Calculate storage from file analytics (sum of all file sizes)
+  const fileAnalyticsStorageGb = useMemo(() => {
+    if (!fileAnalytics || fileAnalytics.length === 0) return 0;
+    const totalBytes = fileAnalytics.reduce((sum, fa) => sum + (fa.fileSize || 0), 0);
+    return totalBytes / (1024 * 1024 * 1024); // Convert bytes to GB
+  }, [fileAnalytics]);
+
+  // Computed usage values with multiple fallback sources (for display)
+  // Priority: 1. API subscription data -> 2. analyticsData/fileAnalytics -> 3. Redux totals
+  const usageValues = useMemo(() => {
+    const usage = subscriptionData.usage;
+    
+    // Files: Use analyticsData.totalRecordings or Redux file analytics count as fallback
+    const filesUploaded = usage.files_uploaded || analyticsData.totalRecordings || totalUploadedCount;
+    
+    // Storage: Use file analytics sum (calculated from each file's size) as fallback
+    const storageUsedGb = usage.storage_used_gb || fileAnalyticsStorageGb || (totalUploadedSize / (1024 * 1024 * 1024));
+    
+    return {
+      files_uploaded: filesUploaded,
+      files_limit: usage.files_limit,
+      storage_used_gb: storageUsedGb,
+      storage_limit_gb: usage.storage_limit_gb,
+    };
+  }, [subscriptionData, analyticsData.totalRecordings, totalUploadedCount, totalUploadedSize, fileAnalyticsStorageGb]);
+
+  // Calculate usage percentages (with Redux fallback support)
+  const usagePercentages = useMemo(() => {
+    return {
+      files: usageValues.files_limit 
+        ? Math.round((usageValues.files_uploaded / usageValues.files_limit) * 100)
+        : 0,
+      storage: usageValues.storage_limit_gb
+        ? Math.round((usageValues.storage_used_gb / usageValues.storage_limit_gb) * 100)
+        : 0,
+    };
+  }, [usageValues]);
+
   return {
     // State
     recordings,
@@ -456,6 +607,17 @@ export const useDashboard = () => {
     analyticsData,
     usingFallback,
     recentActivity,
+    subscriptionLoading,
+    
+    // Subscription data
+    subscription: subscriptionData,
+    usagePercentages,
+    usageValues, // Computed usage values with Redux fallback support
+    
+    // File analytics fallback data (stored in Redux for offline/fallback use)
+    fileAnalytics,
+    totalUploadedSize,
+    totalUploadedCount,
     
     // Computed values
     recordingsChange,

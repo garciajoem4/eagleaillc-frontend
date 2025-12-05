@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useUser } from '@clerk/clerk-react';
 import { UploadFile } from '../../hooks/useFileUpload';
+import { useAppDispatch } from '../../redux/hooks';
+import { addFiles, addFileAnalytics, type FileAnalytics } from '../../redux/slices/uploadsSlice';
 import { Button } from './button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './card';
 import FileUpload from './file-upload';
@@ -17,6 +20,8 @@ interface UploadModalProps {
 
 const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onUploadComplete }) => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const { user: clerkUser } = useUser();
   const [activeTab, setActiveTab] = useState<'upload' | 'url'>('upload');
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadFile[]>([]);
@@ -26,6 +31,35 @@ const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onUploadComp
 
   const handleFileUploadComplete = (files: UploadFile[]) => {
     setUploadedFiles(files);
+    
+    // Store file data in Redux for fallback/analytics purposes
+    if (files.length > 0) {
+      // Extract raw File objects to store in Redux uploads slice
+      const rawFiles = files.map(f => f.file);
+      dispatch(addFiles(rawFiles));
+      
+      // Store file analytics data for dashboard fallback (includes file size and name)
+      files.forEach((file, index) => {
+        const fileAnalyticsData: FileAnalytics = {
+          recordingId: `pending-${Date.now()}-${index}`, // Temporary ID until processed
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.file.type,
+          uploadedAt: new Date().toISOString(),
+          userId: clerkUser?.id,
+          tenantId: clerkUser?.organizationMemberships?.[0]?.organization?.id,
+        };
+        dispatch(addFileAnalytics(fileAnalyticsData));
+      });
+      
+      // Log file details for debugging
+      console.log('Files stored in Redux for fallback:', files.map(f => ({
+        name: f.name,
+        size: f.size,
+        type: f.file.type,
+        userId: clerkUser?.id,
+      })));
+    }
   };
 
   const handleUrlSubmit = async () => {

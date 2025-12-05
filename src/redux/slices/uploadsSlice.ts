@@ -45,6 +45,19 @@ export interface BatchUpload {
   createdAt: Date;
 }
 
+// File analytics data for individual recordings
+export interface FileAnalytics {
+  recordingId: string;
+  fileName: string;
+  fileSize: number; // in bytes
+  fileType: string;
+  uploadedAt: string; // ISO date string
+  duration?: number; // in seconds
+  isTrimmed?: boolean;
+  userId?: string;
+  tenantId?: string;
+}
+
 // Redux state interface
 interface UploadsState {
   // File uploads
@@ -74,6 +87,9 @@ interface UploadsState {
     totalSize: number; // Total bytes uploaded
   };
   
+  // Analytics - Individual file sizes for analytics
+  fileAnalytics: FileAnalytics[];
+  
   // Error handling
   error: string | null;
 }
@@ -101,6 +117,7 @@ const initialState: UploadsState = {
     totalFailed: 0,
     totalSize: 0,
   },
+  fileAnalytics: [],
   error: null,
 };
 
@@ -464,6 +481,44 @@ const uploadsSlice = createSlice({
     resetUploads: (state) => {
       return { ...initialState, config: state.config };
     },
+
+    // Analytics - Store file size and metadata for analytics
+    addFileAnalytics: (state, action: PayloadAction<FileAnalytics>) => {
+      // Check if analytics for this recording already exists
+      const existingIndex = state.fileAnalytics.findIndex(
+        fa => fa.recordingId === action.payload.recordingId
+      );
+      
+      if (existingIndex >= 0) {
+        // Update existing analytics
+        state.fileAnalytics[existingIndex] = action.payload;
+      } else {
+        // Add new analytics
+        state.fileAnalytics.push(action.payload);
+      }
+      
+      // Update total size in stats
+      state.stats.totalSize = state.fileAnalytics.reduce(
+        (sum, fa) => sum + fa.fileSize, 0
+      );
+    },
+
+    removeFileAnalytics: (state, action: PayloadAction<string>) => {
+      const recordingId = action.payload;
+      state.fileAnalytics = state.fileAnalytics.filter(
+        fa => fa.recordingId !== recordingId
+      );
+      
+      // Update total size in stats
+      state.stats.totalSize = state.fileAnalytics.reduce(
+        (sum, fa) => sum + fa.fileSize, 0
+      );
+    },
+
+    clearFileAnalytics: (state) => {
+      state.fileAnalytics = [];
+      state.stats.totalSize = 0;
+    },
   },
 
   extraReducers: (builder) => {
@@ -559,6 +614,9 @@ export const {
   setError,
   clearError,
   resetUploads,
+  addFileAnalytics,
+  removeFileAnalytics,
+  clearFileAnalytics,
 } = uploadsSlice.actions;
 
 // Selectors
@@ -578,5 +636,23 @@ export const selectUploadStats = (state: { uploads: UploadsState }) => state.upl
 export const selectIsUploading = (state: { uploads: UploadsState }) => state.uploads.isUploading;
 export const selectTotalProgress = (state: { uploads: UploadsState }) => state.uploads.totalProgress;
 export const selectUploadConfig = (state: { uploads: UploadsState }) => state.uploads.config;
+
+// Analytics selectors
+export const selectFileAnalytics = (state: { uploads: UploadsState }) => state.uploads.fileAnalytics;
+export const selectFileAnalyticsById = (state: { uploads: UploadsState }, recordingId: string) => 
+  state.uploads.fileAnalytics.find(fa => fa.recordingId === recordingId);
+export const selectTotalUploadedSize = (state: { uploads: UploadsState }) => 
+  state.uploads.fileAnalytics.reduce((sum, fa) => sum + fa.fileSize, 0);
+export const selectTotalUploadedCount = (state: { uploads: UploadsState }) => 
+  state.uploads.fileAnalytics.length;
+export const selectAverageFileSize = (state: { uploads: UploadsState }) => {
+  const analytics = state.uploads.fileAnalytics;
+  if (analytics.length === 0) return 0;
+  return analytics.reduce((sum, fa) => sum + fa.fileSize, 0) / analytics.length;
+};
+export const selectRecentUploads = (state: { uploads: UploadsState }, count: number = 5) => 
+  [...state.uploads.fileAnalytics]
+    .sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime())
+    .slice(0, count);
 
 export default uploadsSlice.reducer;

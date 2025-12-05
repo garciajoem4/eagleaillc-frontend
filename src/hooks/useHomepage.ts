@@ -26,7 +26,108 @@ export interface SubscriptionPlan {
   recommended?: boolean;
 }
 
-// Plans constant
+// Pricing tier interface for the comparison table
+export interface PricingTier {
+  id: string;
+  name: string;
+  monthlyPrice: number | 'Free' | 'Custom';
+  annualPrice: number | 'Free' | 'Custom';
+  pricePerUser: boolean;
+  minimumUsers: number;
+  trialDuration: string;
+  audioFileUploads: string;
+  maxFileDuration: string;
+  storagePerUser: string;
+  processingTime: string;
+  recommended?: boolean;
+  features: string[];
+}
+
+// Pricing tiers constant based on pricing_tiers.json
+export const pricingTiers: PricingTier[] = [
+  {
+    id: 'free',
+    name: 'Free',
+    monthlyPrice: 'Free',
+    annualPrice: 'Free',
+    pricePerUser: false,
+    minimumUsers: 1,
+    trialDuration: 'Try it out',
+    audioFileUploads: '5 files/month',
+    maxFileDuration: '1 hour',
+    storagePerUser: '1 GB',
+    processingTime: 'Standard',
+    features: [
+      'AI Transcription',
+      'Executive Summary',
+      'Action Items',
+      'Decisions & Issues Extraction',
+      'Key Topics',
+      'JSON Export',
+      'All Audio Formats',
+      'Video Support',
+    ],
+  },
+  {
+    id: 'starter',
+    name: 'Starter',
+    monthlyPrice: 5,
+    annualPrice: 4, // $48/year = $4/month equivalent
+    pricePerUser: true,
+    minimumUsers: 1,
+    trialDuration: '14 days',
+    audioFileUploads: '20 files/month',
+    maxFileDuration: '1 hour',
+    storagePerUser: '5 GB',
+    processingTime: 'Standard',
+    features: [
+      'Everything in Free',
+      'SOC 2 Compliant',
+      'User Data Isolation',
+      'Audit Logging',
+      'Email Support',
+    ],
+  },
+  {
+    id: 'professional',
+    name: 'Professional',
+    monthlyPrice: 10,
+    annualPrice: 8, // $96/year = $8/month equivalent
+    pricePerUser: true,
+    minimumUsers: 1,
+    trialDuration: '14 days',
+    audioFileUploads: 'Unlimited',
+    maxFileDuration: '3 hours',
+    storagePerUser: '25 GB',
+    processingTime: 'Priority',
+    recommended: true,
+    features: [
+      'Everything in Starter',
+      'Priority Processing',
+      'Priority Support',
+    ],
+  },
+  {
+    id: 'business',
+    name: 'Business',
+    monthlyPrice: 18,
+    annualPrice: 15, // $180/year = $15/month equivalent
+    pricePerUser: true,
+    minimumUsers: 3,
+    trialDuration: '14 days',
+    audioFileUploads: 'Unlimited',
+    maxFileDuration: 'Unlimited',
+    storagePerUser: '100 GB',
+    processingTime: 'Dedicated',
+    features: [
+      'Everything in Professional',
+      'Dedicated Queue',
+      '3 user minimum',
+    ],
+  },
+];
+
+// Legacy plans constant (for backwards compatibility)
 export const plans: SubscriptionPlan[] = [
   {
     id: 'basic',
@@ -193,6 +294,7 @@ export const useHomepage = () => {
   const [currentTranscriptionIndex, setCurrentTranscriptionIndex] = useState(0);
   const [currentFeatureIndex, setCurrentFeatureIndex] = useState(0);
   const [isCarouselPaused, setIsCarouselPaused] = useState(false);
+  const [isAnnualBilling, setIsAnnualBilling] = useState(false);
   const [subscriptionModal, setSubscriptionModal] = useState<{
     isOpen: boolean;
     plan: SubscriptionPlan | null;
@@ -283,6 +385,23 @@ export const useHomepage = () => {
     });
   };
 
+  const handleTierSubscribe = (tier: PricingTier) => {
+    // Convert PricingTier to SubscriptionPlan for the modal
+    const price = isAnnualBilling ? tier.annualPrice : tier.monthlyPrice;
+    const plan: SubscriptionPlan = {
+      id: tier.id,
+      name: tier.name,
+      price: typeof price === 'number' ? price : 0,
+      interval: isAnnualBilling ? 'year' : 'month',
+      features: tier.features,
+      recommended: tier.recommended,
+    };
+    setSubscriptionModal({
+      isOpen: true,
+      plan: plan,
+    });
+  };
+
   const closeSubscriptionModal = () => {
     setSubscriptionModal({
       isOpen: false,
@@ -317,6 +436,17 @@ export const useHomepage = () => {
     setIsCarouselPaused(!isCarouselPaused);
   };
 
+  const toggleBillingPeriod = () => {
+    setIsAnnualBilling(!isAnnualBilling);
+  };
+
+  const formatTierPrice = (tier: PricingTier) => {
+    const price = isAnnualBilling ? tier.annualPrice : tier.monthlyPrice;
+    if (price === 'Free') return 'Free';
+    if (price === 'Custom') return 'Custom';
+    return `$${price}`;
+  };
+
   return {
     // State
     openFAQ,
@@ -326,6 +456,7 @@ export const useHomepage = () => {
     freeTrialModal,
     isMobileMenuOpen,
     isCarouselPaused,
+    isAnnualBilling,
     
     // Functions
     goToFeature,
@@ -333,13 +464,16 @@ export const useHomepage = () => {
     goToNextFeature,
     toggleFAQ,
     handleSubscribe,
+    handleTierSubscribe,
     closeSubscriptionModal,
     openFreeTrialModal,
     closeFreeTrialModal,
     formatPrice,
+    formatTierPrice,
     toggleMobileMenu,
     closeMobileMenu,
     toggleCarouselPause,
+    toggleBillingPeriod,
   };
 };
 
