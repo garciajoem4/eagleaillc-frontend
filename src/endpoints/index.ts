@@ -96,6 +96,12 @@ export const ANALYTICS_ENDPOINTS = {
   EXPORT: '/analytics/export',
 };
 
+// Email endpoints
+export const EMAIL_ENDPOINTS = {
+  SEND_TRANSCRIPT: '/email/send-transcript',
+  SEND_INTELLIGENCE: '/email/send-intelligence',
+};
+
 // Build full URL helper
 export const buildUrl = (endpoint: string): string => {
   return `${API_CONFIG.FULL_BASE_URL}${endpoint}`;

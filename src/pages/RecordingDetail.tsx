@@ -210,7 +210,14 @@ const RecordingDetail: React.FC = () => {
     formatSegmentTime,
     renderHighlightedText,
     exportTranscriptData,
-    exportIntelligenceData
+    exportIntelligenceData,
+    
+    // Email export
+    emailTranscriptData,
+    emailIntelligenceData,
+    isEmailingTranscript,
+    emailSuccess,
+    emailError
   } = useRecordingDetail({ isFreeTrial, freeTrialTimeLimitSeconds: FREE_TRIAL_TIME_LIMIT_SECONDS }, {
     dispatch,
     getToken
@@ -1630,6 +1637,28 @@ const RecordingDetail: React.FC = () => {
                       )}
                     </div>
                     
+                    {/* Email Success/Error Messages */}
+                    {emailSuccess && (
+                      <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <div className="flex items-center gap-2 text-green-700 text-sm">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          {emailSuccess}
+                        </div>
+                      </div>
+                    )}
+                    {emailError && (
+                      <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                        <div className="flex items-center gap-2 text-red-700 text-sm">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                          {emailError}
+                        </div>
+                      </div>
+                    )}
+
                     {activeAutomationTab === 'transcript' ? (
                       // Transcript Export Options
                       <div className="space-y-4">
@@ -1643,7 +1672,7 @@ const RecordingDetail: React.FC = () => {
                                 <div className="text-xs text-gray-600">Complete transcript with timestamped segments</div>
                               </div>
                             </div>
-                            <div className="flex gap-2 mt-2">
+                            <div className="flex gap-2 mt-2 flex-wrap">
                               {
                                 fullSegmentButtons.map((format) => (
                                   <Button 
@@ -1660,6 +1689,37 @@ const RecordingDetail: React.FC = () => {
                                   </Button>
                                 ))
                               }
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                className="text-xs bg-blue-50 hover:bg-blue-100 border-blue-200"
+                                // disabled={
+                                //   (dataSource === 'api' ? isFreeTrial : true) || isEmailingTranscript || !clerkUser?.primaryEmailAddress?.emailAddress
+                                // }
+                                onClick={() => {
+                                  const email = clerkUser?.primaryEmailAddress?.emailAddress;
+                                  if (email) {
+                                    emailTranscriptData('full-segments', email);
+                                  }
+                                }}
+                              >
+                                {isEmailingTranscript ? (
+                                  <span className="flex items-center gap-1">
+                                    <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                    </svg>
+                                    Sending...
+                                  </span>
+                                ) : (
+                                  <span className="flex items-center gap-1">
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                    </svg>
+                                    Email
+                                  </span>
+                                )}
+                              </Button>
                             </div>
                           </div>
 
@@ -1691,7 +1751,7 @@ const RecordingDetail: React.FC = () => {
                                     <div className="text-xs text-gray-600">Complete transcript as continuous text</div>
                                   </div>
                                 </div>
-                                <div className="flex gap-2 mt-2">
+                                <div className="flex gap-2 mt-2 flex-wrap">
                                   {
                                     fullOnlyButtons.map((format) => (
                                       <Button 
@@ -1706,6 +1766,37 @@ const RecordingDetail: React.FC = () => {
                                       </Button>
                                     ))
                                   }
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    className="text-xs bg-blue-50 hover:bg-blue-100 border-blue-200"
+                                    disabled={
+                                      (dataSource === 'api' ? isFreeTrial : true) || isEmailingTranscript || !clerkUser?.primaryEmailAddress?.emailAddress
+                                    }
+                                    onClick={() => {
+                                      const email = clerkUser?.primaryEmailAddress?.emailAddress;
+                                      if (email) {
+                                        emailTranscriptData('full-only', email);
+                                      }
+                                    }}
+                                  >
+                                    {isEmailingTranscript ? (
+                                      <span className="flex items-center gap-1">
+                                        <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                        </svg>
+                                        Sending...
+                                      </span>
+                                    ) : (
+                                      <span className="flex items-center gap-1">
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                        </svg>
+                                        Email
+                                      </span>
+                                    )}
+                                  </Button>
                                 </div>
                               </div>
 
@@ -1717,7 +1808,7 @@ const RecordingDetail: React.FC = () => {
                                     <div className="text-xs text-gray-600">Timestamped segments with speakers</div>
                                   </div>
                                 </div>
-                                <div className="flex gap-2 mt-2">
+                                <div className="flex gap-2 mt-2 flex-wrap">
                                   {
                                     segmentsOnlyButtons.map((format) => (
                                       <Button 
@@ -1732,6 +1823,37 @@ const RecordingDetail: React.FC = () => {
                                       </Button>
                                     ))
                                   }
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    className="text-xs bg-blue-50 hover:bg-blue-100 border-blue-200"
+                                    disabled={
+                                      (dataSource === 'api' ? isFreeTrial : true) || isEmailingTranscript || !clerkUser?.primaryEmailAddress?.emailAddress
+                                    }
+                                    onClick={() => {
+                                      const email = clerkUser?.primaryEmailAddress?.emailAddress;
+                                      if (email) {
+                                        emailTranscriptData('segments-only', email);
+                                      }
+                                    }}
+                                  >
+                                    {isEmailingTranscript ? (
+                                      <span className="flex items-center gap-1">
+                                        <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                        </svg>
+                                        Sending...
+                                      </span>
+                                    ) : (
+                                      <span className="flex items-center gap-1">
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                        </svg>
+                                        Email
+                                      </span>
+                                    )}
+                                  </Button>
                                 </div>
                               </div>
                             </div>
@@ -1751,7 +1873,7 @@ const RecordingDetail: React.FC = () => {
                                 <div className="text-xs text-gray-600">All action items, decisions, issues & questions</div>
                               </div>
                             </div>
-                            <div className="flex gap-2 mt-2">
+                            <div className="flex gap-2 mt-2 flex-wrap">
                               {
                                 completeAnalysisButtons.map((format) => (
                                   <Button 
@@ -1766,6 +1888,37 @@ const RecordingDetail: React.FC = () => {
                                   </Button>
                                 ))
                               }
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                className="text-xs bg-blue-50 hover:bg-blue-100 border-blue-200"
+                                disabled={
+                                  (dataSource === 'api' ? isFreeTrial : true) || isEmailingTranscript || !clerkUser?.primaryEmailAddress?.emailAddress
+                                }
+                                onClick={() => {
+                                  const email = clerkUser?.primaryEmailAddress?.emailAddress;
+                                  if (email) {
+                                    emailIntelligenceData('all', email);
+                                  }
+                                }}
+                              >
+                                {isEmailingTranscript ? (
+                                  <span className="flex items-center gap-1">
+                                    <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                    </svg>
+                                    Sending...
+                                  </span>
+                                ) : (
+                                  <span className="flex items-center gap-1">
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                    </svg>
+                                    Email
+                                  </span>
+                                )}
+                              </Button>
                             </div>
                           </div>
 
@@ -1806,7 +1959,7 @@ const RecordingDetail: React.FC = () => {
                                 )
                               }
                             </div>
-                            <div className="flex gap-2 mt-2">
+                            <div className="flex gap-2 mt-2 flex-wrap">
                               {
                                 actionItemsButtons.map((format) => (
                                   <Button 
@@ -1821,6 +1974,37 @@ const RecordingDetail: React.FC = () => {
                                   </Button>
                                 ))
                               }
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                className="text-xs bg-blue-50 hover:bg-blue-100 border-blue-200"
+                                disabled={
+                                  (dataSource === 'api' ? isFreeTrial : true) || isEmailingTranscript || !clerkUser?.primaryEmailAddress?.emailAddress
+                                }
+                                onClick={() => {
+                                  const email = clerkUser?.primaryEmailAddress?.emailAddress;
+                                  if (email) {
+                                    emailIntelligenceData('action-items', email);
+                                  }
+                                }}
+                              >
+                                {isEmailingTranscript ? (
+                                  <span className="flex items-center gap-1">
+                                    <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                    </svg>
+                                    Sending...
+                                  </span>
+                                ) : (
+                                  <span className="flex items-center gap-1">
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                    </svg>
+                                    Email
+                                  </span>
+                                )}
+                              </Button>
                             </div>
                           </div>
 
@@ -1841,7 +2025,7 @@ const RecordingDetail: React.FC = () => {
                                 )
                               }
                             </div>
-                            <div className="flex gap-2 mt-2">
+                            <div className="flex gap-2 mt-2 flex-wrap">
                               {
                                 decisionsButtons.map((format) => (
                                   <Button 
@@ -1856,6 +2040,37 @@ const RecordingDetail: React.FC = () => {
                                   </Button>
                                 ))
                               }
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                className="text-xs bg-blue-50 hover:bg-blue-100 border-blue-200"
+                                disabled={
+                                  (dataSource === 'api' ? isFreeTrial : true) || isEmailingTranscript || !clerkUser?.primaryEmailAddress?.emailAddress
+                                }
+                                onClick={() => {
+                                  const email = clerkUser?.primaryEmailAddress?.emailAddress;
+                                  if (email) {
+                                    emailIntelligenceData('decisions', email);
+                                  }
+                                }}
+                              >
+                                {isEmailingTranscript ? (
+                                  <span className="flex items-center gap-1">
+                                    <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                    </svg>
+                                    Sending...
+                                  </span>
+                                ) : (
+                                  <span className="flex items-center gap-1">
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                    </svg>
+                                    Email
+                                  </span>
+                                )}
+                              </Button>
                             </div>
                           </div>
 
@@ -1876,7 +2091,7 @@ const RecordingDetail: React.FC = () => {
                                 )
                               }
                             </div>
-                            <div className="flex gap-2 mt-2">
+                            <div className="flex gap-2 mt-2 flex-wrap">
                               {
                                 issuesButtons.map((format) => (
                                   <Button 
@@ -1891,6 +2106,37 @@ const RecordingDetail: React.FC = () => {
                                   </Button>
                                 ))
                               }
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                className="text-xs bg-blue-50 hover:bg-blue-100 border-blue-200"
+                                disabled={
+                                  (dataSource === 'api' ? isFreeTrial : true) || isEmailingTranscript || !clerkUser?.primaryEmailAddress?.emailAddress
+                                }
+                                onClick={() => {
+                                  const email = clerkUser?.primaryEmailAddress?.emailAddress;
+                                  if (email) {
+                                    emailIntelligenceData('issues', email);
+                                  }
+                                }}
+                              >
+                                {isEmailingTranscript ? (
+                                  <span className="flex items-center gap-1">
+                                    <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                    </svg>
+                                    Sending...
+                                  </span>
+                                ) : (
+                                  <span className="flex items-center gap-1">
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                    </svg>
+                                    Email
+                                  </span>
+                                )}
+                              </Button>
                             </div>
                           </div>
 
@@ -1911,7 +2157,7 @@ const RecordingDetail: React.FC = () => {
                                 )
                               }
                             </div>
-                            <div className="flex gap-2 mt-2">
+                            <div className="flex gap-2 mt-2 flex-wrap">
                               {
                                 questionsButtons.map((format) => (  
                                   <Button 
@@ -1926,6 +2172,37 @@ const RecordingDetail: React.FC = () => {
                                   </Button>
                                 ))
                               }
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                className="text-xs bg-blue-50 hover:bg-blue-100 border-blue-200"
+                                disabled={
+                                  (dataSource === 'api' ? isFreeTrial : true) || isEmailingTranscript || !clerkUser?.primaryEmailAddress?.emailAddress
+                                }
+                                onClick={() => {
+                                  const email = clerkUser?.primaryEmailAddress?.emailAddress;
+                                  if (email) {
+                                    emailIntelligenceData('questions', email);
+                                  }
+                                }}
+                              >
+                                {isEmailingTranscript ? (
+                                  <span className="flex items-center gap-1">
+                                    <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                    </svg>
+                                    Sending...
+                                  </span>
+                                ) : (
+                                  <span className="flex items-center gap-1">
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                    </svg>
+                                    Email
+                                  </span>
+                                )}
+                              </Button>
                             </div>
                           </div>
                             </div>

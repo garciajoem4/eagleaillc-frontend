@@ -5,7 +5,7 @@ import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import StripeProvider from '../components/StripeProvider';
-import SubscriptionPayment from '../components/SubscriptionPayment';
+import PlanUpgradeModal from '../components/PlanUpgradeModal';
 import { useBilling } from '../hooks/useBilling';
 import { pricingTiers, type PricingTier } from '../hooks/useHomepage';
 
@@ -13,10 +13,29 @@ import { pricingTiers, type PricingTier } from '../hooks/useHomepage';
 const Billings: React.FC = () => {
   const { user } = useUser();
   const [isAnnualBilling, setIsAnnualBilling] = useState(false);
+  const [selectedTier, setSelectedTier] = useState<PricingTier | null>(null);
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   
   // Toggle billing period
   const toggleBillingPeriod = () => {
     setIsAnnualBilling(!isAnnualBilling);
+  };
+
+  // Handle plan selection
+  const handleSelectPlan = (tier: PricingTier) => {
+    setSelectedTier(tier);
+    setIsUpgradeModalOpen(true);
+  };
+
+  // Handle modal close
+  const handleCloseModal = () => {
+    setIsUpgradeModalOpen(false);
+    setSelectedTier(null);
+  };
+
+  // Handle successful subscription
+  const handleSubscriptionSuccess = () => {
+    handleRefreshSubscription();
   };
 
   // Format tier price based on billing period
@@ -400,10 +419,19 @@ const Billings: React.FC = () => {
                       </div>
                       
                       <div className="flex space-x-2 pt-4">
-                        <Button size="sm" onClick={() => openUpgradePlanModal()}>
+                        <Button size="sm" onClick={() => {
+                          // Find the next tier up for upgrade
+                          const currentTierIndex = pricingTiers.findIndex(t => t.id === (subscription?.tier || currentPlan?.id));
+                          const nextTier = pricingTiers[currentTierIndex + 1] || pricingTiers.find(t => t.recommended);
+                          if (nextTier) handleSelectPlan(nextTier);
+                        }}>
                           Upgrade Plan
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => openUpgradePlanModal()}>
+                        <Button size="sm" variant="outline" onClick={() => {
+                          // Show the subscription tab for plan selection
+                          const tabTrigger = document.querySelector('[value="subscription"]') as HTMLButtonElement;
+                          tabTrigger?.click();
+                        }}>
                           Change Plan
                         </Button>
                       </div>
@@ -411,7 +439,11 @@ const Billings: React.FC = () => {
                   ) : (
                     <div className="text-center py-8">
                       <p className="text-gray-500 mb-4">No active subscription plan</p>
-                      <Button onClick={() => openUpgradePlanModal()}>
+                      <Button onClick={() => {
+                        // Show the subscription tab for plan selection
+                        const tabTrigger = document.querySelector('[value="subscription"]') as HTMLButtonElement;
+                        tabTrigger?.click();
+                      }}>
                         Choose a Plan
                       </Button>
                     </div>
@@ -642,7 +674,7 @@ const Billings: React.FC = () => {
                         disabled={isCurrentPlan}
                         onClick={() => {
                           if (isCurrentPlan) return;
-                          openPaymentMethodModal();
+                          handleSelectPlan(tier);
                         }}
                       >
                         {isCurrentPlan 
@@ -790,6 +822,16 @@ const Billings: React.FC = () => {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Plan Upgrade Modal */}
+        <PlanUpgradeModal
+          isOpen={isUpgradeModalOpen}
+          onClose={handleCloseModal}
+          selectedTier={selectedTier}
+          currentPlanId={subscription?.tier || currentPlan?.id || null}
+          isAnnualBilling={isAnnualBilling}
+          onSuccess={handleSubscriptionSuccess}
+        />
       </div>
     </StripeProvider>
   );
