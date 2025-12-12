@@ -10,6 +10,7 @@ import { useAppSelector } from '../redux/hooks';
 
 import { ApiResponse } from '../types/api';
 import { WorkflowHelpers, EMAIL_ENDPOINTS, buildUrl } from '../endpoints';
+import { sendTranscriptEmail, sendIntelligenceEmail, isEmailJSConfigured, downloadAndEmailFallback } from '../services/emailService';
 
 interface TranscriptData {
   full_transcription?: string;
@@ -1338,62 +1339,28 @@ export const useRecordingDetail = (
         });
       }
 
-      // Try to send via API
-      if (getToken) {
-        try {
-          const token = await getToken();
-          const response = await fetch(buildUrl(EMAIL_ENDPOINTS.SEND_TRANSCRIPT), {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              to: userEmail,
-              subject: `Transcript Export: ${recordingName} - ${timestamp}`,
-              content: content,
-              fileName: `transcript-${type}-${timestamp}.txt`,
-              recordingId: recordingId,
-            }),
-          });
+      const subject = `Transcript Export: ${recordingName} - ${timestamp}`;
+      const fileName = `transcript-${type}-${timestamp}.txt`;
 
-          if (response.ok) {
-            setEmailSuccess(`Transcript sent successfully to ${userEmail}`);
-            // Clear success message after 5 seconds
+      // Try EmailJS first (client-side email service)
+      if (isEmailJSConfigured()) {
+        try {
+          const result = await sendTranscriptEmail(userEmail, subject, content);
+          if (result.success) {
+            setEmailSuccess(result.message);
             setTimeout(() => setEmailSuccess(null), 5000);
             return;
           }
-        } catch (apiError) {
-          console.log('API email failed, falling back to mailto:', apiError);
+          console.log('EmailJS failed:', result.message);
+        } catch (emailJsError) {
+          console.log('EmailJS error:', emailJsError);
         }
       }
 
       // Fallback: Download the file and open email client with instructions
-      // First, download the transcript file
-      const fileName = `transcript-${type}-${timestamp}.txt`;
-      const blob = new Blob([content], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
-      // Then open email client with a simple message
-      const subject = encodeURIComponent(`Transcript Export: ${recordingName} - ${timestamp}`);
-      const emailBody = encodeURIComponent(
-        `Hi,\n\nPlease find the transcript file "${fileName}" attached to this email.\n\n` +
-        `Recording: ${recordingName}\n` +
-        `Export Type: ${type}\n` +
-        `Generated: ${new Date().toLocaleDateString()}\n\n` +
-        `Note: The file has been downloaded to your device. Please attach it to this email before sending.\n\n` +
-        `Best regards`
-      );
-      
-      window.open(`mailto:${userEmail}?subject=${subject}&body=${emailBody}`, '_blank');
-      setEmailSuccess(`File downloaded as "${fileName}". Please attach it to the email that opened.`);
+      // This is the most reliable method that works without any backend
+      downloadAndEmailFallback(content, fileName, userEmail, subject);
+      setEmailSuccess(`File downloaded as "${fileName}". Your email client should open - please attach the file and send.`);
       setTimeout(() => setEmailSuccess(null), 8000);
 
     } catch (error) {
@@ -1403,7 +1370,7 @@ export const useRecordingDetail = (
     } finally {
       setIsEmailingTranscript(false);
     }
-  }, [getToken, recordingId, formatTimestamp, normalizedDataAPI?.recording?.file_name, normalizedDataAPI?.recording?.duration_seconds, normalizedDataAPI?.transcript?.full_transcription, normalizedDataAPI?.transcript?.segments]);
+  }, [formatTimestamp, normalizedDataAPI?.recording?.file_name, normalizedDataAPI?.recording?.duration_seconds, normalizedDataAPI?.transcript?.full_transcription, normalizedDataAPI?.transcript?.segments]);
 
   // Email intelligence data function
   const emailIntelligenceData = useCallback(async (
@@ -1501,61 +1468,28 @@ export const useRecordingDetail = (
         });
       }
 
-      // Try to send via API
-      if (getToken) {
-        try {
-          const token = await getToken();
-          const response = await fetch(buildUrl(EMAIL_ENDPOINTS.SEND_INTELLIGENCE), {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              to: userEmail,
-              subject: `Intelligence Analysis: ${recordingName} - ${type} - ${timestamp}`,
-              content: content,
-              fileName: `intelligence-${type}-${timestamp}.txt`,
-              recordingId: recordingId,
-            }),
-          });
+      const subject = `Intelligence Analysis: ${recordingName} - ${type} - ${timestamp}`;
+      const fileName = `intelligence-${type}-${timestamp}.txt`;
 
-          if (response.ok) {
-            setEmailSuccess(`Intelligence analysis sent successfully to ${userEmail}`);
+      // Try EmailJS first (client-side email service)
+      if (isEmailJSConfigured()) {
+        try {
+          const result = await sendIntelligenceEmail(userEmail, subject, content);
+          if (result.success) {
+            setEmailSuccess(result.message);
             setTimeout(() => setEmailSuccess(null), 5000);
             return;
           }
-        } catch (apiError) {
-          console.log('API email failed, falling back to mailto:', apiError);
+          console.log('EmailJS failed:', result.message);
+        } catch (emailJsError) {
+          console.log('EmailJS error:', emailJsError);
         }
       }
 
       // Fallback: Download the file and open email client with instructions
-      // First, download the intelligence file
-      const fileName = `intelligence-${type}-${timestamp}.txt`;
-      const blob = new Blob([content], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
-      // Then open email client with a simple message
-      const subject = encodeURIComponent(`Intelligence Analysis: ${recordingName} - ${type} - ${timestamp}`);
-      const emailBody = encodeURIComponent(
-        `Hi,\n\nPlease find the intelligence analysis file "${fileName}" attached to this email.\n\n` +
-        `Recording: ${recordingName}\n` +
-        `Analysis Type: ${type}\n` +
-        `Generated: ${new Date().toLocaleDateString()}\n\n` +
-        `Note: The file has been downloaded to your device. Please attach it to this email before sending.\n\n` +
-        `Best regards`
-      );
-      
-      window.open(`mailto:${userEmail}?subject=${subject}&body=${emailBody}`, '_blank');
-      setEmailSuccess(`File downloaded as "${fileName}". Please attach it to the email that opened.`);
+      // This is the most reliable method that works without any backend
+      downloadAndEmailFallback(content, fileName, userEmail, subject);
+      setEmailSuccess(`File downloaded as "${fileName}". Your email client should open - please attach the file and send.`);
       setTimeout(() => setEmailSuccess(null), 8000);
 
     } catch (error) {
@@ -1565,7 +1499,7 @@ export const useRecordingDetail = (
     } finally {
       setIsEmailingTranscript(false);
     }
-  }, [getToken, recordingId, normalizedDataAPI?.recording?.file_name, normalizedDataAPI?.intelligence]);
+  }, [normalizedDataAPI?.recording?.file_name, normalizedDataAPI?.intelligence]);
 
   const getSeverityVariant = (value: number | string): "default" | "secondary" | "destructive" | "outline" => {
     if (typeof value === 'number') {
