@@ -10,7 +10,7 @@ import { useAppSelector } from '../redux/hooks';
 
 import { ApiResponse } from '../types/api';
 import { WorkflowHelpers, EMAIL_ENDPOINTS, buildUrl } from '../endpoints';
-import { sendTranscriptEmail, sendIntelligenceEmail, isEmailJSConfigured, downloadAndEmailFallback } from '../services/emailService';
+import { sendTranscriptEmail, sendIntelligenceEmail, isEmailJSConfigured } from '../services/emailService';
 
 interface TranscriptData {
   full_transcription?: string;
@@ -1340,32 +1340,28 @@ export const useRecordingDetail = (
       }
 
       const subject = `Transcript Export: ${recordingName} - ${timestamp}`;
-      const fileName = `transcript-${type}-${timestamp}.txt`;
 
-      // Try EmailJS first (client-side email service)
-      if (isEmailJSConfigured()) {
-        try {
-          const result = await sendTranscriptEmail(userEmail, subject, content);
-          if (result.success) {
-            setEmailSuccess(result.message);
-            setTimeout(() => setEmailSuccess(null), 5000);
-            return;
-          }
-          console.log('EmailJS failed:', result.message);
-        } catch (emailJsError) {
-          console.log('EmailJS error:', emailJsError);
-        }
+      // Check if EmailJS is configured
+      if (!isEmailJSConfigured()) {
+        setEmailError('Email service is not configured. Please contact support or use the download option.');
+        setTimeout(() => setEmailError(null), 5000);
+        return;
       }
 
-      // Fallback: Download the file and open email client with instructions
-      // This is the most reliable method that works without any backend
-      downloadAndEmailFallback(content, fileName, userEmail, subject);
-      setEmailSuccess(`File downloaded as "${fileName}". Your email client should open - please attach the file and send.`);
-      setTimeout(() => setEmailSuccess(null), 8000);
+      // Send email using EmailJS
+      const result = await sendTranscriptEmail(userEmail, subject, content);
+      
+      if (result.success) {
+        setEmailSuccess(result.message);
+        setTimeout(() => setEmailSuccess(null), 5000);
+      } else {
+        setEmailError(result.message || 'Failed to send email. Please try again.');
+        setTimeout(() => setEmailError(null), 5000);
+      }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error emailing transcript:', error);
-      setEmailError('Failed to send email. Please try again or use the download option.');
+      setEmailError(error?.message || 'Failed to send email. Please try again or use the download option.');
       setTimeout(() => setEmailError(null), 5000);
     } finally {
       setIsEmailingTranscript(false);
@@ -1469,32 +1465,28 @@ export const useRecordingDetail = (
       }
 
       const subject = `Intelligence Analysis: ${recordingName} - ${type} - ${timestamp}`;
-      const fileName = `intelligence-${type}-${timestamp}.txt`;
 
-      // Try EmailJS first (client-side email service)
-      if (isEmailJSConfigured()) {
-        try {
-          const result = await sendIntelligenceEmail(userEmail, subject, content);
-          if (result.success) {
-            setEmailSuccess(result.message);
-            setTimeout(() => setEmailSuccess(null), 5000);
-            return;
-          }
-          console.log('EmailJS failed:', result.message);
-        } catch (emailJsError) {
-          console.log('EmailJS error:', emailJsError);
-        }
+      // Check if EmailJS is configured
+      if (!isEmailJSConfigured()) {
+        setEmailError('Email service is not configured. Please contact support or use the download option.');
+        setTimeout(() => setEmailError(null), 5000);
+        return;
       }
 
-      // Fallback: Download the file and open email client with instructions
-      // This is the most reliable method that works without any backend
-      downloadAndEmailFallback(content, fileName, userEmail, subject);
-      setEmailSuccess(`File downloaded as "${fileName}". Your email client should open - please attach the file and send.`);
-      setTimeout(() => setEmailSuccess(null), 8000);
+      // Send email using EmailJS
+      const result = await sendIntelligenceEmail(userEmail, subject, content);
+      
+      if (result.success) {
+        setEmailSuccess(result.message);
+        setTimeout(() => setEmailSuccess(null), 5000);
+      } else {
+        setEmailError(result.message || 'Failed to send email. Please try again.');
+        setTimeout(() => setEmailError(null), 5000);
+      }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error emailing intelligence:', error);
-      setEmailError('Failed to send email. Please try again or use the download option.');
+      setEmailError(error?.message || 'Failed to send email. Please try again or use the download option.');
       setTimeout(() => setEmailError(null), 5000);
     } finally {
       setIsEmailingTranscript(false);
