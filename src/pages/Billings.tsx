@@ -265,7 +265,7 @@ const Billings: React.FC = () => {
               <Card>
                 <CardHeader>
                   <CardTitle>Usage & Limits</CardTitle>
-                  <CardDescription>Current billing period usage from backend</CardDescription>
+                  <CardDescription>Current billing period usage</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {/* Files Usage */}

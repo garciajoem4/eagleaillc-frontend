@@ -270,7 +270,7 @@ export const fetchSubscription = createAsyncThunk(
         const token = await getToken();
         
         if (token) {
-          const API_BASE = process.env.REACT_APP_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+          const API_BASE = process.env.REACT_APP_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
           
           const response = await fetch(`${API_BASE}/api/subscriptions/status`, {
             headers: {
@@ -279,7 +279,7 @@ export const fetchSubscription = createAsyncThunk(
             },
           });
 
-          console.log('response', response);
+          console.log('response subscription', response);
 
           if (response.ok) {
             const data = await response.json();

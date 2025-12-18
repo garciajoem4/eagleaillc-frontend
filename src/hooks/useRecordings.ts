@@ -39,18 +39,41 @@ export const useRecordings = () => {
     pagination,
     apiFilters,
     useAPI,
+    processingFiles,
   } = useAppSelector((state) => state.recordings);
   
   const filteredAndSortedRecordings = useAppSelector(selectSortedRecordings);
 
   // Check if user is on free trial by examining organization memberships
   const isFreeTrial = useMemo(() => {
-    if (!clerkUser?.organizationMemberships) return false;
+    // Debug: Log user data to understand the structure
+    console.log('🔍 Clerk User Data:', {
+      id: clerkUser?.id,
+      primaryEmailAddress: clerkUser?.primaryEmailAddress?.emailAddress,
+      organizationMemberships: clerkUser?.organizationMemberships?.map(m => ({
+        orgId: m.organization.id,
+        orgName: m.organization.name,
+        role: m.role,
+      })),
+      publicMetadata: clerkUser?.publicMetadata,
+      unsafeMetadata: clerkUser?.unsafeMetadata,
+    });
+
+    if (!clerkUser?.organizationMemberships || clerkUser.organizationMemberships.length === 0) {
+      console.log('⚠️ No organization memberships found, defaulting to free trial');
+      return true; // Default to free trial if no org memberships
+    }
     
-    return clerkUser.organizationMemberships.some(membership => 
-      membership.organization.id === FREE_TRIAL_ORG_ID && 
-      membership.role === FREE_TRIAL_ROLE
+    // Check if user is in the free trial organization or has free trial role
+    const hasFreeTrialOrg = clerkUser.organizationMemberships.some(membership => 
+      membership.organization.id === FREE_TRIAL_ORG_ID || 
+      membership.role === FREE_TRIAL_ROLE ||
+      membership.role.includes('free_trial') ||
+      membership.organization.name?.toLowerCase().includes('free trial')
     );
+
+    console.log('✅ Is Free Trial:', hasFreeTrialOrg);
+    return hasFreeTrialOrg;
   }, [clerkUser]);
 
   // For free trial users, limit recordings display and show subscribe option
@@ -173,8 +196,7 @@ export const useRecordings = () => {
   };
 
   const handleSubscribe = () => {
-    console.log('Navigate to subscription page');
-    navigate('/app/billing');
+    navigate('/app/billings');
   };
 
   const handleOpenUploadModal = () => {
@@ -206,6 +228,7 @@ export const useRecordings = () => {
     useAPI,
     filteredAndSortedRecordings,
     displayRecordings,
+    processingFiles,
     
     // Computed values
     isFreeTrial,

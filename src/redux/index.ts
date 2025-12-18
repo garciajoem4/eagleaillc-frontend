@@ -41,6 +41,9 @@ export {
   clearApiFilters,
   toggleAPIMode,
   clearError,
+  addProcessingFile,
+  updateProcessingFileProgress,
+  removeProcessingFile,
   resetRecordings,
   // Async thunks
   fetchRecordings,

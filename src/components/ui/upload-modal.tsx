@@ -96,6 +96,11 @@ const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onUploadComp
 
 
 
+  const handleProcessStart = () => {
+    // Close the modal immediately when processing starts
+    onClose();
+  };
+
   const handleProcessComplete = (recordingId: string, audioUrl?: string) => {
     // Create a recording object from the processed result
     const newRecording = {
@@ -117,10 +122,7 @@ const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onUploadComp
     // Call the parent callback to update the recordings list
     onUploadComplete([newRecording]);
     
-    // Close the modal
-    onClose();
-    
-    // Temporary: Navigate directly to the recording detail page
+    // Navigate directly to the recording detail page
     navigate(`/app/recordings/${recordingId}`);
   };
 
@@ -179,16 +181,17 @@ const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onUploadComp
                     </div> */}
                     
                     {uploadedFiles.map((uploadFile, index) => (
-                      <div key={index} className="border rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-2">
+                      <div key={index} className="relative">
+                        {/* <div className="flex items-center justify-between mb-2">
                           <span className="font-medium">{uploadFile.name}</span>
                           <span className="text-sm text-gray-500">
                             {(uploadFile.size / (1024 * 1024)).toFixed(2)} MB
                           </span>
-                        </div>
+                        </div> */}
                         
                         <ProcessFileButton
                           file={uploadFile.file}
+                          onProcessStart={handleProcessStart}
                           onProcessComplete={handleProcessComplete}
                           onProcessError={handleProcessError}
                           showProgress={true}

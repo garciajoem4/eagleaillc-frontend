@@ -114,17 +114,22 @@ const RecordingDetail: React.FC = () => {
 
   // Check if user is on free trial by examining organization memberships
   const isFreeTrial = useMemo(() => {
-    if (!clerkUser?.organizationMemberships) return false;
+    if (!clerkUser?.organizationMemberships || clerkUser.organizationMemberships.length === 0) {
+      return true; // Default to free trial if no org memberships
+    }
     
+    // Check if user is in the free trial organization or has free trial role
     return clerkUser.organizationMemberships.some(membership => 
-      membership.organization.id === FREE_TRIAL_ORG_ID && 
-      membership.role === FREE_TRIAL_ROLE
+      membership.organization.id === FREE_TRIAL_ORG_ID || 
+      membership.role === FREE_TRIAL_ROLE ||
+      membership.role.includes('free_trial') ||
+      membership.organization.name?.toLowerCase().includes('free trial')
     );
   }, [clerkUser]);
 
   const handleSubscribe = () => {
     console.log('Navigate to subscription page');
-    navigate('/app/billing');
+    navigate('/app/billings');
   };
 
   // API Integration: Fetch server-side results when available
@@ -1693,9 +1698,9 @@ const RecordingDetail: React.FC = () => {
                                 size="sm" 
                                 variant="outline" 
                                 className="text-xs bg-blue-50 hover:bg-blue-100 border-blue-200"
-                                // disabled={
-                                //   (dataSource === 'api' ? isFreeTrial : true) || isEmailingTranscript || !clerkUser?.primaryEmailAddress?.emailAddress
-                                // }
+                                disabled={
+                                  (dataSource === 'api' ? isFreeTrial : true) || isEmailingTranscript || !clerkUser?.primaryEmailAddress?.emailAddress
+                                }
                                 onClick={() => {
                                   const email = clerkUser?.primaryEmailAddress?.emailAddress;
                                   if (email) {

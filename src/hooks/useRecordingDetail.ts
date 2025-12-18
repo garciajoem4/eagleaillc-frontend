@@ -218,11 +218,16 @@ export const useRecordingDetail = (
   const FREE_TRIAL_ROLE = 'org:free_trial';
   
   const actualIsFreeTrial = useMemo(() => {
-    if (!user?.organizationMemberships) return false;
+    if (!user?.organizationMemberships || user.organizationMemberships.length === 0) {
+      return true; // Default to free trial if no org memberships
+    }
     
+    // Check if user is in the free trial organization or has free trial role
     return user.organizationMemberships.some((membership) => 
-      membership.organization.id === FREE_TRIAL_ORG_ID && 
-      membership.role === FREE_TRIAL_ROLE
+      membership.organization.id === FREE_TRIAL_ORG_ID || 
+      membership.role === FREE_TRIAL_ROLE ||
+      membership.role.includes('free_trial') ||
+      membership.organization.name?.toLowerCase().includes('free trial')
     );
   }, [user?.organizationMemberships]);
 

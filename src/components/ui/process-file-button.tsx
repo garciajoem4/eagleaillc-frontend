@@ -5,7 +5,12 @@
     import { useNavigate } from 'react-router-dom';
     import { useUser, useAuth } from '@clerk/clerk-react';
     import { useAppDispatch } from '../../redux/hooks';
-    import { fetchAndStoreApiResults } from '../../redux/slices/recordingsSlice';
+    import { 
+      fetchAndStoreApiResults,
+      addProcessingFile,
+      updateProcessingFileProgress,
+      removeProcessingFile
+    } from '../../redux/slices/recordingsSlice';
     import { addFileAnalytics, type FileAnalytics } from '../../redux/slices/uploadsSlice';
     import { Button } from './button';
     import { Badge } from './badge';
@@ -23,6 +28,7 @@
 
     interface ProcessFileButtonProps {
       file: File;
+      onProcessStart?: () => void;
       onProcessComplete?: (recordingId: string, audioUrl?: string) => void;
       onProcessError?: (error: string) => void;
       className?: string;
@@ -33,6 +39,7 @@
 
     const ProcessFileButton: React.FC<ProcessFileButtonProps> = ({
       file,
+      onProcessStart,
       onProcessComplete,
       onProcessError,
       className = '',
@@ -64,11 +71,16 @@
 
       // Check if user is on free trial by examining organization memberships
       const isFreeTrial = useMemo(() => {
-        if (!clerkUser?.organizationMemberships) return false;
+        if (!clerkUser?.organizationMemberships || clerkUser.organizationMemberships.length === 0) {
+          return true; // Default to free trial if no org memberships
+        }
         
+        // Check if user is in the free trial organization or has free trial role
         return clerkUser.organizationMemberships.some(membership => 
-          membership.organization.id === FREE_TRIAL_ORG_ID && 
-          membership.role === FREE_TRIAL_ROLE
+          membership.organization.id === FREE_TRIAL_ORG_ID || 
+          membership.role === FREE_TRIAL_ROLE ||
+          membership.role.includes('free_trial') ||
+          membership.organization.name?.toLowerCase().includes('free trial')
         );
       }, [clerkUser]);
 
@@ -80,6 +92,17 @@
           }
         };
       }, []);
+
+      // Helper function to update progress in both local state and Redux
+      const updateProgress = (processingId: string, progressValue: number, stage: string) => {
+        setProgress(progressValue);
+        setProcessingStage(stage);
+        dispatch(updateProcessingFileProgress({
+          id: processingId,
+          progress: progressValue,
+          stage,
+        }));
+      };
 
       // Helper function to handle finalization delay and navigation
       const finalizeAndNavigate = (recordingId: string) => {
@@ -95,8 +118,23 @@
       const handleProcessFile = async () => {
         if (isProcessing) return;
 
+        // Generate a unique ID for this processing file
+        const processingId = `processing-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+        // Add file to Redux processing state
+        dispatch(addProcessingFile({
+          id: processingId,
+          fileName: file.name,
+          fileSize: file.size,
+        }));
+
+        // Call onProcessStart callback if provided (to close modal)
+        if (onProcessStart) {
+          onProcessStart();
+        }
+
         setIsProcessing(true);
-        setProgress(0);
+        updateProgress(processingId, 0, 'Initializing...');
         setProcessResult(null);
 
         try {
@@ -106,15 +144,13 @@
           let isTrimmed = false;
 
           if (isFreeTrial) {
-            setProcessingStage('Checking audio duration...');
-            setProgress(10);
+            updateProgress(processingId, 10, 'Checking audio duration...');
 
             try {
               const duration = await AudioTrimmer.getAudioDuration(file);
               
               if (duration > FREE_TRIAL_TIME_LIMIT_SECONDS) {
-                setProcessingStage('Trimming audio to 5 minutes...');
-                setProgress(20);
+                updateProgress(processingId, 20, 'Trimming audio to 5 minutes...');
 
                 const trimResult = await AudioTrimmer.trimAudio(file, FREE_TRIAL_TIME_LIMIT_SECONDS);
                 fileToProcess = trimResult.trimmedBlob;
@@ -130,8 +166,7 @@
           }
 
           // Stage 2: Upload and process with API
-          setProcessingStage('Uploading to API...');
-          setProgress(30);
+          updateProgress(processingId, 30, 'Uploading to API...');
 
           try {
             // Convert Blob to File if necessary for API upload
@@ -165,27 +200,25 @@
               getToken,
               userMetadata,
               (status) => {
-                setProcessingStage(status);
-                setProgress(Math.min(progress + 10, 70));
+                const currentProgress = Math.min(progress + 10, 70);
+                updateProgress(processingId, currentProgress, status);
               }
             );
 
             // Stage 3: Poll for completion
-            setProcessingStage('Processing...');
-            setProgress(70);
+            updateProgress(processingId, 70, 'Processing...');
 
             await WorkflowHelpers.pollStatus(
               recordingId,
               getToken,
               (status) => {
-                setProcessingStage(`Processing: ${status.status} (${status.progress || 0}%)`);
-                setProgress(70 + (status.progress || 0) * 0.1);
+                const currentProgress = 70 + (status.progress || 0) * 0.1;
+                updateProgress(processingId, currentProgress, `Processing: ${status.status} (${status.progress || 0}%)`);
               }
             );
 
             // Stage 3.5: Fetch and store API results in Redux
-            setProcessingStage('Fetching API results...');
-            setProgress(85);
+            updateProgress(processingId, 85, 'Fetching API results...');
             
             try {
               await dispatch(fetchAndStoreApiResults({ 
@@ -208,8 +241,7 @@
             }
 
             // Stage 4: Store locally as backup
-            setProcessingStage('Storing locally...');
-            setProgress(90);
+            updateProgress(processingId, 90, 'Storing locally...');
 
             // Store file(s) in localStorage using audioStorageService
             try {
@@ -264,8 +296,10 @@
             }
 
             // Stage 5: Complete
-            setProcessingStage('Complete!');
-            setProgress(100);
+            updateProgress(processingId, 100, 'Complete!');
+
+            // Remove from processing queue
+            dispatch(removeProcessingFile(processingId));
 
             // Refresh storage stats
             await refreshStorageStats();
@@ -319,8 +353,7 @@
             }
             
             // Fallback to local-only processing
-            setProcessingStage('API unavailable, storing locally...');
-            setProgress(80);
+            updateProgress(processingId, 80, 'API unavailable, storing locally...');
 
             // Generate a mock recording ID for fallback
             const recordingId = `recording-${Date.now()}`;
@@ -361,8 +394,10 @@
               }
 
               // Complete with local storage only
-              setProcessingStage('Stored locally (offline mode)');
-              setProgress(100);
+              updateProgress(processingId, 100, 'Stored locally (offline mode)');
+
+              // Remove from processing queue
+              dispatch(removeProcessingFile(processingId));
 
               const result = {
                 recordingId,
@@ -402,6 +437,9 @@
         } catch (error) {
           console.error('Error processing file:', error);
           const errorMessage = error instanceof Error ? error.message : 'Failed to process file';
+          
+          // Remove from processing queue on error
+          dispatch(removeProcessingFile(processingId));
           
           if (onProcessError) {
             onProcessError(errorMessage);

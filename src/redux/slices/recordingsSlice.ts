@@ -37,6 +37,16 @@ interface RecordingState {
   processing: Record<string, boolean>; // Track processing state per recording ID
   lastFetched: string | null;
   
+  // Processing files with progress tracking
+  processingFiles: Array<{
+    id: string;
+    fileName: string;
+    fileSize: number;
+    progress: number;
+    stage: string;
+    startedAt: string;
+  }>;
+  
   // Local storage state
   localAudioStatus: Record<string, {
     hasLocal: boolean;
@@ -373,6 +383,8 @@ const initialState: RecordingState = {
   processing: {},
   lastFetched: null,
   
+  processingFiles: [],
+  
   localAudioStatus: {},
   localStorageStats: null,
   
@@ -502,6 +514,38 @@ const recordingsSlice = createSlice({
     // Error handling
     clearError: (state) => {
       state.error = null;
+    },
+    
+    // Processing files management
+    addProcessingFile: (state, action: PayloadAction<{
+      id: string;
+      fileName: string;
+      fileSize: number;
+    }>) => {
+      state.processingFiles.push({
+        ...action.payload,
+        progress: 0,
+        stage: 'Starting...',
+        startedAt: new Date().toISOString(),
+      });
+    },
+    
+    updateProcessingFileProgress: (state, action: PayloadAction<{
+      id: string;
+      progress: number;
+      stage: string;
+    }>) => {
+      const file = state.processingFiles.find(f => f.id === action.payload.id);
+      if (file) {
+        file.progress = action.payload.progress;
+        file.stage = action.payload.stage;
+      }
+    },
+    
+    removeProcessingFile: (state, action: PayloadAction<string>) => {
+      state.processingFiles = state.processingFiles.filter(
+        f => f.id !== action.payload
+      );
     },
     
     // Reset state
@@ -697,6 +741,9 @@ export const {
   clearApiFilters,
   toggleAPIMode,
   clearError,
+  addProcessingFile,
+  updateProcessingFileProgress,
+  removeProcessingFile,
   resetRecordings,
 } = recordingsSlice.actions;
 
