@@ -22,6 +22,7 @@ const Recordings: React.FC = () => {
     displayRecordings,
     processingFiles,
     subscription,
+    subscriptionLoading,
     
     // Computed values
     isFreeTrial,

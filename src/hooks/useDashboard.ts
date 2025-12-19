@@ -214,28 +214,37 @@ export const useDashboard = () => {
         const token = await getToken();
         if (!token) return;
 
-        const response = await fetch(buildUrl(ANALYTICS_ENDPOINTS.DASHBOARD), {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
+        setAnalyticsData({
+          totalRecordings: calculatedAnalytics.totalRecordings,
+          recordingsTrend: calculatedAnalytics.recordingsTrend,
+          minutesProcessed: calculatedAnalytics.minutesProcessed,
+          minutesTrend: calculatedAnalytics.minutesTrend,
+          statusBreakdown: calculatedAnalytics.statusBreakdown,
+          insightsTotal: calculatedAnalytics.insightsTotal,
         });
 
-        if (response.ok) {
-          const data = await response.json();
-          // If API returns analytics, use it
-          if (data.recordings) {
-            setAnalyticsData({
-              totalRecordings: data.recordings.total || calculatedAnalytics.totalRecordings,
-              recordingsTrend: data.recordings.trend || calculatedAnalytics.recordingsTrend,
-              minutesProcessed: data.processing?.total_minutes || calculatedAnalytics.minutesProcessed,
-              minutesTrend: data.processing?.trend || calculatedAnalytics.minutesTrend,
-              statusBreakdown: data.recordings.by_status || calculatedAnalytics.statusBreakdown,
-              insightsTotal: data.intelligence || calculatedAnalytics.insightsTotal,
-            });
-            setUsingFallback(false);
-          }
-        }
+        // const response = await fetch(buildUrl(ANALYTICS_ENDPOINTS.DASHBOARD), {
+        //   headers: {
+        //     'Authorization': `Bearer ${token}`,
+        //     'Content-Type': 'application/json',
+        //   },
+        // });
+
+        // if (response.ok) {
+        //   const data = await response.json();
+        //   // If API returns analytics, use it
+        //   if (data.recordings) {
+        //     setAnalyticsData({
+        //       totalRecordings: data.recordings.total || calculatedAnalytics.totalRecordings,
+        //       recordingsTrend: data.recordings.trend || calculatedAnalytics.recordingsTrend,
+        //       minutesProcessed: data.processing?.total_minutes || calculatedAnalytics.minutesProcessed,
+        //       minutesTrend: data.processing?.trend || calculatedAnalytics.minutesTrend,
+        //       statusBreakdown: data.recordings.by_status || calculatedAnalytics.statusBreakdown,
+        //       insightsTotal: data.intelligence || calculatedAnalytics.insightsTotal,
+        //     });
+        //     setUsingFallback(false);
+        //   }
+        // }
       } catch (error) {
         console.log('Analytics API not available, using calculated data');
         // Silently fail and use calculated data
