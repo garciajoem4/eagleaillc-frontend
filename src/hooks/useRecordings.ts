@@ -15,12 +15,8 @@ import {
   setApiFilters,
   clearApiFilters,
   setOffset,
+  selectSubscription,
 } from '../redux';
-
-// Constants for free trial limitations
-const FREE_TRIAL_ORG_ID = 'org_33nodgVx3c02DhIoiT1Wen7Xgup';
-const FREE_TRIAL_ROLE = 'org:free_trial';
-const MAX_FREE_TRIAL_RECORDINGS = 2;
 
 export const useRecordings = () => {
   const navigate = useNavigate();
@@ -43,51 +39,56 @@ export const useRecordings = () => {
   } = useAppSelector((state) => state.recordings);
   
   const filteredAndSortedRecordings = useAppSelector(selectSortedRecordings);
+  const subscription = useAppSelector(selectSubscription);
 
-  // Check if user is on free trial by examining organization memberships
+  // Check if user is on free trial using subscription data from API
   const isFreeTrial = useMemo(() => {
-    // Debug: Log user data to understand the structure
-    console.log('🔍 Clerk User Data:', {
-      id: clerkUser?.id,
-      primaryEmailAddress: clerkUser?.primaryEmailAddress?.emailAddress,
-      organizationMemberships: clerkUser?.organizationMemberships?.map(m => ({
-        orgId: m.organization.id,
-        orgName: m.organization.name,
-        role: m.role,
-      })),
-      publicMetadata: clerkUser?.publicMetadata,
-      unsafeMetadata: clerkUser?.unsafeMetadata,
+    // Check subscription tier from API
+    const tier = subscription?.tier?.toLowerCase();
+    const isFree = tier === 'free' || tier === 'trial' || subscription?.status === 'trialing';
+    
+    console.log('🔍 Subscription Data:', {
+      tier: subscription?.tier,
+      status: subscription?.status,
+      isFreeTrial: isFree,
+      usage: subscription?.usage,
+      limits: subscription?.limits,
     });
 
-    if (!clerkUser?.organizationMemberships || clerkUser.organizationMemberships.length === 0) {
-      console.log('⚠️ No organization memberships found, defaulting to free trial');
-      return true; // Default to free trial if no org memberships
-    }
-    
-    // Check if user is in the free trial organization or has free trial role
-    const hasFreeTrialOrg = clerkUser.organizationMemberships.some(membership => 
-      membership.organization.id === FREE_TRIAL_ORG_ID || 
-      membership.role === FREE_TRIAL_ROLE ||
-      membership.role.includes('free_trial') ||
-      membership.organization.name?.toLowerCase().includes('free trial')
-    );
+    return isFree;
+  }, [subscription]);
 
-    console.log('✅ Is Free Trial:', hasFreeTrialOrg);
-    return hasFreeTrialOrg;
-  }, [clerkUser]);
+  // Get recording limit from subscription API data
+  const MAX_FREE_TRIAL_RECORDINGS = useMemo(() => {
+    if (!subscription?.usage) return 2; // Fallback to 2 if no data
+    return subscription.usage.files_limit || 2;
+  }, [subscription]);
+
+  // Get current uploaded count from subscription API data
+  const currentUploadedCount = useMemo(() => {
+    if (!subscription?.usage) return recordings.length;
+    return subscription.usage.files_uploaded || recordings.length;
+  }, [subscription, recordings.length]);
+
+  // Check if approaching limit (80% threshold)
+  const isApproachingLimit = useMemo(() => {
+    if (!isFreeTrial) return false;
+    const threshold = 0.8;
+    return currentUploadedCount >= MAX_FREE_TRIAL_RECORDINGS * threshold;
+  }, [isFreeTrial, currentUploadedCount, MAX_FREE_TRIAL_RECORDINGS]);
 
   // For free trial users, limit recordings display and show subscribe option
   const displayRecordings = useMemo(() => {
     if (!isFreeTrial) return filteredAndSortedRecordings;
     
-    // For free trial users, show max 2 recordings
+    // For free trial users, show up to the limit
     return filteredAndSortedRecordings.slice(0, MAX_FREE_TRIAL_RECORDINGS);
-  }, [isFreeTrial, filteredAndSortedRecordings]);
+  }, [isFreeTrial, filteredAndSortedRecordings, MAX_FREE_TRIAL_RECORDINGS]);
 
   // Check if free trial user has reached recording limit
   const hasReachedLimit = useMemo(() => {
-    return isFreeTrial && recordings.length >= MAX_FREE_TRIAL_RECORDINGS;
-  }, [isFreeTrial, recordings.length]);
+    return isFreeTrial && currentUploadedCount >= MAX_FREE_TRIAL_RECORDINGS;
+  }, [isFreeTrial, currentUploadedCount, MAX_FREE_TRIAL_RECORDINGS]);
 
   // Check if free trial user has exceeded limit (for showing subscribe row)
   const hasExceededLimit = useMemo(() => {
@@ -229,11 +230,14 @@ export const useRecordings = () => {
     filteredAndSortedRecordings,
     displayRecordings,
     processingFiles,
+    subscription,
     
     // Computed values
     isFreeTrial,
     hasReachedLimit,
     hasExceededLimit,
+    currentUploadedCount,
+    isApproachingLimit,
     
     // Functions
     handleSort,

@@ -125,6 +125,16 @@ export {
 
 // Export types
 export type { FileAnalytics } from './slices/uploadsSlice';
+export type { 
+  Subscription, 
+  SubscriptionUsage, 
+  SubscriptionLimits,
+  SubscriptionPlan,
+  PaymentMethod,
+  BillingRecord,
+  Usage,
+  BillingPreferences 
+} from './slices/billingSlice';
 
 // Billing slice actions and selectors exports
 export {

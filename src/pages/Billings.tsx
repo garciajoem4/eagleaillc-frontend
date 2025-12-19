@@ -596,7 +596,7 @@ const Billings: React.FC = () => {
                     {/* Current Plan Badge */}
                     {isCurrentPlan && (
                       <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-10">
-                        <Badge className="bg-green-500 text-white px-4 py-1 text-sm font-medium rounded-full shadow-md">
+                        <Badge className="bg-green-500 text-white text-center whitespace-nowrap px-4 py-1 text-xs font-medium rounded-full shadow-md">
                           Current Plan
                         </Badge>
                       </div>
@@ -605,7 +605,7 @@ const Billings: React.FC = () => {
                     {/* Most Popular Badge */}
                     {tier.recommended && !isCurrentPlan && (
                       <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                        <Badge className="bg-[#4e69fd] text-white px-4 py-1 text-sm font-medium rounded-full shadow-md">
+                        <Badge className="bg-[#4e69fd] text-white text-center whitespace-nowrap px-4 py-1 text-xs font-medium rounded-full shadow-md">
                           Most Popular
                         </Badge>
                       </div>
@@ -614,7 +614,7 @@ const Billings: React.FC = () => {
                     <div className="p-6">
                       {/* Plan Name */}
                       <h3 className="text-lg font-bold text-gray-900 dark:text-white text-center mb-2">
-                        {tier.name}
+                        {tier.name === 'Free' ? ' ' : tier.name}
                       </h3>
 
                       {/* Price */}

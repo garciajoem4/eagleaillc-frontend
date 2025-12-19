@@ -7,6 +7,7 @@ import { sampleTranscriptData } from '../data/sampleTranscript';
 import { fetchAndStoreApiResults } from '../redux/slices/recordingsSlice';
 import { audioStorageService } from '../services/audioStorageService';
 import { useAppSelector } from '../redux/hooks';
+import { selectSubscription } from '../redux';
 
 import { ApiResponse } from '../types/api';
 import { WorkflowHelpers, EMAIL_ENDPOINTS, buildUrl } from '../endpoints';
@@ -209,27 +210,34 @@ export const useRecordingDetail = (
     return normalizeTranscriptData(dataAPI);
   }, [dataAPI]);
 
-  // Free trial configuration
-  const isFreeTrial = freeTrialOptions?.isFreeTrial || false;
-  const freeTrialTimeLimit = freeTrialOptions?.freeTrialTimeLimitSeconds || 300;
+  // Get subscription from Redux
+  const subscription = useAppSelector(selectSubscription);
 
-  // Check if user is actually on free trial based on Clerk organization
-  const FREE_TRIAL_ORG_ID = 'org_33nodgVx3c02DhIoiT1Wen7Xgup';
-  const FREE_TRIAL_ROLE = 'org:free_trial';
-  
+  // Check if user is actually on free trial based on subscription data from API
   const actualIsFreeTrial = useMemo(() => {
-    if (!user?.organizationMemberships || user.organizationMemberships.length === 0) {
-      return true; // Default to free trial if no org memberships
-    }
+    const tier = subscription?.tier?.toLowerCase();
+    const isFree = tier === 'free' || tier === 'trial' || subscription?.status === 'trialing';
     
-    // Check if user is in the free trial organization or has free trial role
-    return user.organizationMemberships.some((membership) => 
-      membership.organization.id === FREE_TRIAL_ORG_ID || 
-      membership.role === FREE_TRIAL_ROLE ||
-      membership.role.includes('free_trial') ||
-      membership.organization.name?.toLowerCase().includes('free trial')
-    );
-  }, [user?.organizationMemberships]);
+    console.log('🔍 Recording Detail - Subscription Data:', {
+      tier: subscription?.tier,
+      status: subscription?.status,
+      isFreeTrial: isFree,
+      limits: subscription?.limits,
+    });
+
+    return isFree;
+  }, [subscription]);
+
+  // Get free trial time limit from subscription API data
+  const freeTrialTimeLimit = useMemo(() => {
+    if (!subscription?.limits) return 300; // Fallback to 5 minutes (300 seconds)
+    return subscription.limits.max_file_duration_seconds || 300;
+  }, [subscription]);
+
+  // Free trial configuration - use actualIsFreeTrial from subscription data
+  const isFreeTrial = freeTrialOptions?.isFreeTrial !== undefined 
+    ? freeTrialOptions.isFreeTrial 
+    : actualIsFreeTrial;
 
   // State variables
   const { id: recordingId } = useParams<{ id: string }>();

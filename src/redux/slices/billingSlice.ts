@@ -17,6 +17,26 @@ export interface SubscriptionPlan {
   stripePriceId: string;
 }
 
+// API Response Types for Usage and Limits
+export interface SubscriptionUsage {
+  files_uploaded: number;
+  files_limit: number;
+  files_limit_text: string;
+  storage_used_bytes: number;
+  storage_used_gb: number;
+  storage_limit_bytes: number;
+  storage_limit_gb: number;
+  billing_period_start: string;
+  billing_period_end: string;
+}
+
+export interface SubscriptionLimits {
+  max_file_duration_seconds: number;
+  max_file_duration_text: string;
+  priority: number;
+  priority_text: string;
+}
+
 // Current Subscription
 export interface Subscription {
   id: string;
@@ -33,19 +53,9 @@ export interface Subscription {
   tierDisplayName?: string;
   billingCycle?: string;
   trialEndsAt?: string;
-  usage?: {
-    files_uploaded?: number;
-    files_limit?: number;
-    files_limit_text?: string;
-    storage_used_gb?: number;
-    storage_limit_gb?: number;
-    billing_period_start?: string;
-    billing_period_end?: string;
-  };
-  limits?: {
-    max_file_duration_text?: string;
-    priority_text?: string;
-  };
+  // Properly typed usage and limits from API
+  usage?: SubscriptionUsage;
+  limits?: SubscriptionLimits;
 }
 
 // Payment Method
