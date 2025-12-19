@@ -5,6 +5,7 @@ import { Provider as ReduxProvider } from 'react-redux';
 import { store } from './redux';
 import Layout from './components/Layout';
 import Login from './components/Login';
+import AuthCallback from './components/AuthCallback';
 import TrialRestriction from './components/TrialRestriction';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Billings from './pages/Billings';
@@ -43,7 +44,8 @@ const AppContent: React.FC = () => {
       <Routes>
         {/* Public routes */}
         <Route path="/" element={<Homepage />} />
-        <Route path="/login" element={user ? <Navigate to="/app/recordings" /> : <Login />} />
+        <Route path="/login" element={user ? <Navigate to="/auth-callback" /> : <Login />} />
+        <Route path="/auth-callback" element={user ? <AuthCallback /> : <Navigate to="/login" />} />
         
         {/* Trial restriction routes - for users trying to access protected features without login */}
         <Route path="/trial-recordings" element={

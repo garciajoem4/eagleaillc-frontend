@@ -17,7 +17,7 @@ const Login: React.FC = () => {
         </div>
         
         <SignIn 
-          forceRedirectUrl="/app/recordings"
+          forceRedirectUrl="/auth-callback"
           signUpUrl={undefined}
           appearance={{
             elements: {

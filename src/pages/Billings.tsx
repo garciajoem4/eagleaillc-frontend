@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -15,36 +15,6 @@ const Billings: React.FC = () => {
   const [isAnnualBilling, setIsAnnualBilling] = useState(false);
   const [selectedTier, setSelectedTier] = useState<PricingTier | null>(null);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
-  
-  // Toggle billing period
-  const toggleBillingPeriod = () => {
-    setIsAnnualBilling(!isAnnualBilling);
-  };
-
-  // Handle plan selection
-  const handleSelectPlan = (tier: PricingTier) => {
-    setSelectedTier(tier);
-    setIsUpgradeModalOpen(true);
-  };
-
-  // Handle modal close
-  const handleCloseModal = () => {
-    setIsUpgradeModalOpen(false);
-    setSelectedTier(null);
-  };
-
-  // Handle successful subscription
-  const handleSubscriptionSuccess = () => {
-    handleRefreshSubscription();
-  };
-
-  // Format tier price based on billing period
-  const formatTierPrice = (tier: PricingTier) => {
-    const price = isAnnualBilling ? tier.annualPrice : tier.monthlyPrice;
-    if (price === 'Free') return 'Free';
-    if (price === 'Custom') return 'Custom';
-    return `$${price}`;
-  };
   
   // Get everything from the useBilling hook (with auto-refresh every 5 minutes)
   const {
@@ -83,7 +53,57 @@ const Billings: React.FC = () => {
     refreshInterval: 300000 // Auto-refresh every 5 minutes
   });
 
+  // Calculate trial countdown (after subscription is available)
+  const trialCountdown = useMemo(() => {
+    if (!subscription?.trialEndsAt) return null;
+    
+    const trialEndDate = new Date(subscription.trialEndsAt);
+    const now = new Date();
+    const diffTime = trialEndDate.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays <= 0) return { daysRemaining: 0, isExpired: true };
+    
+    return {
+      daysRemaining: diffDays,
+      isExpired: false,
+      formattedEndDate: trialEndDate.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      })
+    };
+  }, [subscription?.trialEndsAt]);
+  
+  // Toggle billing period
+  const toggleBillingPeriod = () => {
+    setIsAnnualBilling(!isAnnualBilling);
+  };
 
+  // Handle plan selection
+  const handleSelectPlan = (tier: PricingTier) => {
+    setSelectedTier(tier);
+    setIsUpgradeModalOpen(true);
+  };
+
+  // Handle modal close
+  const handleCloseModal = () => {
+    setIsUpgradeModalOpen(false);
+    setSelectedTier(null);
+  };
+
+  // Handle successful subscription
+  const handleSubscriptionSuccess = () => {
+    handleRefreshSubscription();
+  };
+
+  // Format tier price based on billing period
+  const formatTierPrice = (tier: PricingTier) => {
+    const price = isAnnualBilling ? tier.annualPrice : tier.monthlyPrice;
+    if (price === 'Free') return 'Free';
+    if (price === 'Custom') return 'Custom';
+    return `$${price}`;
+  };
 
   return (
     <StripeProvider>
@@ -120,6 +140,74 @@ const Billings: React.FC = () => {
             </Button>
           </div>
         </div>
+
+        {/* Trial Countdown Banner */}
+        {subscription && (subscription.status === 'trialing' || subscription.tier?.toLowerCase() === 'free' || subscription.tier?.toLowerCase() === 'trial') && trialCountdown && !trialCountdown.isExpired && (
+          <Card className="border-blue-500 bg-gradient-to-r from-blue-50 to-indigo-50">
+            <CardContent className="px-6 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">
+                      {trialCountdown.daysRemaining} {trialCountdown.daysRemaining === 1 ? 'Day' : 'Days'} Remaining
+                    </h3>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Your free trial ends on {trialCountdown.formattedEndDate}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500">
+                        {trialCountdown.daysRemaining <= 3 && '⚠️ Trial ending soon!'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => {
+                    const tabTrigger = document.querySelector('[value="subscription"]') as HTMLButtonElement;
+                    tabTrigger?.click();
+                  }}
+                >
+                  Upgrade Now
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        
+        {/* Trial Expired Banner */}
+        {subscription && (subscription.status === 'trialing' || subscription.tier?.toLowerCase() === 'free' || subscription.tier?.toLowerCase() === 'trial') && trialCountdown?.isExpired && (
+          <Card className="border-orange-500 bg-gradient-to-r from-orange-50 to-red-50">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center">
+                    <svg className="w-8 h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-orange-900">
+                      Trial Expired
+                    </h3>
+                    <p className="text-orange-700 mt-1">
+                      Your free trial has ended. Upgrade to continue using all features.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  size="lg"
+                  className="bg-orange-600 hover:bg-orange-700 text-white px-8"
+                  onClick={() => {
+                    const tabTrigger = document.querySelector('[value="subscription"]') as HTMLButtonElement;
+                    tabTrigger?.click();
+                  }}
+                >
+                  Choose a Plan
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Tabs defaultValue="overview" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
