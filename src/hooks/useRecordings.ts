@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useCallback } from 'react';
+import { useEffect, useMemo, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser, useAuth } from '@clerk/clerk-react';
 import { Recording } from '../types';
@@ -16,6 +16,7 @@ import {
   clearApiFilters,
   setOffset,
   selectSubscription,
+  fetchSubscription,
 } from '../redux';
 
 export const useRecordings = () => {
@@ -40,6 +41,9 @@ export const useRecordings = () => {
   
   const filteredAndSortedRecordings = useAppSelector(selectSortedRecordings);
   const subscription = useAppSelector(selectSubscription);
+  
+  // Local state for subscription loading
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
 
   // Check if user is on free trial using subscription data from API
   const isFreeTrial = useMemo(() => {
@@ -112,6 +116,23 @@ export const useRecordings = () => {
   useEffect(() => {
     fetchRecordingsData();
   }, [fetchRecordingsData]);
+
+  // Fetch subscription data on mount
+  useEffect(() => {
+    const loadSubscription = async () => {
+      setSubscriptionLoading(true);
+      try {
+        await dispatch(fetchSubscription(getToken)).unwrap();
+      } catch (error) {
+        console.error('Failed to load subscription in recordings:', error);
+        // Fallback data will be used from Redux
+      } finally {
+        setSubscriptionLoading(false);
+      }
+    };
+    
+    loadSubscription();
+  }, [dispatch, getToken]);
 
   const handleSort = (field: keyof Recording) => {
     dispatch(toggleSort(field));
@@ -231,6 +252,7 @@ export const useRecordings = () => {
     displayRecordings,
     processingFiles,
     subscription,
+    subscriptionLoading,
     
     // Computed values
     isFreeTrial,
