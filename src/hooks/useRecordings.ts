@@ -62,6 +62,30 @@ export const useRecordings = () => {
     return isFree;
   }, [subscription]);
 
+  // Check if trial has expired
+  const isTrialExpired = useMemo(() => {
+    if (!isFreeTrial || !subscription) return false;
+    
+    // Check if trial end date exists and has passed
+    if (subscription.trialEndsAt) {
+      const trialEndDate = new Date(subscription.trialEndsAt);
+      const now = new Date();
+      return now > trialEndDate;
+    }
+    
+    // If status is explicitly 'canceled', 'past_due', or 'incomplete'
+    if (subscription.status === 'canceled' || subscription.status === 'past_due' || subscription.status === 'incomplete') {
+      return true;
+    }
+    
+    return false;
+  }, [isFreeTrial, subscription]);
+
+  // Check if access should be blocked (trial expired and no paid subscription)
+  const isAccessBlocked = useMemo(() => {
+    return isTrialExpired && isFreeTrial;
+  }, [isTrialExpired, isFreeTrial]);
+
   // Get recording limit from subscription API data
   const MAX_FREE_TRIAL_RECORDINGS = useMemo(() => {
     if (!subscription?.usage) return 2; // Fallback to 2 if no data
@@ -260,6 +284,8 @@ export const useRecordings = () => {
     hasExceededLimit,
     currentUploadedCount,
     isApproachingLimit,
+    isTrialExpired,
+    isAccessBlocked,
     
     // Functions
     handleSort,

@@ -234,6 +234,30 @@ export const useRecordingDetail = (
     return subscription.limits.max_file_duration_seconds || 300;
   }, [subscription]);
 
+  // Check if trial has expired
+  const isTrialExpired = useMemo(() => {
+    if (!actualIsFreeTrial || !subscription) return false;
+    
+    // Check if trial end date exists and has passed
+    if (subscription.trialEndsAt) {
+      const trialEndDate = new Date(subscription.trialEndsAt);
+      const now = new Date();
+      return now > trialEndDate;
+    }
+    
+    // If status is explicitly 'canceled', 'past_due', or 'incomplete'
+    if (subscription.status === 'canceled' || subscription.status === 'past_due' || subscription.status === 'incomplete') {
+      return true;
+    }
+    
+    return false;
+  }, [actualIsFreeTrial, subscription]);
+
+  // Check if access should be blocked
+  const isAccessBlocked = useMemo(() => {
+    return isTrialExpired && actualIsFreeTrial;
+  }, [isTrialExpired, actualIsFreeTrial]);
+
   // Free trial configuration - use actualIsFreeTrial from subscription data
   const isFreeTrial = freeTrialOptions?.isFreeTrial !== undefined 
     ? freeTrialOptions.isFreeTrial 
@@ -1631,6 +1655,8 @@ export const useRecordingDetail = (
     // Free trial computed values
     hasExceededFreeTrialLimit,
     freeTrialTimeRangeOptions,
+    isTrialExpired,
+    isAccessBlocked,
 
     // Utility functions
     parseTimestampToSeconds,

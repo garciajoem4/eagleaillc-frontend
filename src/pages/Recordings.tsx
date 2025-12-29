@@ -30,6 +30,8 @@ const Recordings: React.FC = () => {
     hasExceededLimit,
     currentUploadedCount,
     isApproachingLimit,
+    isTrialExpired,
+    isAccessBlocked,
     
     // Functions
     formatDuration,
@@ -48,8 +50,41 @@ const Recordings: React.FC = () => {
   } = useRecordings();
 
   return (
-    <div className="mx-auto max-w-[1200px] space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="mx-auto max-w-[1200px] space-y-6">      {/* Trial Expired - Block Access */}
+      {isAccessBlocked && (
+        <Card className="border-red-500 bg-gradient-to-r from-red-50 to-orange-50">
+          <CardContent className="p-8">
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center">
+                <svg className="w-10 h-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-red-900 mb-2">
+                  Free Trial Expired
+                </h2>
+                <p className="text-red-700 text-lg mb-4">
+                  Your free trial has ended. Upgrade to a paid plan to continue accessing your recordings.
+                </p>
+                <p className="text-red-600 text-sm mb-6">
+                  Your recordings are safely stored and will be available as soon as you upgrade.
+                </p>
+              </div>
+              <Button
+                size="lg"
+                className="bg-red-600 hover:bg-red-700 text-white px-8"
+                onClick={handleSubscribe}
+              >
+                Upgrade Now
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {!isAccessBlocked && (
+      <>      <div className="flex justify-between items-center">
         <div>
           <div className="flex items-center gap-3 mb-2">
             <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -570,6 +605,8 @@ const Recordings: React.FC = () => {
         onClose={handleCloseUploadModal}
         onUploadComplete={handleUploadComplete}
       />
+      </>
+      )}
     </div>
   );
 };

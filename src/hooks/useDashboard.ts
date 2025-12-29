@@ -66,6 +66,37 @@ export const useDashboard = () => {
   const [usingFallback, setUsingFallback] = useState(false);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
 
+  // Check if trial has expired
+  const isTrialExpired = useMemo(() => {
+    if (!subscription) return false;
+    
+    const tier = subscription?.tier?.toLowerCase();
+    const isFreeTrial = tier === 'free' || tier === 'trial' || subscription?.status === 'trialing';
+    
+    if (!isFreeTrial) return false;
+    
+    // Check if trial end date exists and has passed
+    if (subscription.trialEndsAt) {
+      const trialEndDate = new Date(subscription.trialEndsAt);
+      const now = new Date();
+      return now > trialEndDate;
+    }
+    
+    // If status is explicitly 'canceled', 'past_due', or 'incomplete'
+    if (subscription.status === 'canceled' || subscription.status === 'past_due' || subscription.status === 'incomplete') {
+      return true;
+    }
+    
+    return false;
+  }, [subscription]);
+
+  // Check if access should be blocked
+  const isAccessBlocked = useMemo(() => {
+    const tier = subscription?.tier?.toLowerCase();
+    const isFreeTrial = tier === 'free' || tier === 'trial' || subscription?.status === 'trialing';
+    return isTrialExpired && isFreeTrial;
+  }, [isTrialExpired, subscription]);
+
   // Fetch recordings and subscription on mount
   useEffect(() => {
     dispatch(fetchRecordings({ 
@@ -617,6 +648,8 @@ export const useDashboard = () => {
     usingFallback,
     recentActivity,
     subscriptionLoading,
+    isTrialExpired,
+    isAccessBlocked,
     
     // Subscription data
     subscription: subscriptionData,

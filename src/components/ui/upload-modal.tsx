@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '@clerk/clerk-react';
 import { UploadFile } from '../../hooks/useFileUpload';
-import { useAppDispatch } from '../../redux/hooks';
+import { useAppDispatch, useAppSelector } from '../../redux/hooks';
 import { addFiles, addFileAnalytics, type FileAnalytics } from '../../redux/slices/uploadsSlice';
+import { selectSubscription } from '../../redux';
 import { Button } from './button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './card';
 import FileUpload from './file-upload';
@@ -22,14 +23,62 @@ const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onUploadComp
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { user: clerkUser } = useUser();
+  const subscription = useAppSelector(selectSubscription);
   const [activeTab, setActiveTab] = useState<'upload' | 'url'>('upload');
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadFile[]>([]);
   const [urlInput, setUrlInput] = useState('');
+  const [limitError, setLimitError] = useState<string | null>(null);
+  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
+
+  // Check subscription limits
+  const uploadLimit = useMemo(() => {
+    if (!subscription?.usage) return null;
+    return {
+      current: subscription.usage.files_uploaded || 0,
+      limit: subscription.usage.files_limit || 0,
+      limitText: subscription.usage.files_limit_text || 'Unlimited',
+      remaining: (subscription.usage.files_limit || 0) - (subscription.usage.files_uploaded || 0)
+    };
+  }, [subscription]);
+
+  const hasReachedLimit = useMemo(() => {
+    if (!uploadLimit) return false;
+    return uploadLimit.remaining <= 0;
+  }, [uploadLimit]);
+
+  const tierName = useMemo(() => {
+    return subscription?.tierDisplayName || subscription?.tier || 'Free';
+  }, [subscription]);
+
+  // Reset error when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setLimitError(null);
+      setShowUpgradePrompt(false);
+      setUploadedFiles([]);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
   const handleFileUploadComplete = (files: UploadFile[]) => {
+    // Check if user has reached upload limit
+    if (hasReachedLimit) {
+      setLimitError(`File limit exceeded. You've reached your ${tierName} plan limit of ${uploadLimit?.limitText}.`);
+      setShowUpgradePrompt(true);
+      return;
+    }
+
+    // Check if uploading these files would exceed the limit
+    if (uploadLimit && uploadLimit.remaining < files.length) {
+      setLimitError(`Cannot upload ${files.length} file(s). You have ${uploadLimit.remaining} upload(s) remaining on your ${tierName} plan.`);
+      setShowUpgradePrompt(true);
+      return;
+    }
+
+    setLimitError(null);
+    setShowUpgradePrompt(false);
     setUploadedFiles(files);
     
     // Store file data in Redux for fallback/analytics purposes
@@ -168,6 +217,58 @@ const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onUploadComp
               </TabsList>
 
               <TabsContent value="upload" className="space-y-4">
+                {/* Upload Limit Warning */}
+                {uploadLimit && uploadLimit.remaining <= 3 && uploadLimit.remaining > 0 && (
+                  <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <svg className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      <div>
+                        <p className="text-sm font-medium text-yellow-800">
+                          Approaching upload limit
+                        </p>
+                        <p className="text-xs text-yellow-700 mt-1">
+                          You have {uploadLimit.remaining} upload(s) remaining on your {tierName} plan.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Limit Error Message */}
+                {limitError && (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <svg className="w-6 h-6 text-red-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-red-800 mb-1">
+                          Upload Limit Reached
+                        </p>
+                        <p className="text-sm text-red-700">
+                          {limitError}
+                        </p>
+                        {showUpgradePrompt && (
+                          <div className="mt-3">
+                            <Button
+                              size="sm"
+                              className="bg-red-600 hover:bg-red-700 text-white"
+                              onClick={() => {
+                                onClose();
+                                navigate('/app/billings');
+                              }}
+                            >
+                              Upgrade Plan
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <FileUpload
                   multiple={true}
                   onUploadComplete={handleFileUploadComplete}
