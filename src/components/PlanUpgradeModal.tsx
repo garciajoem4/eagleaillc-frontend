@@ -39,7 +39,21 @@ const PlanUpgradeModal: React.FC<PlanUpgradeModalProps> = ({
     ['business', 'professional', 'starter'].indexOf(currentPlanId) > 
     ['business', 'professional', 'starter'].indexOf(selectedTier.id);
 
-  const price = isAnnualBilling ? selectedTier.annualPrice : selectedTier.monthlyPrice;
+  // Calculate price with 20% discount for annual billing
+  const calculatePrice = () => {
+    if (isAnnualBilling) {
+      const discount = 0.20; // 20% discount
+      if (typeof selectedTier.monthlyPrice === 'number') {
+        return Math.floor(selectedTier.monthlyPrice * (1 - discount) * 12);
+      } else {
+        return selectedTier.annualPrice;
+      }
+    } else {
+      return selectedTier.monthlyPrice;
+    }
+  };
+
+  const price = calculatePrice();
   const displayPrice = price === 'Free' || price === 'Custom' ? price : `$${price}`;
   const billingPeriod = isAnnualBilling ? 'year' : 'month';
 
@@ -116,7 +130,9 @@ const PlanUpgradeModal: React.FC<PlanUpgradeModalProps> = ({
       });
 
       if (stripeError) {
-        throw new Error(stripeError.message);
+        // Handle specific Stripe card errors
+        const errorMessage = getStripeErrorMessage(stripeError);
+        throw new Error(errorMessage);
       }
 
       // Send to backend to create/update subscription
@@ -145,7 +161,8 @@ const PlanUpgradeModal: React.FC<PlanUpgradeModalProps> = ({
       if (data.requiresAction && data.clientSecret) {
         const { error: confirmError } = await stripe.confirmCardPayment(data.clientSecret);
         if (confirmError) {
-          throw new Error(confirmError.message);
+          const errorMessage = getStripeErrorMessage(confirmError);
+          throw new Error(errorMessage);
         }
       }
 
@@ -162,6 +179,164 @@ const PlanUpgradeModal: React.FC<PlanUpgradeModalProps> = ({
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  // Helper function to get user-friendly error messages from Stripe errors
+  const getStripeErrorMessage = (error: any): string => {
+    const code = error.code;
+    const message = error.message;
+    const declineCode = error.decline_code;
+
+    // Card validation errors
+    if (code === 'incorrect_cvc' || code === 'invalid_cvc') {
+      return 'The security code (CVV/CVC) you entered is incorrect. Please check and try again.';
+    }
+    if (code === 'incorrect_number' || code === 'invalid_number') {
+      return 'The card number you entered is invalid. Please check and try again.';
+    }
+    if (code === 'invalid_expiry_month') {
+      return 'The expiration month is invalid. Please check and try again.';
+    }
+    if (code === 'invalid_expiry_year') {
+      return 'The expiration year is invalid. Please check and try again.';
+    }
+    if (code === 'invalid_expiry_month_past' || code === 'invalid_expiry_year_past' || code === 'expired_card') {
+      return 'Your card has expired. Please use a different card.';
+    }
+    if (code === 'incomplete_number') {
+      return 'The card number is incomplete. Please enter the full card number.';
+    }
+    if (code === 'incomplete_cvc') {
+      return 'The security code (CVV/CVC) is incomplete. Please enter the complete code.';
+    }
+    if (code === 'incomplete_expiry') {
+      return 'The card expiration date is incomplete. Please enter the complete date.';
+    }
+
+    // Card declined errors with decline codes
+    if (code === 'card_declined') {
+      // Check for specific decline codes
+      if (declineCode === 'insufficient_funds') {
+        return 'Your card has insufficient funds. Please use a different payment method.';
+      }
+      if (declineCode === 'lost_card') {
+        return 'This card has been reported lost. Please use a different payment method.';
+      }
+      if (declineCode === 'stolen_card') {
+        return 'This card has been reported stolen. Please use a different payment method.';
+      }
+      if (declineCode === 'expired_card') {
+        return 'Your card has expired. Please use a different card.';
+      }
+      if (declineCode === 'incorrect_cvc') {
+        return 'The security code (CVV/CVC) you entered is incorrect. Please check and try again.';
+      }
+      if (declineCode === 'processing_error') {
+        return 'An error occurred while processing your card. Please try again in a moment.';
+      }
+      if (declineCode === 'incorrect_number') {
+        return 'The card number you entered is invalid. Please check and try again.';
+      }
+      if (declineCode === 'card_not_supported') {
+        return 'This card type is not supported. Please use a different payment method.';
+      }
+      if (declineCode === 'currency_not_supported') {
+        return 'This card does not support the payment currency. Please use a different payment method.';
+      }
+      if (declineCode === 'duplicate_transaction') {
+        return 'This appears to be a duplicate transaction. Please wait a moment before trying again.';
+      }
+      if (declineCode === 'fraudulent') {
+        return 'This transaction was flagged as potentially fraudulent. Please contact your bank.';
+      }
+      if (declineCode === 'generic_decline') {
+        return 'Your card was declined. Please contact your bank for more information or try a different payment method.';
+      }
+      if (declineCode === 'invalid_account') {
+        return 'The card account is invalid. Please contact your bank or use a different payment method.';
+      }
+      if (declineCode === 'invalid_amount') {
+        return 'The payment amount is invalid. Please try again or contact support.';
+      }
+      if (declineCode === 'card_velocity_exceeded') {
+        return 'You have exceeded the number of allowed transactions. Please wait and try again later.';
+      }
+      if (declineCode === 'withdrawal_count_limit_exceeded') {
+        return 'You have exceeded your card\'s withdrawal limit. Please try again later or use a different card.';
+      }
+      
+      // Generic card declined with Stripe message
+      return message || 'Your card was declined. Please contact your bank or try a different payment method.';
+    }
+    
+    if (code === 'insufficient_funds') {
+      return 'Your card has insufficient funds. Please use a different payment method.';
+    }
+    if (code === 'lost_card' || code === 'stolen_card') {
+      return 'This card has been reported lost or stolen. Please use a different payment method.';
+    }
+    if (code === 'pickup_card') {
+      return 'This card cannot be used. Please contact your bank or use a different payment method.';
+    }
+    if (code === 'restricted_card') {
+      return 'This card has restrictions that prevent this payment. Please use a different payment method.';
+    }
+
+    // Processing errors
+    if (code === 'processing_error') {
+      return 'An error occurred while processing your card. Please try again.';
+    }
+    if (code === 'rate_limit') {
+      return 'Too many payment attempts. Please wait a moment and try again.';
+    }
+
+    // Generic card errors
+    if (code === 'card_not_supported') {
+      return 'This card type is not supported. Please use a different payment method.';
+    }
+    if (code === 'currency_not_supported') {
+      return 'This card does not support the payment currency. Please use a different payment method.';
+    }
+
+    // Authentication errors
+    if (code === 'authentication_required' || code === 'card_velocity_exceeded') {
+      return 'Additional authentication is required. Please try again or use a different payment method.';
+    }
+
+    // Postal code errors
+    if (code === 'incorrect_zip' || code === 'postal_code_invalid') {
+      return 'The postal code you entered is invalid. Please check and try again.';
+    }
+
+    // Network and API errors
+    if (code === 'api_connection_error') {
+      return 'Unable to connect to payment processor. Please check your internet connection and try again.';
+    }
+    if (code === 'api_error') {
+      return 'An error occurred with the payment processor. Please try again in a moment.';
+    }
+
+    // If we have a message from Stripe, use it
+    if (message && message.trim()) {
+      return message;
+    }
+
+    // Ultimate fallback based on error type
+    if (error.type === 'card_error') {
+      return 'There was an issue processing your card. Please check your card details and try again, or use a different payment method.';
+    }
+    if (error.type === 'validation_error') {
+      return 'The payment information provided is incomplete or invalid. Please check all fields and try again.';
+    }
+    if (error.type === 'invalid_request_error') {
+      return 'There was an issue with the payment request. Please try again or contact support if the problem persists.';
+    }
+    if (error.type === 'api_error') {
+      return 'We encountered a temporary issue processing your payment. Please try again in a moment.';
+    }
+
+    // Final fallback
+    return 'Payment processing failed. Please check your card details and try again, or contact support for assistance.';
   };
 
   const handleClose = () => {

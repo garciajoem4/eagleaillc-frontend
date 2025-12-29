@@ -99,7 +99,18 @@ const Billings: React.FC = () => {
 
   // Format tier price based on billing period
   const formatTierPrice = (tier: PricingTier) => {
-    const price = isAnnualBilling ? tier.annualPrice : tier.monthlyPrice;
+    let price;
+    if (isAnnualBilling) {
+      // Calculate annual price with 20% discount: monthly * (1 - 0.20) * 12
+      const discount = 0.20; // 20% discount
+      if (typeof tier.monthlyPrice === 'number') {
+        price = Math.floor(tier.monthlyPrice * (1 - discount) * 12);
+      } else {
+        price = tier.annualPrice;
+      }
+    } else {
+      price = tier.monthlyPrice;
+    }
     if (price === 'Free') return 'Free';
     if (price === 'Custom') return 'Custom';
     return `$${price}`;
@@ -655,20 +666,23 @@ const Billings: React.FC = () => {
                 <span className={`text-sm font-medium transition-colors ${isAnnualBilling ? 'text-[#4e69fd]' : 'text-gray-500'}`}>
                   Annual
                 </span>
-                {isAnnualBilling && (
+                {/* {isAnnualBilling && (
                   <Badge className="bg-green-100 text-green-700 border-green-200 ml-2">
                     Save up to 20%
                   </Badge>
-                )}
+                )} */}
               </div>
             </div>
 
             {/* Pricing Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {pricingTiers.map((tier) => {
                 const isCurrentPlan = subscription?.tier === tier.id || 
                   (currentPlan?.id === tier.id) ||
                   (tier.id === 'free' && (!subscription || subscription.status === 'trialing'));
+                
+                // Hide the current plan from the list
+                if (isCurrentPlan) return null;
                 
                 return (
                   <div 
@@ -695,6 +709,15 @@ const Billings: React.FC = () => {
                       <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
                         <Badge className="bg-[#4e69fd] text-white text-center whitespace-nowrap px-4 py-1 text-xs font-medium rounded-full shadow-md">
                           Most Popular
+                        </Badge>
+                      </div>
+                    )}
+
+                    {/* Save 20% Badge for Annual Billing */}
+                    {isAnnualBilling && tier.id !== 'free' && typeof tier.monthlyPrice === 'number' && (
+                      <div className="absolute -top-9 -right-6">
+                        <Badge className="w-[90px] h-[90px] flex flex-col items-center justify-center bg-green-500 text-white text-center whitespace-nowrap px-4 py-1.5 text-sm rounded-full shadow-md">
+                          Save<span className="block text-2xl leading-[1.1]">20%</span>
                         </Badge>
                       </div>
                     )}
